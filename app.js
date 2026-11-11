@@ -1,3 +1,6 @@
+// ---- 00-vendor-supabase.min.js ----
+// VENDOR (não editar): trecho literal do pacote publicado em 11/2026.
+// Contém @supabase/supabase-js, o núcleo do Capacitor usado pelos módulos web-*.js e os ícones Lucide.
 (function(){const e=document.createElement("link").relList;if(e&&e.supports&&e.supports("modulepreload"))return;for(const n of document.querySelectorAll('link[rel="modulepreload"]'))s(n);new MutationObserver(n=>{for(const i of n)if(i.type==="childList")for(const a of i.addedNodes)a.tagName==="LINK"&&a.rel==="modulepreload"&&s(a)}).observe(document,{childList:!0,subtree:!0});function r(n){const i={};return n.integrity&&(i.integrity=n.integrity),n.referrerPolicy&&(i.referrerPolicy=n.referrerPolicy),n.crossOrigin==="use-credentials"?i.credentials="include":n.crossOrigin==="anonymous"?i.credentials="omit":i.credentials="same-origin",i}function s(n){if(n.ep)return;n.ep=!0;const i=r(n);fetch(n.href,i)}})();const Gr=(t,e,r=[])=>{const s=document.createElementNS("http://www.w3.org/2000/svg",t);return Object.keys(e).forEach(n=>{s.setAttribute(n,String(e[n]))}),r.length&&r.forEach(n=>{const i=Gr(...n);s.appendChild(i)}),s};var Is=([t,e,r])=>Gr(t,e,r);const xs=t=>Array.from(t.attributes).reduce((e,r)=>(e[r.name]=r.value,e),{}),js=t=>typeof t=="string"?t:!t||!t.class?"":t.class&&typeof t.class=="string"?t.class.split(" "):t.class&&Array.isArray(t.class)?t.class:"",Ls=t=>t.flatMap(js).map(r=>r.trim()).filter(Boolean).filter((r,s,n)=>n.indexOf(r)===s).join(" "),Ns=t=>t.replace(/(\w)(\w*)(_|-|\s*)/g,(e,r,s)=>r.toUpperCase()+s.toLowerCase()),hr=(t,{nameAttr:e,icons:r,attrs:s})=>{const n=t.getAttribute(e);if(n==null)return;const i=Ns(n),a=r[i];if(!a)return console.warn(`${t.outerHTML} icon name was not found in the provided icons object.`);const o=xs(t),[l,c,h]=a,p={...c,"data-lucide":n,...s,...o},f=Ls(["lucide",`lucide-${n}`,o,s]);f&&Object.assign(p,{class:f});const g=Is([l,p,h]);return t.parentNode?.replaceChild(g,t)};const H={xmlns:"http://www.w3.org/2000/svg",width:24,height:24,viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round"};const Ds=["svg",H,[["path",{d:"m7 7 10 10-5 5V2l5 5L7 17"}],["path",{d:"M20.83 14.83a4 4 0 0 0 0-5.66"}],["path",{d:"M18 12h.01"}]]];const Us=["svg",H,[["path",{d:"m7 7 10 10-5 5V2l5 5L7 17"}]]];const Bs=["svg",H,[["path",{d:"M12 7v14"}],["path",{d:"M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"}]]];const qs=["svg",H,[["path",{d:"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"}],["path",{d:"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"}],["path",{d:"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"}],["path",{d:"M10 6h4"}],["path",{d:"M10 10h4"}],["path",{d:"M10 14h4"}],["path",{d:"M10 18h4"}]]];const Ms=["svg",H,[["path",{d:"M12 16v5"}],["path",{d:"M16 14v7"}],["path",{d:"M20 10v11"}],["path",{d:"m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"}],["path",{d:"M4 18v3"}],["path",{d:"M8 14v7"}]]];const Fs=["svg",H,[["path",{d:"m9 18 6-6-6-6"}]]];const Vs=["svg",H,[["path",{d:"M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"}],["path",{d:"M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"}],["path",{d:"M12 2v2"}],["path",{d:"M12 22v-2"}],["path",{d:"m17 20.66-1-1.73"}],["path",{d:"M11 10.27 7 3.34"}],["path",{d:"m20.66 17-1.73-1"}],["path",{d:"m3.34 7 1.73 1"}],["path",{d:"M14 12h8"}],["path",{d:"M2 12h2"}],["path",{d:"m20.66 7-1.73 1"}],["path",{d:"m3.34 17 1.73-1"}],["path",{d:"m17 3.34-1 1.73"}],["path",{d:"m11 13.73-4 6.93"}]]];const Ws=["svg",H,[["path",{d:"M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"}],["path",{d:"M17 18h1"}],["path",{d:"M12 18h1"}],["path",{d:"M7 18h1"}]]];const Hs=["svg",H,[["path",{d:"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"}]]];const Ks=["svg",H,[["rect",{width:"7",height:"7",x:"3",y:"3",rx:"1"}],["rect",{width:"7",height:"7",x:"14",y:"3",rx:"1"}],["rect",{width:"7",height:"7",x:"14",y:"14",rx:"1"}],["rect",{width:"7",height:"7",x:"3",y:"14",rx:"1"}]]];const zs=["svg",H,[["path",{d:"M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"}],["circle",{cx:"12",cy:"10",r:"3"}]]];const Gs=["svg",H,[["rect",{x:"16",y:"16",width:"6",height:"6",rx:"1"}],["rect",{x:"2",y:"16",width:"6",height:"6",rx:"1"}],["rect",{x:"9",y:"2",width:"6",height:"6",rx:"1"}],["path",{d:"M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"}],["path",{d:"M12 12V8"}]]];const Js=["svg",H,[["path",{d:"M5 12h14"}],["path",{d:"M12 5v14"}]]];const Ys=["svg",H,[["path",{d:"M4.9 19.1C1 15.2 1 8.8 4.9 4.9"}],["path",{d:"M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"}],["circle",{cx:"12",cy:"12",r:"2"}],["path",{d:"M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"}],["path",{d:"M19.1 4.9C23 8.8 23 15.1 19.1 19"}]]];const Xs=["svg",H,[["rect",{width:"20",height:"8",x:"2",y:"14",rx:"2"}],["path",{d:"M6.01 18H6"}],["path",{d:"M10.01 18H10"}],["path",{d:"M15 10v4"}],["path",{d:"M17.84 7.17a4 4 0 0 0-5.66 0"}],["path",{d:"M20.66 4.34a8 8 0 0 0-11.31 0"}]]];const Qs=["svg",H,[["circle",{cx:"11",cy:"11",r:"8"}],["path",{d:"m21 21-4.3-4.3"}]]];const Zs=["svg",H,[["path",{d:"M12 20h.01"}],["path",{d:"M2 8.82a15 15 0 0 1 20 0"}],["path",{d:"M5 12.859a10 10 0 0 1 14 0"}],["path",{d:"M8.5 16.429a5 5 0 0 1 7 0"}]]];const en=({icons:t={},nameAttr:e="data-lucide",attrs:r={}}={})=>{if(!Object.values(t).length)throw new Error(`Please provide an icons object.
 If you want to use all the icons you can import it like:
  \`import { createIcons, icons } from 'lucide';
@@ -43,8 +46,3735 @@ Request ID: ${l}`),c){let E=`
 Resources:`;for(const y of c){if(!y||typeof y!="string")throw new Error(`@supabase/auth-js: Invalid SIWE message field "resources". Every resource must be a valid string. Provided value: ${y}`);E+=`
 - ${y}`}_+=E}return`${v}
 ${_}`}class U extends Error{constructor({message:e,code:r,cause:s,name:n}){var i;super(e,{cause:s}),this.__isWebAuthnError=!0,this.name=(i=n??(s instanceof Error?s.name:void 0))!==null&&i!==void 0?i:"Unknown Error",this.code=r}}class wt extends U{constructor(e,r){super({code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:r,message:e}),this.name="WebAuthnUnknownError",this.originalError=r}}function Qi({error:t,options:e}){var r,s,n;const{publicKey:i}=e;if(!i)throw Error("options was missing required publicKey property");if(t.name==="AbortError"){if(e.signal instanceof AbortSignal)return new U({message:"Registration ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:t})}else if(t.name==="ConstraintError"){if(((r=i.authenticatorSelection)===null||r===void 0?void 0:r.requireResidentKey)===!0)return new U({message:"Discoverable credentials were required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT",cause:t});if(e.mediation==="conditional"&&((s=i.authenticatorSelection)===null||s===void 0?void 0:s.userVerification)==="required")return new U({message:"User verification was required during automatic registration but it could not be performed",code:"ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE",cause:t});if(((n=i.authenticatorSelection)===null||n===void 0?void 0:n.userVerification)==="required")return new U({message:"User verification was required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT",cause:t})}else{if(t.name==="InvalidStateError")return new U({message:"The authenticator was previously registered",code:"ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED",cause:t});if(t.name==="NotAllowedError")return new U({message:t.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:t});if(t.name==="NotSupportedError")return i.pubKeyCredParams.filter(o=>o.type==="public-key").length===0?new U({message:'No entry in pubKeyCredParams was of type "public-key"',code:"ERROR_MALFORMED_PUBKEYCREDPARAMS",cause:t}):new U({message:"No available authenticator supported any of the specified pubKeyCredParams algorithms",code:"ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG",cause:t});if(t.name==="SecurityError"){const a=window.location.hostname;if(ds(a)){if(i.rp.id!==a)return new U({message:`The RP ID "${i.rp.id}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:t})}else return new U({message:`${window.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:t})}else if(t.name==="TypeError"){if(i.user.id.byteLength<1||i.user.id.byteLength>64)return new U({message:"User ID was not between 1 and 64 characters",code:"ERROR_INVALID_USER_ID_LENGTH",cause:t})}else if(t.name==="UnknownError")return new U({message:"The authenticator was unable to process the specified options, or could not create a new credential",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:t})}return new U({message:"a Non-Webauthn related error has occurred",code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:t})}function Zi({error:t,options:e}){const{publicKey:r}=e;if(!r)throw Error("options was missing required publicKey property");if(t.name==="AbortError"){if(e.signal instanceof AbortSignal)return new U({message:"Authentication ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:t})}else{if(t.name==="NotAllowedError")return new U({message:t.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:t});if(t.name==="SecurityError"){const s=window.location.hostname;if(ds(s)){if(r.rpId!==s)return new U({message:`The RP ID "${r.rpId}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:t})}else return new U({message:`${window.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:t})}else if(t.name==="UnknownError")return new U({message:"The authenticator was unable to process the specified options, or could not create a new assertion signature",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:t})}return new U({message:"a Non-Webauthn related error has occurred",code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:t})}class ea{createNewAbortSignal(){if(this.controller){const r=new Error("Cancelling existing WebAuthn API call for new one");r.name="AbortError",this.controller.abort(r)}const e=new AbortController;return this.controller=e,e.signal}cancelCeremony(){if(this.controller){const e=new Error("Manually cancelling existing WebAuthn API call");e.name="AbortError",this.controller.abort(e),this.controller=void 0}}}const ta=new ea;function ra(t){if(!t)throw new Error("Credential creation options are required");if(typeof PublicKeyCredential<"u"&&"parseCreationOptionsFromJSON"in PublicKeyCredential&&typeof PublicKeyCredential.parseCreationOptionsFromJSON=="function")return PublicKeyCredential.parseCreationOptionsFromJSON(t);const{challenge:e,user:r,excludeCredentials:s}=t,n=Et(t,["challenge","user","excludeCredentials"]),i=Be(e).buffer,a=Object.assign(Object.assign({},r),{id:Be(r.id).buffer}),o=Object.assign(Object.assign({},n),{challenge:i,user:a});if(s&&s.length>0){o.excludeCredentials=new Array(s.length);for(let l=0;l<s.length;l++){const c=s[l];o.excludeCredentials[l]=Object.assign(Object.assign({},c),{id:Be(c.id).buffer,type:c.type||"public-key",transports:c.transports})}}return o}function sa(t){if(!t)throw new Error("Credential request options are required");if(typeof PublicKeyCredential<"u"&&"parseRequestOptionsFromJSON"in PublicKeyCredential&&typeof PublicKeyCredential.parseRequestOptionsFromJSON=="function")return PublicKeyCredential.parseRequestOptionsFromJSON(t);const{challenge:e,allowCredentials:r}=t,s=Et(t,["challenge","allowCredentials"]),n=Be(e).buffer,i=Object.assign(Object.assign({},s),{challenge:n});if(r&&r.length>0){i.allowCredentials=new Array(r.length);for(let a=0;a<r.length;a++){const o=r[a];i.allowCredentials[a]=Object.assign(Object.assign({},o),{id:Be(o.id).buffer,type:o.type||"public-key",transports:o.transports})}}return i}function na(t){var e;if("toJSON"in t&&typeof t.toJSON=="function")return t.toJSON();const r=t;return{id:t.id,rawId:t.id,response:{attestationObject:ke(new Uint8Array(t.response.attestationObject)),clientDataJSON:ke(new Uint8Array(t.response.clientDataJSON))},type:"public-key",clientExtensionResults:t.getClientExtensionResults(),authenticatorAttachment:(e=r.authenticatorAttachment)!==null&&e!==void 0?e:void 0}}function ia(t){var e;if("toJSON"in t&&typeof t.toJSON=="function")return t.toJSON();const r=t,s=t.getClientExtensionResults(),n=t.response;return{id:t.id,rawId:t.id,response:{authenticatorData:ke(new Uint8Array(n.authenticatorData)),clientDataJSON:ke(new Uint8Array(n.clientDataJSON)),signature:ke(new Uint8Array(n.signature)),userHandle:n.userHandle?ke(new Uint8Array(n.userHandle)):void 0},type:"public-key",clientExtensionResults:s,authenticatorAttachment:(e=r.authenticatorAttachment)!==null&&e!==void 0?e:void 0}}function ds(t){return t==="localhost"||/^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i.test(t)}function xr(){var t,e;return!!(F()&&"PublicKeyCredential"in window&&window.PublicKeyCredential&&"credentials"in navigator&&typeof((t=navigator?.credentials)===null||t===void 0?void 0:t.create)=="function"&&typeof((e=navigator?.credentials)===null||e===void 0?void 0:e.get)=="function")}async function aa(t){try{const e=await navigator.credentials.create(t);return e?e instanceof PublicKeyCredential?{data:e,error:null}:{data:null,error:new wt("Browser returned unexpected credential type",e)}:{data:null,error:new wt("Empty credential response",e)}}catch(e){return{data:null,error:Qi({error:e,options:t})}}}async function oa(t){try{const e=await navigator.credentials.get(t);return e?e instanceof PublicKeyCredential?{data:e,error:null}:{data:null,error:new wt("Browser returned unexpected credential type",e)}:{data:null,error:new wt("Empty credential response",e)}}catch(e){return{data:null,error:Zi({error:e,options:t})}}}const la={hints:["security-key"],authenticatorSelection:{authenticatorAttachment:"cross-platform",requireResidentKey:!1,userVerification:"preferred",residentKey:"discouraged"},attestation:"direct"},ca={userVerification:"preferred",hints:["security-key"],attestation:"direct"};function vt(...t){const e=n=>n!==null&&typeof n=="object"&&!Array.isArray(n),r=n=>n instanceof ArrayBuffer||ArrayBuffer.isView(n),s={};for(const n of t)if(n)for(const i in n){const a=n[i];if(a!==void 0)if(Array.isArray(a))s[i]=a;else if(r(a))s[i]=a;else if(e(a)){const o=s[i];e(o)?s[i]=vt(o,a):s[i]=vt(a)}else s[i]=a}return s}function ua(t,e){return vt(la,t,e||{})}function da(t,e){return vt(ca,t,e||{})}class ha{constructor(e){this.client=e,this.enroll=this._enroll.bind(this),this.challenge=this._challenge.bind(this),this.verify=this._verify.bind(this),this.authenticate=this._authenticate.bind(this),this.register=this._register.bind(this)}async _enroll(e){return this.client.mfa.enroll(Object.assign(Object.assign({},e),{factorType:"webauthn"}))}async _challenge({factorId:e,webauthn:r,friendlyName:s,signal:n},i){try{const{data:a,error:o}=await this.client.mfa.challenge({factorId:e,webauthn:r});if(!a)return{data:null,error:o};const l=n??ta.createNewAbortSignal();if(a.webauthn.type==="create"){const{user:c}=a.webauthn.credential_options.publicKey;c.name||(c.name=`${c.id}:${s}`),c.displayName||(c.displayName=c.name)}switch(a.webauthn.type){case"create":{const c=ua(a.webauthn.credential_options.publicKey,i?.create),{data:h,error:p}=await aa({publicKey:c,signal:l});return h?{data:{factorId:e,challengeId:a.id,webauthn:{type:a.webauthn.type,credential_response:h}},error:null}:{data:null,error:p}}case"request":{const c=da(a.webauthn.credential_options.publicKey,i?.request),{data:h,error:p}=await oa(Object.assign(Object.assign({},a.webauthn.credential_options),{publicKey:c,signal:l}));return h?{data:{factorId:e,challengeId:a.id,webauthn:{type:a.webauthn.type,credential_response:h}},error:null}:{data:null,error:p}}}}catch(a){return b(a)?{data:null,error:a}:{data:null,error:new Se("Unexpected error in challenge",a)}}}async _verify({challengeId:e,factorId:r,webauthn:s}){return this.client.mfa.verify({factorId:r,challengeId:e,webauthn:s})}async _authenticate({factorId:e,webauthn:{rpId:r=typeof window<"u"?window.location.hostname:void 0,rpOrigins:s=typeof window<"u"?[window.location.origin]:void 0,signal:n}={}},i){if(!r)return{data:null,error:new st("rpId is required for WebAuthn authentication")};try{if(!xr())return{data:null,error:new Se("Browser does not support WebAuthn",null)};const{data:a,error:o}=await this.challenge({factorId:e,webauthn:{rpId:r,rpOrigins:s},signal:n},{request:i});if(!a)return{data:null,error:o};const{webauthn:l}=a;return this._verify({factorId:e,challengeId:a.challengeId,webauthn:{type:l.type,rpId:r,rpOrigins:s,credential_response:l.credential_response}})}catch(a){return b(a)?{data:null,error:a}:{data:null,error:new Se("Unexpected error in authenticate",a)}}}async _register({friendlyName:e,webauthn:{rpId:r=typeof window<"u"?window.location.hostname:void 0,rpOrigins:s=typeof window<"u"?[window.location.origin]:void 0,signal:n}={}},i){if(!r)return{data:null,error:new st("rpId is required for WebAuthn registration")};try{if(!xr())return{data:null,error:new Se("Browser does not support WebAuthn",null)};const{data:a,error:o}=await this._enroll({friendlyName:e});if(!a)return await this.client.mfa.listFactors().then(h=>{var p;return(p=h.data)===null||p===void 0?void 0:p.all.find(f=>f.factor_type==="webauthn"&&f.friendly_name===e&&f.status!=="unverified")}).then(h=>h?this.client.mfa.unenroll({factorId:h?.id}):void 0),{data:null,error:o};const{data:l,error:c}=await this._challenge({factorId:a.id,friendlyName:a.friendly_name,webauthn:{rpId:r,rpOrigins:s},signal:n},{create:i});return l?this._verify({factorId:a.id,challengeId:l.challengeId,webauthn:{rpId:r,rpOrigins:s,type:l.webauthn.type,credential_response:l.webauthn.credential_response}}):{data:null,error:c}}catch(a){return b(a)?{data:null,error:a}:{data:null,error:new Se("Unexpected error in register",a)}}}}Gi();const fa={url:li,storageKey:ci,autoRefreshToken:!0,persistSession:!0,detectSessionInUrl:!0,headers:ui,flowType:"implicit",debug:!1,hasCustomAuthorizationHeader:!1,throwOnError:!1};async function jr(t,e,r){return await r()}const je={};class nt{get jwks(){var e,r;return(r=(e=je[this.storageKey])===null||e===void 0?void 0:e.jwks)!==null&&r!==void 0?r:{keys:[]}}set jwks(e){je[this.storageKey]=Object.assign(Object.assign({},je[this.storageKey]),{jwks:e})}get jwks_cached_at(){var e,r;return(r=(e=je[this.storageKey])===null||e===void 0?void 0:e.cachedAt)!==null&&r!==void 0?r:Number.MIN_SAFE_INTEGER}set jwks_cached_at(e){je[this.storageKey]=Object.assign(Object.assign({},je[this.storageKey]),{cachedAt:e})}constructor(e){var r,s,n;this.userStorage=null,this.memoryStorage=null,this.stateChangeEmitters=new Map,this.autoRefreshTicker=null,this.visibilityChangedCallback=null,this.refreshingDeferred=null,this.initializePromise=null,this.detectSessionInUrl=!0,this.hasCustomAuthorizationHeader=!1,this.suppressGetSessionWarning=!1,this.lockAcquired=!1,this.pendingInLock=[],this.broadcastChannel=null,this.logger=console.log;const i=Object.assign(Object.assign({},fa),e);if(this.storageKey=i.storageKey,this.instanceID=(r=nt.nextInstanceID[this.storageKey])!==null&&r!==void 0?r:0,nt.nextInstanceID[this.storageKey]=this.instanceID+1,this.logDebugMessages=!!i.debug,typeof i.debug=="function"&&(this.logger=i.debug),this.instanceID>0&&F()){const a=`${this._logPrefix()} Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.`;console.warn(a),this.logDebugMessages&&console.trace(a)}if(this.persistSession=i.persistSession,this.autoRefreshToken=i.autoRefreshToken,this.admin=new Hi({url:i.url,headers:i.headers,fetch:i.fetch}),this.url=i.url,this.headers=i.headers,this.fetch=ls(i.fetch),this.lock=i.lock||jr,this.detectSessionInUrl=i.detectSessionInUrl,this.flowType=i.flowType,this.hasCustomAuthorizationHeader=i.hasCustomAuthorizationHeader,this.throwOnError=i.throwOnError,i.lock?this.lock=i.lock:this.persistSession&&F()&&(!((s=globalThis?.navigator)===null||s===void 0)&&s.locks)?this.lock=zi:this.lock=jr,this.jwks||(this.jwks={keys:[]},this.jwks_cached_at=Number.MIN_SAFE_INTEGER),this.mfa={verify:this._verify.bind(this),enroll:this._enroll.bind(this),unenroll:this._unenroll.bind(this),challenge:this._challenge.bind(this),listFactors:this._listFactors.bind(this),challengeAndVerify:this._challengeAndVerify.bind(this),getAuthenticatorAssuranceLevel:this._getAuthenticatorAssuranceLevel.bind(this),webauthn:new ha(this)},this.oauth={getAuthorizationDetails:this._getAuthorizationDetails.bind(this),approveAuthorization:this._approveAuthorization.bind(this),denyAuthorization:this._denyAuthorization.bind(this),listGrants:this._listOAuthGrants.bind(this),revokeGrant:this._revokeOAuthGrant.bind(this)},this.persistSession?(i.storage?this.storage=i.storage:os()?this.storage=globalThis.localStorage:(this.memoryStorage={},this.storage=Ir(this.memoryStorage)),i.userStorage&&(this.userStorage=i.userStorage)):(this.memoryStorage={},this.storage=Ir(this.memoryStorage)),F()&&globalThis.BroadcastChannel&&this.persistSession&&this.storageKey){try{this.broadcastChannel=new globalThis.BroadcastChannel(this.storageKey)}catch(a){console.error("Failed to create a new BroadcastChannel, multi-tab state changes will not be available",a)}(n=this.broadcastChannel)===null||n===void 0||n.addEventListener("message",async a=>{this._debug("received broadcast notification from other tab or client",a),await this._notifyAllSubscribers(a.data.event,a.data.session,!1)})}this.initialize()}isThrowOnErrorEnabled(){return this.throwOnError}_returnResult(e){if(this.throwOnError&&e&&e.error)throw e.error;return e}_logPrefix(){return`GoTrueClient@${this.storageKey}:${this.instanceID} (${ns}) ${new Date().toISOString()}`}_debug(...e){return this.logDebugMessages&&this.logger(this._logPrefix(),...e),this}async initialize(){return this.initializePromise?await this.initializePromise:(this.initializePromise=(async()=>await this._acquireLock(-1,async()=>await this._initialize()))(),await this.initializePromise)}async _initialize(){var e;try{let r={},s="none";if(F()&&(r=Ti(window.location.href),this._isImplicitGrantCallback(r)?s="implicit":await this._isPKCECallback(r)&&(s="pkce")),F()&&this.detectSessionInUrl&&s!=="none"){const{data:n,error:i}=await this._getSessionFromURL(r,s);if(i){if(this._debug("#_initialize()","error detecting session from URL",i),mi(i)){const l=(e=i.details)===null||e===void 0?void 0:e.code;if(l==="identity_already_exists"||l==="identity_not_found"||l==="single_identity_not_deletable")return{error:i}}return await this._removeSession(),{error:i}}const{session:a,redirectType:o}=n;return this._debug("#_initialize()","detected session in URL",a,"redirect type",o),await this._saveSession(a),setTimeout(async()=>{o==="recovery"?await this._notifyAllSubscribers("PASSWORD_RECOVERY",a):await this._notifyAllSubscribers("SIGNED_IN",a)},0),{error:null}}return await this._recoverAndRefresh(),{error:null}}catch(r){return b(r)?this._returnResult({error:r}):this._returnResult({error:new Se("Unexpected error during initialization",r)})}finally{await this._handleVisibilityChange(),this._debug("#_initialize()","end")}}async signInAnonymously(e){var r,s,n;try{const i=await S(this.fetch,"POST",`${this.url}/signup`,{headers:this.headers,body:{data:(s=(r=e?.options)===null||r===void 0?void 0:r.data)!==null&&s!==void 0?s:{},gotrue_meta_security:{captcha_token:(n=e?.options)===null||n===void 0?void 0:n.captchaToken}},xform:re}),{data:a,error:o}=i;if(o||!a)return this._returnResult({data:{user:null,session:null},error:o});const l=a.session,c=a.user;return a.session&&(await this._saveSession(a.session),await this._notifyAllSubscribers("SIGNED_IN",l)),this._returnResult({data:{user:c,session:l},error:null})}catch(i){if(b(i))return this._returnResult({data:{user:null,session:null},error:i});throw i}}async signUp(e){var r,s,n;try{let i;if("email"in e){const{email:h,password:p,options:f}=e;let g=null,m=null;this.flowType==="pkce"&&([g,m]=await Pe(this.storage,this.storageKey)),i=await S(this.fetch,"POST",`${this.url}/signup`,{headers:this.headers,redirectTo:f?.emailRedirectTo,body:{email:h,password:p,data:(r=f?.data)!==null&&r!==void 0?r:{},gotrue_meta_security:{captcha_token:f?.captchaToken},code_challenge:g,code_challenge_method:m},xform:re})}else if("phone"in e){const{phone:h,password:p,options:f}=e;i=await S(this.fetch,"POST",`${this.url}/signup`,{headers:this.headers,body:{phone:h,password:p,data:(s=f?.data)!==null&&s!==void 0?s:{},channel:(n=f?.channel)!==null&&n!==void 0?n:"sms",gotrue_meta_security:{captcha_token:f?.captchaToken}},xform:re})}else throw new ht("You must provide either an email or phone number and a password");const{data:a,error:o}=i;if(o||!a)return await M(this.storage,`${this.storageKey}-code-verifier`),this._returnResult({data:{user:null,session:null},error:o});const l=a.session,c=a.user;return a.session&&(await this._saveSession(a.session),await this._notifyAllSubscribers("SIGNED_IN",l)),this._returnResult({data:{user:c,session:l},error:null})}catch(i){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(i))return this._returnResult({data:{user:null,session:null},error:i});throw i}}async signInWithPassword(e){try{let r;if("email"in e){const{email:i,password:a,options:o}=e;r=await S(this.fetch,"POST",`${this.url}/token?grant_type=password`,{headers:this.headers,body:{email:i,password:a,gotrue_meta_security:{captcha_token:o?.captchaToken}},xform:$r})}else if("phone"in e){const{phone:i,password:a,options:o}=e;r=await S(this.fetch,"POST",`${this.url}/token?grant_type=password`,{headers:this.headers,body:{phone:i,password:a,gotrue_meta_security:{captcha_token:o?.captchaToken}},xform:$r})}else throw new ht("You must provide either an email or phone number and a password");const{data:s,error:n}=r;if(n)return this._returnResult({data:{user:null,session:null},error:n});if(!s||!s.session||!s.user){const i=new $e;return this._returnResult({data:{user:null,session:null},error:i})}return s.session&&(await this._saveSession(s.session),await this._notifyAllSubscribers("SIGNED_IN",s.session)),this._returnResult({data:Object.assign({user:s.user,session:s.session},s.weak_password?{weakPassword:s.weak_password}:null),error:n})}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async signInWithOAuth(e){var r,s,n,i;return await this._handleProviderSignIn(e.provider,{redirectTo:(r=e.options)===null||r===void 0?void 0:r.redirectTo,scopes:(s=e.options)===null||s===void 0?void 0:s.scopes,queryParams:(n=e.options)===null||n===void 0?void 0:n.queryParams,skipBrowserRedirect:(i=e.options)===null||i===void 0?void 0:i.skipBrowserRedirect})}async exchangeCodeForSession(e){return await this.initializePromise,this._acquireLock(-1,async()=>this._exchangeCodeForSession(e))}async signInWithWeb3(e){const{chain:r}=e;switch(r){case"ethereum":return await this.signInWithEthereum(e);case"solana":return await this.signInWithSolana(e);default:throw new Error(`@supabase/auth-js: Unsupported chain "${r}"`)}}async signInWithEthereum(e){var r,s,n,i,a,o,l,c,h,p,f;let g,m;if("message"in e)g=e.message,m=e.signature;else{const{chain:w,wallet:v,statement:_,options:E}=e;let y;if(F())if(typeof v=="object")y=v;else{const I=window;if("ethereum"in I&&typeof I.ethereum=="object"&&"request"in I.ethereum&&typeof I.ethereum.request=="function")y=I.ethereum;else throw new Error("@supabase/auth-js: No compatible Ethereum wallet interface on the window object (window.ethereum) detected. Make sure the user already has a wallet installed and connected for this app. Prefer passing the wallet interface object directly to signInWithWeb3({ chain: 'ethereum', wallet: resolvedUserWallet }) instead.")}else{if(typeof v!="object"||!E?.url)throw new Error("@supabase/auth-js: Both wallet and url must be specified in non-browser environments.");y=v}const T=new URL((r=E?.url)!==null&&r!==void 0?r:window.location.href),N=await y.request({method:"eth_requestAccounts"}).then(I=>I).catch(()=>{throw new Error("@supabase/auth-js: Wallet method eth_requestAccounts is missing or invalid")});if(!N||N.length===0)throw new Error("@supabase/auth-js: No accounts available. Please ensure the wallet is connected.");const R=us(N[0]);let x=(s=E?.signInWithEthereum)===null||s===void 0?void 0:s.chainId;if(!x){const I=await y.request({method:"eth_chainId"});x=Ji(I)}const P={domain:T.host,address:R,statement:_,uri:T.href,version:"1",chainId:x,nonce:(n=E?.signInWithEthereum)===null||n===void 0?void 0:n.nonce,issuedAt:(a=(i=E?.signInWithEthereum)===null||i===void 0?void 0:i.issuedAt)!==null&&a!==void 0?a:new Date,expirationTime:(o=E?.signInWithEthereum)===null||o===void 0?void 0:o.expirationTime,notBefore:(l=E?.signInWithEthereum)===null||l===void 0?void 0:l.notBefore,requestId:(c=E?.signInWithEthereum)===null||c===void 0?void 0:c.requestId,resources:(h=E?.signInWithEthereum)===null||h===void 0?void 0:h.resources};g=Xi(P),m=await y.request({method:"personal_sign",params:[Yi(g),R]})}try{const{data:w,error:v}=await S(this.fetch,"POST",`${this.url}/token?grant_type=web3`,{headers:this.headers,body:Object.assign({chain:"ethereum",message:g,signature:m},!((p=e.options)===null||p===void 0)&&p.captchaToken?{gotrue_meta_security:{captcha_token:(f=e.options)===null||f===void 0?void 0:f.captchaToken}}:null),xform:re});if(v)throw v;if(!w||!w.session||!w.user){const _=new $e;return this._returnResult({data:{user:null,session:null},error:_})}return w.session&&(await this._saveSession(w.session),await this._notifyAllSubscribers("SIGNED_IN",w.session)),this._returnResult({data:Object.assign({},w),error:v})}catch(w){if(b(w))return this._returnResult({data:{user:null,session:null},error:w});throw w}}async signInWithSolana(e){var r,s,n,i,a,o,l,c,h,p,f,g;let m,w;if("message"in e)m=e.message,w=e.signature;else{const{chain:v,wallet:_,statement:E,options:y}=e;let T;if(F())if(typeof _=="object")T=_;else{const R=window;if("solana"in R&&typeof R.solana=="object"&&("signIn"in R.solana&&typeof R.solana.signIn=="function"||"signMessage"in R.solana&&typeof R.solana.signMessage=="function"))T=R.solana;else throw new Error("@supabase/auth-js: No compatible Solana wallet interface on the window object (window.solana) detected. Make sure the user already has a wallet installed and connected for this app. Prefer passing the wallet interface object directly to signInWithWeb3({ chain: 'solana', wallet: resolvedUserWallet }) instead.")}else{if(typeof _!="object"||!y?.url)throw new Error("@supabase/auth-js: Both wallet and url must be specified in non-browser environments.");T=_}const N=new URL((r=y?.url)!==null&&r!==void 0?r:window.location.href);if("signIn"in T&&T.signIn){const R=await T.signIn(Object.assign(Object.assign(Object.assign({issuedAt:new Date().toISOString()},y?.signInWithSolana),{version:"1",domain:N.host,uri:N.href}),E?{statement:E}:null));let x;if(Array.isArray(R)&&R[0]&&typeof R[0]=="object")x=R[0];else if(R&&typeof R=="object"&&"signedMessage"in R&&"signature"in R)x=R;else throw new Error("@supabase/auth-js: Wallet method signIn() returned unrecognized value");if("signedMessage"in x&&"signature"in x&&(typeof x.signedMessage=="string"||x.signedMessage instanceof Uint8Array)&&x.signature instanceof Uint8Array)m=typeof x.signedMessage=="string"?x.signedMessage:new TextDecoder().decode(x.signedMessage),w=x.signature;else throw new Error("@supabase/auth-js: Wallet method signIn() API returned object without signedMessage and signature fields")}else{if(!("signMessage"in T)||typeof T.signMessage!="function"||!("publicKey"in T)||typeof T!="object"||!T.publicKey||!("toBase58"in T.publicKey)||typeof T.publicKey.toBase58!="function")throw new Error("@supabase/auth-js: Wallet does not have a compatible signMessage() and publicKey.toBase58() API");m=[`${N.host} wants you to sign in with your Solana account:`,T.publicKey.toBase58(),...E?["",E,""]:[""],"Version: 1",`URI: ${N.href}`,`Issued At: ${(n=(s=y?.signInWithSolana)===null||s===void 0?void 0:s.issuedAt)!==null&&n!==void 0?n:new Date().toISOString()}`,...!((i=y?.signInWithSolana)===null||i===void 0)&&i.notBefore?[`Not Before: ${y.signInWithSolana.notBefore}`]:[],...!((a=y?.signInWithSolana)===null||a===void 0)&&a.expirationTime?[`Expiration Time: ${y.signInWithSolana.expirationTime}`]:[],...!((o=y?.signInWithSolana)===null||o===void 0)&&o.chainId?[`Chain ID: ${y.signInWithSolana.chainId}`]:[],...!((l=y?.signInWithSolana)===null||l===void 0)&&l.nonce?[`Nonce: ${y.signInWithSolana.nonce}`]:[],...!((c=y?.signInWithSolana)===null||c===void 0)&&c.requestId?[`Request ID: ${y.signInWithSolana.requestId}`]:[],...!((p=(h=y?.signInWithSolana)===null||h===void 0?void 0:h.resources)===null||p===void 0)&&p.length?["Resources",...y.signInWithSolana.resources.map(x=>`- ${x}`)]:[]].join(`
-`);const R=await T.signMessage(new TextEncoder().encode(m),"utf8");if(!R||!(R instanceof Uint8Array))throw new Error("@supabase/auth-js: Wallet signMessage() API returned an recognized value");w=R}}try{const{data:v,error:_}=await S(this.fetch,"POST",`${this.url}/token?grant_type=web3`,{headers:this.headers,body:Object.assign({chain:"solana",message:m,signature:ke(w)},!((f=e.options)===null||f===void 0)&&f.captchaToken?{gotrue_meta_security:{captcha_token:(g=e.options)===null||g===void 0?void 0:g.captchaToken}}:null),xform:re});if(_)throw _;if(!v||!v.session||!v.user){const E=new $e;return this._returnResult({data:{user:null,session:null},error:E})}return v.session&&(await this._saveSession(v.session),await this._notifyAllSubscribers("SIGNED_IN",v.session)),this._returnResult({data:Object.assign({},v),error:_})}catch(v){if(b(v))return this._returnResult({data:{user:null,session:null},error:v});throw v}}async _exchangeCodeForSession(e){const r=await _e(this.storage,`${this.storageKey}-code-verifier`),[s,n]=(r??"").split("/");try{if(!s&&this.flowType==="pkce")throw new wi;const{data:i,error:a}=await S(this.fetch,"POST",`${this.url}/token?grant_type=pkce`,{headers:this.headers,body:{auth_code:e,code_verifier:s},xform:re});if(await M(this.storage,`${this.storageKey}-code-verifier`),a)throw a;if(!i||!i.session||!i.user){const o=new $e;return this._returnResult({data:{user:null,session:null,redirectType:null},error:o})}return i.session&&(await this._saveSession(i.session),await this._notifyAllSubscribers("SIGNED_IN",i.session)),this._returnResult({data:Object.assign(Object.assign({},i),{redirectType:n??null}),error:a})}catch(i){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(i))return this._returnResult({data:{user:null,session:null,redirectType:null},error:i});throw i}}async signInWithIdToken(e){try{const{options:r,provider:s,token:n,access_token:i,nonce:a}=e,o=await S(this.fetch,"POST",`${this.url}/token?grant_type=id_token`,{headers:this.headers,body:{provider:s,id_token:n,access_token:i,nonce:a,gotrue_meta_security:{captcha_token:r?.captchaToken}},xform:re}),{data:l,error:c}=o;if(c)return this._returnResult({data:{user:null,session:null},error:c});if(!l||!l.session||!l.user){const h=new $e;return this._returnResult({data:{user:null,session:null},error:h})}return l.session&&(await this._saveSession(l.session),await this._notifyAllSubscribers("SIGNED_IN",l.session)),this._returnResult({data:l,error:c})}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async signInWithOtp(e){var r,s,n,i,a;try{if("email"in e){const{email:o,options:l}=e;let c=null,h=null;this.flowType==="pkce"&&([c,h]=await Pe(this.storage,this.storageKey));const{error:p}=await S(this.fetch,"POST",`${this.url}/otp`,{headers:this.headers,body:{email:o,data:(r=l?.data)!==null&&r!==void 0?r:{},create_user:(s=l?.shouldCreateUser)!==null&&s!==void 0?s:!0,gotrue_meta_security:{captcha_token:l?.captchaToken},code_challenge:c,code_challenge_method:h},redirectTo:l?.emailRedirectTo});return this._returnResult({data:{user:null,session:null},error:p})}if("phone"in e){const{phone:o,options:l}=e,{data:c,error:h}=await S(this.fetch,"POST",`${this.url}/otp`,{headers:this.headers,body:{phone:o,data:(n=l?.data)!==null&&n!==void 0?n:{},create_user:(i=l?.shouldCreateUser)!==null&&i!==void 0?i:!0,gotrue_meta_security:{captcha_token:l?.captchaToken},channel:(a=l?.channel)!==null&&a!==void 0?a:"sms"}});return this._returnResult({data:{user:null,session:null,messageId:c?.message_id},error:h})}throw new ht("You must provide either an email or phone number.")}catch(o){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(o))return this._returnResult({data:{user:null,session:null},error:o});throw o}}async verifyOtp(e){var r,s;try{let n,i;"options"in e&&(n=(r=e.options)===null||r===void 0?void 0:r.redirectTo,i=(s=e.options)===null||s===void 0?void 0:s.captchaToken);const{data:a,error:o}=await S(this.fetch,"POST",`${this.url}/verify`,{headers:this.headers,body:Object.assign(Object.assign({},e),{gotrue_meta_security:{captcha_token:i}}),redirectTo:n,xform:re});if(o)throw o;if(!a)throw new Error("An error occurred on token verification.");const l=a.session,c=a.user;return l?.access_token&&(await this._saveSession(l),await this._notifyAllSubscribers(e.type=="recovery"?"PASSWORD_RECOVERY":"SIGNED_IN",l)),this._returnResult({data:{user:c,session:l},error:null})}catch(n){if(b(n))return this._returnResult({data:{user:null,session:null},error:n});throw n}}async signInWithSSO(e){var r,s,n,i,a;try{let o=null,l=null;this.flowType==="pkce"&&([o,l]=await Pe(this.storage,this.storageKey));const c=await S(this.fetch,"POST",`${this.url}/sso`,{body:Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({},"providerId"in e?{provider_id:e.providerId}:null),"domain"in e?{domain:e.domain}:null),{redirect_to:(s=(r=e.options)===null||r===void 0?void 0:r.redirectTo)!==null&&s!==void 0?s:void 0}),!((n=e?.options)===null||n===void 0)&&n.captchaToken?{gotrue_meta_security:{captcha_token:e.options.captchaToken}}:null),{skip_http_redirect:!0,code_challenge:o,code_challenge_method:l}),headers:this.headers,xform:Fi});return!((i=c.data)===null||i===void 0)&&i.url&&F()&&!(!((a=e.options)===null||a===void 0)&&a.skipBrowserRedirect)&&window.location.assign(c.data.url),this._returnResult(c)}catch(o){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(o))return this._returnResult({data:null,error:o});throw o}}async reauthenticate(){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._reauthenticate())}async _reauthenticate(){try{return await this._useSession(async e=>{const{data:{session:r},error:s}=e;if(s)throw s;if(!r)throw new G;const{error:n}=await S(this.fetch,"GET",`${this.url}/reauthenticate`,{headers:this.headers,jwt:r.access_token});return this._returnResult({data:{user:null,session:null},error:n})})}catch(e){if(b(e))return this._returnResult({data:{user:null,session:null},error:e});throw e}}async resend(e){try{const r=`${this.url}/resend`;if("email"in e){const{email:s,type:n,options:i}=e,{error:a}=await S(this.fetch,"POST",r,{headers:this.headers,body:{email:s,type:n,gotrue_meta_security:{captcha_token:i?.captchaToken}},redirectTo:i?.emailRedirectTo});return this._returnResult({data:{user:null,session:null},error:a})}else if("phone"in e){const{phone:s,type:n,options:i}=e,{data:a,error:o}=await S(this.fetch,"POST",r,{headers:this.headers,body:{phone:s,type:n,gotrue_meta_security:{captcha_token:i?.captchaToken}}});return this._returnResult({data:{user:null,session:null,messageId:a?.message_id},error:o})}throw new ht("You must provide either an email or phone number and a type")}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async getSession(){return await this.initializePromise,await this._acquireLock(-1,async()=>this._useSession(async r=>r))}async _acquireLock(e,r){this._debug("#_acquireLock","begin",e);try{if(this.lockAcquired){const s=this.pendingInLock.length?this.pendingInLock[this.pendingInLock.length-1]:Promise.resolve(),n=(async()=>(await s,await r()))();return this.pendingInLock.push((async()=>{try{await n}catch{}})()),n}return await this.lock(`lock:${this.storageKey}`,e,async()=>{this._debug("#_acquireLock","lock acquired for storage key",this.storageKey);try{this.lockAcquired=!0;const s=r();for(this.pendingInLock.push((async()=>{try{await s}catch{}})()),await s;this.pendingInLock.length;){const n=[...this.pendingInLock];await Promise.all(n),this.pendingInLock.splice(0,n.length)}return await s}finally{this._debug("#_acquireLock","lock released for storage key",this.storageKey),this.lockAcquired=!1}})}finally{this._debug("#_acquireLock","end")}}async _useSession(e){this._debug("#_useSession","begin");try{const r=await this.__loadSession();return await e(r)}finally{this._debug("#_useSession","end")}}async __loadSession(){this._debug("#__loadSession()","begin"),this.lockAcquired||this._debug("#__loadSession()","used outside of an acquired lock!",new Error().stack);try{let e=null;const r=await _e(this.storage,this.storageKey);if(this._debug("#getSession()","session from storage",r),r!==null&&(this._isValidSession(r)?e=r:(this._debug("#getSession()","session from storage is not valid"),await this._removeSession())),!e)return{data:{session:null},error:null};const s=e.expires_at?e.expires_at*1e3-Date.now()<$t:!1;if(this._debug("#__loadSession()",`session has${s?"":" not"} expired`,"expires_at",e.expires_at),!s){if(this.userStorage){const a=await _e(this.userStorage,this.storageKey+"-user");a?.user?e.user=a.user:e.user=xt()}if(this.storage.isServer&&e.user&&!e.user.__isUserNotAvailableProxy){const a={value:this.suppressGetSessionWarning};e.user=Ui(e.user,a),a.value&&(this.suppressGetSessionWarning=!0)}return{data:{session:e},error:null}}const{data:n,error:i}=await this._callRefreshToken(e.refresh_token);return i?this._returnResult({data:{session:null},error:i}):this._returnResult({data:{session:n},error:null})}finally{this._debug("#__loadSession()","end")}}async getUser(e){if(e)return await this._getUser(e);await this.initializePromise;const r=await this._acquireLock(-1,async()=>await this._getUser());return r.data.user&&(this.suppressGetSessionWarning=!0),r}async _getUser(e){try{return e?await S(this.fetch,"GET",`${this.url}/user`,{headers:this.headers,jwt:e,xform:me}):await this._useSession(async r=>{var s,n,i;const{data:a,error:o}=r;if(o)throw o;return!(!((s=a.session)===null||s===void 0)&&s.access_token)&&!this.hasCustomAuthorizationHeader?{data:{user:null},error:new G}:await S(this.fetch,"GET",`${this.url}/user`,{headers:this.headers,jwt:(i=(n=a.session)===null||n===void 0?void 0:n.access_token)!==null&&i!==void 0?i:void 0,xform:me})})}catch(r){if(b(r))return gi(r)&&(await this._removeSession(),await M(this.storage,`${this.storageKey}-code-verifier`)),this._returnResult({data:{user:null},error:r});throw r}}async updateUser(e,r={}){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._updateUser(e,r))}async _updateUser(e,r={}){try{return await this._useSession(async s=>{const{data:n,error:i}=s;if(i)throw i;if(!n.session)throw new G;const a=n.session;let o=null,l=null;this.flowType==="pkce"&&e.email!=null&&([o,l]=await Pe(this.storage,this.storageKey));const{data:c,error:h}=await S(this.fetch,"PUT",`${this.url}/user`,{headers:this.headers,redirectTo:r?.emailRedirectTo,body:Object.assign(Object.assign({},e),{code_challenge:o,code_challenge_method:l}),jwt:a.access_token,xform:me});if(h)throw h;return a.user=c.user,await this._saveSession(a),await this._notifyAllSubscribers("USER_UPDATED",a),this._returnResult({data:{user:a.user},error:null})})}catch(s){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(s))return this._returnResult({data:{user:null},error:s});throw s}}async setSession(e){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._setSession(e))}async _setSession(e){try{if(!e.access_token||!e.refresh_token)throw new G;const r=Date.now()/1e3;let s=r,n=!0,i=null;const{payload:a}=It(e.access_token);if(a.exp&&(s=a.exp,n=s<=r),n){const{data:o,error:l}=await this._callRefreshToken(e.refresh_token);if(l)return this._returnResult({data:{user:null,session:null},error:l});if(!o)return{data:{user:null,session:null},error:null};i=o}else{const{data:o,error:l}=await this._getUser(e.access_token);if(l)throw l;i={access_token:e.access_token,refresh_token:e.refresh_token,user:o.user,token_type:"bearer",expires_in:s-r,expires_at:s},await this._saveSession(i),await this._notifyAllSubscribers("SIGNED_IN",i)}return this._returnResult({data:{user:i.user,session:i},error:null})}catch(r){if(b(r))return this._returnResult({data:{session:null,user:null},error:r});throw r}}async refreshSession(e){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._refreshSession(e))}async _refreshSession(e){try{return await this._useSession(async r=>{var s;if(!e){const{data:a,error:o}=r;if(o)throw o;e=(s=a.session)!==null&&s!==void 0?s:void 0}if(!e?.refresh_token)throw new G;const{data:n,error:i}=await this._callRefreshToken(e.refresh_token);return i?this._returnResult({data:{user:null,session:null},error:i}):n?this._returnResult({data:{user:n.user,session:n},error:null}):this._returnResult({data:{user:null,session:null},error:null})})}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async _getSessionFromURL(e,r){try{if(!F())throw new ft("No browser detected.");if(e.error||e.error_description||e.error_code)throw new ft(e.error_description||"Error in URL with unspecified error_description",{error:e.error||"unspecified_error",code:e.error_code||"unspecified_code"});switch(r){case"implicit":if(this.flowType==="pkce")throw new Sr("Not a valid PKCE flow url.");break;case"pkce":if(this.flowType==="implicit")throw new ft("Not a valid implicit grant flow url.");break;default:}if(r==="pkce"){if(this._debug("#_initialize()","begin","is PKCE flow",!0),!e.code)throw new Sr("No code detected.");const{data:E,error:y}=await this._exchangeCodeForSession(e.code);if(y)throw y;const T=new URL(window.location.href);return T.searchParams.delete("code"),window.history.replaceState(window.history.state,"",T.toString()),{data:{session:E.session,redirectType:null},error:null}}const{provider_token:s,provider_refresh_token:n,access_token:i,refresh_token:a,expires_in:o,expires_at:l,token_type:c}=e;if(!i||!o||!a||!c)throw new ft("No session defined in URL");const h=Math.round(Date.now()/1e3),p=parseInt(o);let f=h+p;l&&(f=parseInt(l));const g=f-h;g*1e3<=Ne&&console.warn(`@supabase/gotrue-js: Session as retrieved from URL expires in ${g}s, should have been closer to ${p}s`);const m=f-p;h-m>=120?console.warn("@supabase/gotrue-js: Session as retrieved from URL was issued over 120s ago, URL could be stale",m,f,h):h-m<0&&console.warn("@supabase/gotrue-js: Session as retrieved from URL was issued in the future? Check the device clock for skew",m,f,h);const{data:w,error:v}=await this._getUser(i);if(v)throw v;const _={provider_token:s,provider_refresh_token:n,access_token:i,expires_in:p,expires_at:f,refresh_token:a,token_type:c,user:w.user};return window.location.hash="",this._debug("#_getSessionFromURL()","clearing window.location.hash"),this._returnResult({data:{session:_,redirectType:e.type},error:null})}catch(s){if(b(s))return this._returnResult({data:{session:null,redirectType:null},error:s});throw s}}_isImplicitGrantCallback(e){return typeof this.detectSessionInUrl=="function"?this.detectSessionInUrl(new URL(window.location.href),e):!!(e.access_token||e.error_description)}async _isPKCECallback(e){const r=await _e(this.storage,`${this.storageKey}-code-verifier`);return!!(e.code&&r)}async signOut(e={scope:"global"}){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._signOut(e))}async _signOut({scope:e}={scope:"global"}){return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({error:i});const a=(s=n.session)===null||s===void 0?void 0:s.access_token;if(a){const{error:o}=await this.admin.signOut(a,e);if(o&&!(pi(o)&&(o.status===404||o.status===401||o.status===403)))return this._returnResult({error:o})}return e!=="others"&&(await this._removeSession(),await M(this.storage,`${this.storageKey}-code-verifier`)),this._returnResult({error:null})})}onAuthStateChange(e){const r=ki(),s={id:r,callback:e,unsubscribe:()=>{this._debug("#unsubscribe()","state change callback with id removed",r),this.stateChangeEmitters.delete(r)}};return this._debug("#onAuthStateChange()","registered callback with id",r),this.stateChangeEmitters.set(r,s),(async()=>(await this.initializePromise,await this._acquireLock(-1,async()=>{this._emitInitialSession(r)})))(),{data:{subscription:s}}}async _emitInitialSession(e){return await this._useSession(async r=>{var s,n;try{const{data:{session:i},error:a}=r;if(a)throw a;await((s=this.stateChangeEmitters.get(e))===null||s===void 0?void 0:s.callback("INITIAL_SESSION",i)),this._debug("INITIAL_SESSION","callback id",e,"session",i)}catch(i){await((n=this.stateChangeEmitters.get(e))===null||n===void 0?void 0:n.callback("INITIAL_SESSION",null)),this._debug("INITIAL_SESSION","callback id",e,"error",i),console.error(i)}})}async resetPasswordForEmail(e,r={}){let s=null,n=null;this.flowType==="pkce"&&([s,n]=await Pe(this.storage,this.storageKey,!0));try{return await S(this.fetch,"POST",`${this.url}/recover`,{body:{email:e,code_challenge:s,code_challenge_method:n,gotrue_meta_security:{captcha_token:r.captchaToken}},headers:this.headers,redirectTo:r.redirectTo})}catch(i){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(i))return this._returnResult({data:null,error:i});throw i}}async getUserIdentities(){var e;try{const{data:r,error:s}=await this.getUser();if(s)throw s;return this._returnResult({data:{identities:(e=r.user.identities)!==null&&e!==void 0?e:[]},error:null})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async linkIdentity(e){return"token"in e?this.linkIdentityIdToken(e):this.linkIdentityOAuth(e)}async linkIdentityOAuth(e){var r;try{const{data:s,error:n}=await this._useSession(async i=>{var a,o,l,c,h;const{data:p,error:f}=i;if(f)throw f;const g=await this._getUrlForProvider(`${this.url}/user/identities/authorize`,e.provider,{redirectTo:(a=e.options)===null||a===void 0?void 0:a.redirectTo,scopes:(o=e.options)===null||o===void 0?void 0:o.scopes,queryParams:(l=e.options)===null||l===void 0?void 0:l.queryParams,skipBrowserRedirect:!0});return await S(this.fetch,"GET",g,{headers:this.headers,jwt:(h=(c=p.session)===null||c===void 0?void 0:c.access_token)!==null&&h!==void 0?h:void 0})});if(n)throw n;return F()&&!(!((r=e.options)===null||r===void 0)&&r.skipBrowserRedirect)&&window.location.assign(s?.url),this._returnResult({data:{provider:e.provider,url:s?.url},error:null})}catch(s){if(b(s))return this._returnResult({data:{provider:e.provider,url:null},error:s});throw s}}async linkIdentityIdToken(e){return await this._useSession(async r=>{var s;try{const{error:n,data:{session:i}}=r;if(n)throw n;const{options:a,provider:o,token:l,access_token:c,nonce:h}=e,p=await S(this.fetch,"POST",`${this.url}/token?grant_type=id_token`,{headers:this.headers,jwt:(s=i?.access_token)!==null&&s!==void 0?s:void 0,body:{provider:o,id_token:l,access_token:c,nonce:h,link_identity:!0,gotrue_meta_security:{captcha_token:a?.captchaToken}},xform:re}),{data:f,error:g}=p;return g?this._returnResult({data:{user:null,session:null},error:g}):!f||!f.session||!f.user?this._returnResult({data:{user:null,session:null},error:new $e}):(f.session&&(await this._saveSession(f.session),await this._notifyAllSubscribers("USER_UPDATED",f.session)),this._returnResult({data:f,error:g}))}catch(n){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(n))return this._returnResult({data:{user:null,session:null},error:n});throw n}})}async unlinkIdentity(e){try{return await this._useSession(async r=>{var s,n;const{data:i,error:a}=r;if(a)throw a;return await S(this.fetch,"DELETE",`${this.url}/user/identities/${e.identity_id}`,{headers:this.headers,jwt:(n=(s=i.session)===null||s===void 0?void 0:s.access_token)!==null&&n!==void 0?n:void 0})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _refreshAccessToken(e){const r=`#_refreshAccessToken(${e.substring(0,5)}...)`;this._debug(r,"begin");try{const s=Date.now();return await Ci(async n=>(n>0&&await Ai(200*Math.pow(2,n-1)),this._debug(r,"refreshing attempt",n),await S(this.fetch,"POST",`${this.url}/token?grant_type=refresh_token`,{body:{refresh_token:e},headers:this.headers,xform:re})),(n,i)=>{const a=200*Math.pow(2,n);return i&&Pt(i)&&Date.now()+a-s<Ne})}catch(s){if(this._debug(r,"error",s),b(s))return this._returnResult({data:{session:null,user:null},error:s});throw s}finally{this._debug(r,"end")}}_isValidSession(e){return typeof e=="object"&&e!==null&&"access_token"in e&&"refresh_token"in e&&"expires_at"in e}async _handleProviderSignIn(e,r){const s=await this._getUrlForProvider(`${this.url}/authorize`,e,{redirectTo:r.redirectTo,scopes:r.scopes,queryParams:r.queryParams});return this._debug("#_handleProviderSignIn()","provider",e,"options",r,"url",s),F()&&!r.skipBrowserRedirect&&window.location.assign(s),{data:{provider:e,url:s},error:null}}async _recoverAndRefresh(){var e,r;const s="#_recoverAndRefresh()";this._debug(s,"begin");try{const n=await _e(this.storage,this.storageKey);if(n&&this.userStorage){let a=await _e(this.userStorage,this.storageKey+"-user");!this.storage.isServer&&Object.is(this.storage,this.userStorage)&&!a&&(a={user:n.user},await De(this.userStorage,this.storageKey+"-user",a)),n.user=(e=a?.user)!==null&&e!==void 0?e:xt()}else if(n&&!n.user&&!n.user){const a=await _e(this.storage,this.storageKey+"-user");a&&a?.user?(n.user=a.user,await M(this.storage,this.storageKey+"-user"),await De(this.storage,this.storageKey,n)):n.user=xt()}if(this._debug(s,"session from storage",n),!this._isValidSession(n)){this._debug(s,"session is not valid"),n!==null&&await this._removeSession();return}const i=((r=n.expires_at)!==null&&r!==void 0?r:1/0)*1e3-Date.now()<$t;if(this._debug(s,`session has${i?"":" not"} expired with margin of ${$t}s`),i){if(this.autoRefreshToken&&n.refresh_token){const{error:a}=await this._callRefreshToken(n.refresh_token);a&&(console.error(a),Pt(a)||(this._debug(s,"refresh failed with a non-retryable error, removing the session",a),await this._removeSession()))}}else if(n.user&&n.user.__isUserNotAvailableProxy===!0)try{const{data:a,error:o}=await this._getUser(n.access_token);!o&&a?.user?(n.user=a.user,await this._saveSession(n),await this._notifyAllSubscribers("SIGNED_IN",n)):this._debug(s,"could not get user data, skipping SIGNED_IN notification")}catch(a){console.error("Error getting user data:",a),this._debug(s,"error getting user data, skipping SIGNED_IN notification",a)}else await this._notifyAllSubscribers("SIGNED_IN",n)}catch(n){this._debug(s,"error",n),console.error(n);return}finally{this._debug(s,"end")}}async _callRefreshToken(e){var r,s;if(!e)throw new G;if(this.refreshingDeferred)return this.refreshingDeferred.promise;const n=`#_callRefreshToken(${e.substring(0,5)}...)`;this._debug(n,"begin");try{this.refreshingDeferred=new St;const{data:i,error:a}=await this._refreshAccessToken(e);if(a)throw a;if(!i.session)throw new G;await this._saveSession(i.session),await this._notifyAllSubscribers("TOKEN_REFRESHED",i.session);const o={data:i.session,error:null};return this.refreshingDeferred.resolve(o),o}catch(i){if(this._debug(n,"error",i),b(i)){const a={data:null,error:i};return Pt(i)||await this._removeSession(),(r=this.refreshingDeferred)===null||r===void 0||r.resolve(a),a}throw(s=this.refreshingDeferred)===null||s===void 0||s.reject(i),i}finally{this.refreshingDeferred=null,this._debug(n,"end")}}async _notifyAllSubscribers(e,r,s=!0){const n=`#_notifyAllSubscribers(${e})`;this._debug(n,"begin",r,`broadcast = ${s}`);try{this.broadcastChannel&&s&&this.broadcastChannel.postMessage({event:e,session:r});const i=[],a=Array.from(this.stateChangeEmitters.values()).map(async o=>{try{await o.callback(e,r)}catch(l){i.push(l)}});if(await Promise.all(a),i.length>0){for(let o=0;o<i.length;o+=1)console.error(i[o]);throw i[0]}}finally{this._debug(n,"end")}}async _saveSession(e){this._debug("#_saveSession()",e),this.suppressGetSessionWarning=!0,await M(this.storage,`${this.storageKey}-code-verifier`);const r=Object.assign({},e),s=r.user&&r.user.__isUserNotAvailableProxy===!0;if(this.userStorage){!s&&r.user&&await De(this.userStorage,this.storageKey+"-user",{user:r.user});const n=Object.assign({},r);delete n.user;const i=Cr(n);await De(this.storage,this.storageKey,i)}else{const n=Cr(r);await De(this.storage,this.storageKey,n)}}async _removeSession(){this._debug("#_removeSession()"),this.suppressGetSessionWarning=!1,await M(this.storage,this.storageKey),await M(this.storage,this.storageKey+"-code-verifier"),await M(this.storage,this.storageKey+"-user"),this.userStorage&&await M(this.userStorage,this.storageKey+"-user"),await this._notifyAllSubscribers("SIGNED_OUT",null)}_removeVisibilityChangedCallback(){this._debug("#_removeVisibilityChangedCallback()");const e=this.visibilityChangedCallback;this.visibilityChangedCallback=null;try{e&&F()&&window?.removeEventListener&&window.removeEventListener("visibilitychange",e)}catch(r){console.error("removing visibilitychange callback failed",r)}}async _startAutoRefresh(){await this._stopAutoRefresh(),this._debug("#_startAutoRefresh()");const e=setInterval(()=>this._autoRefreshTokenTick(),Ne);this.autoRefreshTicker=e,e&&typeof e=="object"&&typeof e.unref=="function"?e.unref():typeof Deno<"u"&&typeof Deno.unrefTimer=="function"&&Deno.unrefTimer(e),setTimeout(async()=>{await this.initializePromise,await this._autoRefreshTokenTick()},0)}async _stopAutoRefresh(){this._debug("#_stopAutoRefresh()");const e=this.autoRefreshTicker;this.autoRefreshTicker=null,e&&clearInterval(e)}async startAutoRefresh(){this._removeVisibilityChangedCallback(),await this._startAutoRefresh()}async stopAutoRefresh(){this._removeVisibilityChangedCallback(),await this._stopAutoRefresh()}async _autoRefreshTokenTick(){this._debug("#_autoRefreshTokenTick()","begin");try{await this._acquireLock(0,async()=>{try{const e=Date.now();try{return await this._useSession(async r=>{const{data:{session:s}}=r;if(!s||!s.refresh_token||!s.expires_at){this._debug("#_autoRefreshTokenTick()","no session");return}const n=Math.floor((s.expires_at*1e3-e)/Ne);this._debug("#_autoRefreshTokenTick()",`access token expires in ${n} ticks, a tick lasts ${Ne}ms, refresh threshold is ${Ht} ticks`),n<=Ht&&await this._callRefreshToken(s.refresh_token)})}catch(r){console.error("Auto refresh tick failed with error. This is likely a transient error.",r)}}finally{this._debug("#_autoRefreshTokenTick()","end")}})}catch(e){if(e.isAcquireTimeout||e instanceof cs)this._debug("auto refresh token tick lock not available");else throw e}}async _handleVisibilityChange(){if(this._debug("#_handleVisibilityChange()"),!F()||!window?.addEventListener)return this.autoRefreshToken&&this.startAutoRefresh(),!1;try{this.visibilityChangedCallback=async()=>await this._onVisibilityChanged(!1),window?.addEventListener("visibilitychange",this.visibilityChangedCallback),await this._onVisibilityChanged(!0)}catch(e){console.error("_handleVisibilityChange",e)}}async _onVisibilityChanged(e){const r=`#_onVisibilityChanged(${e})`;this._debug(r,"visibilityState",document.visibilityState),document.visibilityState==="visible"?(this.autoRefreshToken&&this._startAutoRefresh(),e||(await this.initializePromise,await this._acquireLock(-1,async()=>{if(document.visibilityState!=="visible"){this._debug(r,"acquired the lock to recover the session, but the browser visibilityState is no longer visible, aborting");return}await this._recoverAndRefresh()}))):document.visibilityState==="hidden"&&this.autoRefreshToken&&this._stopAutoRefresh()}async _getUrlForProvider(e,r,s){const n=[`provider=${encodeURIComponent(r)}`];if(s?.redirectTo&&n.push(`redirect_to=${encodeURIComponent(s.redirectTo)}`),s?.scopes&&n.push(`scopes=${encodeURIComponent(s.scopes)}`),this.flowType==="pkce"){const[i,a]=await Pe(this.storage,this.storageKey),o=new URLSearchParams({code_challenge:`${encodeURIComponent(i)}`,code_challenge_method:`${encodeURIComponent(a)}`});n.push(o.toString())}if(s?.queryParams){const i=new URLSearchParams(s.queryParams);n.push(i.toString())}return s?.skipBrowserRedirect&&n.push(`skip_http_redirect=${s.skipBrowserRedirect}`),`${e}?${n.join("&")}`}async _unenroll(e){try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;return i?this._returnResult({data:null,error:i}):await S(this.fetch,"DELETE",`${this.url}/factors/${e.factorId}`,{headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _enroll(e){try{return await this._useSession(async r=>{var s,n;const{data:i,error:a}=r;if(a)return this._returnResult({data:null,error:a});const o=Object.assign({friendly_name:e.friendlyName,factor_type:e.factorType},e.factorType==="phone"?{phone:e.phone}:e.factorType==="totp"?{issuer:e.issuer}:{}),{data:l,error:c}=await S(this.fetch,"POST",`${this.url}/factors`,{body:o,headers:this.headers,jwt:(s=i?.session)===null||s===void 0?void 0:s.access_token});return c?this._returnResult({data:null,error:c}):(e.factorType==="totp"&&l.type==="totp"&&(!((n=l?.totp)===null||n===void 0)&&n.qr_code)&&(l.totp.qr_code=`data:image/svg+xml;utf-8,${l.totp.qr_code}`),this._returnResult({data:l,error:null}))})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _verify(e){return this._acquireLock(-1,async()=>{try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({data:null,error:i});const a=Object.assign({challenge_id:e.challengeId},"webauthn"in e?{webauthn:Object.assign(Object.assign({},e.webauthn),{credential_response:e.webauthn.type==="create"?na(e.webauthn.credential_response):ia(e.webauthn.credential_response)})}:{code:e.code}),{data:o,error:l}=await S(this.fetch,"POST",`${this.url}/factors/${e.factorId}/verify`,{body:a,headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token});return l?this._returnResult({data:null,error:l}):(await this._saveSession(Object.assign({expires_at:Math.round(Date.now()/1e3)+o.expires_in},o)),await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED",o),this._returnResult({data:o,error:l}))})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}})}async _challenge(e){return this._acquireLock(-1,async()=>{try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({data:null,error:i});const a=await S(this.fetch,"POST",`${this.url}/factors/${e.factorId}/challenge`,{body:e,headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token});if(a.error)return a;const{data:o}=a;if(o.type!=="webauthn")return{data:o,error:null};switch(o.webauthn.type){case"create":return{data:Object.assign(Object.assign({},o),{webauthn:Object.assign(Object.assign({},o.webauthn),{credential_options:Object.assign(Object.assign({},o.webauthn.credential_options),{publicKey:ra(o.webauthn.credential_options.publicKey)})})}),error:null};case"request":return{data:Object.assign(Object.assign({},o),{webauthn:Object.assign(Object.assign({},o.webauthn),{credential_options:Object.assign(Object.assign({},o.webauthn.credential_options),{publicKey:sa(o.webauthn.credential_options.publicKey)})})}),error:null}}})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}})}async _challengeAndVerify(e){const{data:r,error:s}=await this._challenge({factorId:e.factorId});return s?this._returnResult({data:null,error:s}):await this._verify({factorId:e.factorId,challengeId:r.id,code:e.code})}async _listFactors(){var e;const{data:{user:r},error:s}=await this.getUser();if(s)return{data:null,error:s};const n={all:[],phone:[],totp:[],webauthn:[]};for(const i of(e=r?.factors)!==null&&e!==void 0?e:[])n.all.push(i),i.status==="verified"&&n[i.factor_type].push(i);return{data:n,error:null}}async _getAuthenticatorAssuranceLevel(){var e,r;const{data:{session:s},error:n}=await this.getSession();if(n)return this._returnResult({data:null,error:n});if(!s)return{data:{currentLevel:null,nextLevel:null,currentAuthenticationMethods:[]},error:null};const{payload:i}=It(s.access_token);let a=null;i.aal&&(a=i.aal);let o=a;((r=(e=s.user.factors)===null||e===void 0?void 0:e.filter(h=>h.status==="verified"))!==null&&r!==void 0?r:[]).length>0&&(o="aal2");const c=i.amr||[];return{data:{currentLevel:a,nextLevel:o,currentAuthenticationMethods:c},error:null}}async _getAuthorizationDetails(e){try{return await this._useSession(async r=>{const{data:{session:s},error:n}=r;return n?this._returnResult({data:null,error:n}):s?await S(this.fetch,"GET",`${this.url}/oauth/authorizations/${e}`,{headers:this.headers,jwt:s.access_token,xform:i=>({data:i,error:null})}):this._returnResult({data:null,error:new G})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _approveAuthorization(e,r){try{return await this._useSession(async s=>{const{data:{session:n},error:i}=s;if(i)return this._returnResult({data:null,error:i});if(!n)return this._returnResult({data:null,error:new G});const a=await S(this.fetch,"POST",`${this.url}/oauth/authorizations/${e}/consent`,{headers:this.headers,jwt:n.access_token,body:{action:"approve"},xform:o=>({data:o,error:null})});return a.data&&a.data.redirect_url&&F()&&!r?.skipBrowserRedirect&&window.location.assign(a.data.redirect_url),a})}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}async _denyAuthorization(e,r){try{return await this._useSession(async s=>{const{data:{session:n},error:i}=s;if(i)return this._returnResult({data:null,error:i});if(!n)return this._returnResult({data:null,error:new G});const a=await S(this.fetch,"POST",`${this.url}/oauth/authorizations/${e}/consent`,{headers:this.headers,jwt:n.access_token,body:{action:"deny"},xform:o=>({data:o,error:null})});return a.data&&a.data.redirect_url&&F()&&!r?.skipBrowserRedirect&&window.location.assign(a.data.redirect_url),a})}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}async _listOAuthGrants(){try{return await this._useSession(async e=>{const{data:{session:r},error:s}=e;return s?this._returnResult({data:null,error:s}):r?await S(this.fetch,"GET",`${this.url}/user/oauth/grants`,{headers:this.headers,jwt:r.access_token,xform:n=>({data:n,error:null})}):this._returnResult({data:null,error:new G})})}catch(e){if(b(e))return this._returnResult({data:null,error:e});throw e}}async _revokeOAuthGrant(e){try{return await this._useSession(async r=>{const{data:{session:s},error:n}=r;return n?this._returnResult({data:null,error:n}):s?(await S(this.fetch,"DELETE",`${this.url}/user/oauth/grants`,{headers:this.headers,jwt:s.access_token,query:{client_id:e.clientId},noResolveJson:!0}),{data:{},error:null}):this._returnResult({data:null,error:new G})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async fetchJwk(e,r={keys:[]}){let s=r.keys.find(o=>o.kid===e);if(s)return s;const n=Date.now();if(s=this.jwks.keys.find(o=>o.kid===e),s&&this.jwks_cached_at+hi>n)return s;const{data:i,error:a}=await S(this.fetch,"GET",`${this.url}/.well-known/jwks.json`,{headers:this.headers});if(a)throw a;return!i.keys||i.keys.length===0||(this.jwks=i,this.jwks_cached_at=n,s=i.keys.find(o=>o.kid===e),!s)?null:s}async getClaims(e,r={}){try{let s=e;if(!s){const{data:g,error:m}=await this.getSession();if(m||!g.session)return this._returnResult({data:null,error:m});s=g.session.access_token}const{header:n,payload:i,signature:a,raw:{header:o,payload:l}}=It(s);r?.allowExpired||Li(i.exp);const c=!n.alg||n.alg.startsWith("HS")||!n.kid||!("crypto"in globalThis&&"subtle"in globalThis.crypto)?null:await this.fetchJwk(n.kid,r?.keys?{keys:r.keys}:r?.jwks);if(!c){const{error:g}=await this.getUser(s);if(g)throw g;return{data:{claims:i,header:n,signature:a},error:null}}const h=Ni(n.alg),p=await crypto.subtle.importKey("jwk",c,h,!0,["verify"]);if(!await crypto.subtle.verify(h,p,a,Ei(`${o}.${l}`)))throw new Gt("Invalid JWT signature");return{data:{claims:i,header:n,signature:a},error:null}}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}}nt.nextInstanceID={};const pa=nt,ga="2.89.0";let Je="";typeof Deno<"u"?Je="deno":typeof document<"u"?Je="web":typeof navigator<"u"&&navigator.product==="ReactNative"?Je="react-native":Je="node";const ma={"X-Client-Info":`supabase-js-${Je}/${ga}`},wa={headers:ma},va={schema:"public"},ya={autoRefreshToken:!0,persistSession:!0,detectSessionInUrl:!0,flowType:"implicit"},_a={};function it(t){"@babel/helpers - typeof";return it=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(e){return typeof e}:function(e){return e&&typeof Symbol=="function"&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},it(t)}function ba(t,e){if(it(t)!="object"||!t)return t;var r=t[Symbol.toPrimitive];if(r!==void 0){var s=r.call(t,e);if(it(s)!="object")return s;throw new TypeError("@@toPrimitive must return a primitive value.")}return(e==="string"?String:Number)(t)}function Ea(t){var e=ba(t,"string");return it(e)=="symbol"?e:e+""}function Sa(t,e,r){return(e=Ea(e))in t?Object.defineProperty(t,e,{value:r,enumerable:!0,configurable:!0,writable:!0}):t[e]=r,t}function Lr(t,e){var r=Object.keys(t);if(Object.getOwnPropertySymbols){var s=Object.getOwnPropertySymbols(t);e&&(s=s.filter(function(n){return Object.getOwnPropertyDescriptor(t,n).enumerable})),r.push.apply(r,s)}return r}function L(t){for(var e=1;e<arguments.length;e++){var r=arguments[e]!=null?arguments[e]:{};e%2?Lr(Object(r),!0).forEach(function(s){Sa(t,s,r[s])}):Object.getOwnPropertyDescriptors?Object.defineProperties(t,Object.getOwnPropertyDescriptors(r)):Lr(Object(r)).forEach(function(s){Object.defineProperty(t,s,Object.getOwnPropertyDescriptor(r,s))})}return t}const ka=t=>t?(...e)=>t(...e):(...e)=>fetch(...e),Ta=()=>Headers,Oa=(t,e,r)=>{const s=ka(r),n=Ta();return async(i,a)=>{var o;const l=(o=await e())!==null&&o!==void 0?o:t;let c=new n(a?.headers);return c.has("apikey")||c.set("apikey",t),c.has("Authorization")||c.set("Authorization",`Bearer ${l}`),s(i,L(L({},a),{},{headers:c}))}};function Aa(t){return t.endsWith("/")?t:t+"/"}function Ca(t,e){var r,s;const{db:n,auth:i,realtime:a,global:o}=t,{db:l,auth:c,realtime:h,global:p}=e,f={db:L(L({},l),n),auth:L(L({},c),i),realtime:L(L({},h),a),storage:{},global:L(L(L({},p),o),{},{headers:L(L({},(r=p?.headers)!==null&&r!==void 0?r:{}),(s=o?.headers)!==null&&s!==void 0?s:{})}),accessToken:async()=>""};return t.accessToken?f.accessToken=t.accessToken:delete f.accessToken,f}function Ra(t){const e=t?.trim();if(!e)throw new Error("supabaseUrl is required.");if(!e.match(/^https?:\/\//i))throw new Error("Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.");try{return new URL(Aa(e))}catch{throw Error("Invalid supabaseUrl: Provided URL is malformed.")}}var $a=class extends pa{constructor(t){super(t)}},Pa=class{constructor(t,e,r){var s,n;this.supabaseUrl=t,this.supabaseKey=e;const i=Ra(t);if(!e)throw new Error("supabaseKey is required.");this.realtimeUrl=new URL("realtime/v1",i),this.realtimeUrl.protocol=this.realtimeUrl.protocol.replace("http","ws"),this.authUrl=new URL("auth/v1",i),this.storageUrl=new URL("storage/v1",i),this.functionsUrl=new URL("functions/v1",i);const a=`sb-${i.hostname.split(".")[0]}-auth-token`,o={db:va,realtime:_a,auth:L(L({},ya),{},{storageKey:a}),global:wa},l=Ca(r??{},o);if(this.storageKey=(s=l.auth.storageKey)!==null&&s!==void 0?s:"",this.headers=(n=l.global.headers)!==null&&n!==void 0?n:{},l.accessToken)this.accessToken=l.accessToken,this.auth=new Proxy({},{get:(h,p)=>{throw new Error(`@supabase/supabase-js: Supabase Client is configured with the accessToken option, accessing supabase.auth.${String(p)} is not possible`)}});else{var c;this.auth=this._initSupabaseAuthClient((c=l.auth)!==null&&c!==void 0?c:{},this.headers,l.global.fetch)}this.fetch=Oa(e,this._getAccessToken.bind(this),l.global.fetch),this.realtime=this._initRealtimeClient(L({headers:this.headers,accessToken:this._getAccessToken.bind(this)},l.realtime)),this.accessToken&&this.accessToken().then(h=>this.realtime.setAuth(h)).catch(h=>console.warn("Failed to set initial Realtime auth token:",h)),this.rest=new un(new URL("rest/v1",i).href,{headers:this.headers,schema:l.db.schema,fetch:this.fetch}),this.storage=new oi(this.storageUrl.href,this.headers,this.fetch,r?.storage),l.accessToken||this._listenForAuthEvents()}get functions(){return new nn(this.functionsUrl.href,{headers:this.headers,customFetch:this.fetch})}from(t){return this.rest.from(t)}schema(t){return this.rest.schema(t)}rpc(t,e={},r={head:!1,get:!1,count:void 0}){return this.rest.rpc(t,e,r)}channel(t,e={config:{}}){return this.realtime.channel(t,e)}getChannels(){return this.realtime.getChannels()}removeChannel(t){return this.realtime.removeChannel(t)}removeAllChannels(){return this.realtime.removeAllChannels()}async _getAccessToken(){var t=this,e,r;if(t.accessToken)return await t.accessToken();const{data:s}=await t.auth.getSession();return(e=(r=s.session)===null||r===void 0?void 0:r.access_token)!==null&&e!==void 0?e:t.supabaseKey}_initSupabaseAuthClient({autoRefreshToken:t,persistSession:e,detectSessionInUrl:r,storage:s,userStorage:n,storageKey:i,flowType:a,lock:o,debug:l,throwOnError:c},h,p){const f={Authorization:`Bearer ${this.supabaseKey}`,apikey:`${this.supabaseKey}`};return new $a({url:this.authUrl.href,headers:L(L({},f),h),storageKey:i,autoRefreshToken:t,persistSession:e,detectSessionInUrl:r,storage:s,userStorage:n,flowType:a,lock:o,debug:l,throwOnError:c,fetch:p,hasCustomAuthorizationHeader:Object.keys(this.headers).some(g=>g.toLowerCase()==="authorization")})}_initRealtimeClient(t){return new An(this.realtimeUrl.href,L(L({},t),{},{params:L(L({},{apikey:this.supabaseKey}),t?.params)}))}_listenForAuthEvents(){return this.auth.onAuthStateChange((t,e)=>{this._handleTokenChanged(t,"CLIENT",e?.access_token)})}_handleTokenChanged(t,e,r){(t==="TOKEN_REFRESHED"||t==="SIGNED_IN")&&this.changedAccessToken!==r?(this.changedAccessToken=r,this.realtime.setAuth(r)):t==="SIGNED_OUT"&&(this.realtime.setAuth(),e=="STORAGE"&&this.auth.signOut(),this.changedAccessToken=void 0)}};const Ia=(t,e,r)=>new Pa(t,e,r);function xa(){if(typeof window<"u"||typeof process>"u")return!1;const t=process.version;if(t==null)return!1;const e=t.match(/^v(\d+)\./);return e?parseInt(e[1],10)<=18:!1}xa()&&console.warn("⚠️  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217");const Nr=Object.freeze({supabaseUrl:"https://dejxzipydlnjhrjivgjp.supabase.co",publishableKey:"sb_publishable_XkutzQ-1BaHXHuBDaD1eLw_xEukysyF",pollMs:3e3,staleAfterMs:2e4,offlineAfterMs:6e4,courseReferenceMm:50});async function ja(t,e={}){const r=new AbortController,s=()=>r.abort();e.signal?.aborted?r.abort():e.signal?.addEventListener("abort",s,{once:!0});const n=setTimeout(()=>r.abort(),15e3);try{return await fetch(t,{...e,signal:r.signal})}finally{clearTimeout(n),e.signal?.removeEventListener("abort",s)}}const X=Ia(Nr.supabaseUrl,Nr.publishableKey,{global:{fetch:ja},auth:{persistSession:!0,autoRefreshToken:!0,detectSessionInUrl:!0}});async function ce(t){const{data:e,error:r}=await t;if(r)throw r;return e}async function La(){const[t,e,r]=await Promise.all([ce(X.rpc("gaxeta_snapshot",{p_sensor_id:null,p_minutes:5})).then(s=>({snapshot:s,observedAt:Date.now()})),ce(X.from("gaxeta_assets").select("*").order("name")),ce(X.from("gaxeta_gateways").select("*").order("name"))]);return{devices:t.snapshot.devices,assets:e,gateways:r,clockOffset:new Date(t.snapshot.server_time).getTime()-t.observedAt}}var Dr;(function(t){t[t.SCAN_MODE_LOW_POWER=0]="SCAN_MODE_LOW_POWER",t[t.SCAN_MODE_BALANCED=1]="SCAN_MODE_BALANCED",t[t.SCAN_MODE_LOW_LATENCY=2]="SCAN_MODE_LOW_LATENCY"})(Dr||(Dr={}));var Ur;(function(t){t[t.CONNECTION_PRIORITY_BALANCED=0]="CONNECTION_PRIORITY_BALANCED",t[t.CONNECTION_PRIORITY_HIGH=1]="CONNECTION_PRIORITY_HIGH",t[t.CONNECTION_PRIORITY_LOW_POWER=2]="CONNECTION_PRIORITY_LOW_POWER"})(Ur||(Ur={}));var Me;(function(t){t.Unimplemented="UNIMPLEMENTED",t.Unavailable="UNAVAILABLE"})(Me||(Me={}));class Lt extends Error{constructor(e,r,s){super(e),this.message=e,this.code=r,this.data=s}}const Na=t=>{var e,r;return t?.androidBridge?"android":!((r=(e=t?.webkit)===null||e===void 0?void 0:e.messageHandlers)===null||r===void 0)&&r.bridge?"ios":"web"},Da=t=>{const e=t.CapacitorCustomPlatform||null,r=t.Capacitor||{},s=r.Plugins=r.Plugins||{},n=()=>e!==null?e.name:Na(t),i=()=>n()!=="web",a=p=>{const f=c.get(p);return!!(f?.platforms.has(n())||o(p))},o=p=>{var f;return(f=r.PluginHeaders)===null||f===void 0?void 0:f.find(g=>g.name===p)},l=p=>t.console.error(p),c=new Map,h=(p,f={})=>{const g=c.get(p);if(g)return console.warn(`Capacitor plugin "${p}" already registered. Cannot register plugins twice.`),g.proxy;const m=n(),w=o(p);let v;const _=async()=>(!v&&m in f?v=typeof f[m]=="function"?v=await f[m]():v=f[m]:e!==null&&!v&&"web"in f&&(v=typeof f.web=="function"?v=await f.web():v=f.web),v),E=(P,I)=>{var ie,fe;if(w){const pe=w?.methods.find(te=>I===te.name);if(pe)return pe.rtype==="promise"?te=>r.nativePromise(p,I.toString(),te):(te,lt)=>r.nativeCallback(p,I.toString(),te,lt);if(P)return(ie=P[I])===null||ie===void 0?void 0:ie.bind(P)}else{if(P)return(fe=P[I])===null||fe===void 0?void 0:fe.bind(P);throw new Lt(`"${p}" plugin is not implemented on ${m}`,Me.Unimplemented)}},y=P=>{let I;const ie=(...fe)=>{const pe=_().then(te=>{const lt=E(te,P);if(lt){const ct=lt(...fe);return I=ct?.remove,ct}else throw new Lt(`"${p}.${P}()" is not implemented on ${m}`,Me.Unimplemented)});return P==="addListener"&&(pe.remove=async()=>I()),pe};return ie.toString=()=>`${P.toString()}() { [capacitor code] }`,Object.defineProperty(ie,"name",{value:P,writable:!1,configurable:!1}),ie},T=y("addListener"),N=y("removeListener"),R=(P,I)=>{const ie=T({eventName:P},I),fe=async()=>{const te=await ie;N({eventName:P,callbackId:te},I)},pe=new Promise(te=>ie.then(()=>te({remove:fe})));return pe.remove=async()=>{console.warn("Using addListener() without 'await' is deprecated."),await fe()},pe},x=new Proxy({},{get(P,I){switch(I){case"$$typeof":return;case"toJSON":return()=>({});case"addListener":return w?R:T;case"removeListener":return N;default:return y(I)}}});return s[p]=x,c.set(p,{name:p,proxy:x,platforms:new Set([...Object.keys(f),...w?[m]:[]])}),x};return r.convertFileSrc||(r.convertFileSrc=p=>p),r.getPlatform=n,r.handleError=l,r.isNativePlatform=i,r.isPluginAvailable=a,r.registerPlugin=h,r.Exception=Lt,r.DEBUG=!!r.DEBUG,r.isLoggingEnabled=!!r.isLoggingEnabled,r},Ua=t=>t.Capacitor=Da(t),Z=Ua(typeof globalThis<"u"?globalThis:typeof self<"u"?self:typeof window<"u"?window:typeof global<"u"?global:{}),Ge=Z.registerPlugin;class ir{constructor(){this.listeners={},this.retainedEventArguments={},this.windowListeners={}}addListener(e,r){let s=!1;this.listeners[e]||(this.listeners[e]=[],s=!0),this.listeners[e].push(r);const i=this.windowListeners[e];i&&!i.registered&&this.addWindowListener(i),s&&this.sendRetainedArgumentsForEvent(e);const a=async()=>this.removeListener(e,r);return Promise.resolve({remove:a})}async removeAllListeners(){this.listeners={};for(const e in this.windowListeners)this.removeWindowListener(this.windowListeners[e]);this.windowListeners={}}notifyListeners(e,r,s){const n=this.listeners[e];if(!n){if(s){let i=this.retainedEventArguments[e];i||(i=[]),i.push(r),this.retainedEventArguments[e]=i}return}n.forEach(i=>i(r))}hasListeners(e){var r;return!!(!((r=this.listeners[e])===null||r===void 0)&&r.length)}registerWindowListener(e,r){this.windowListeners[r]={registered:!1,windowEventName:e,pluginEventName:r,handler:s=>{this.notifyListeners(r,s)}}}unimplemented(e="not implemented"){return new Z.Exception(e,Me.Unimplemented)}unavailable(e="not available"){return new Z.Exception(e,Me.Unavailable)}async removeListener(e,r){const s=this.listeners[e];if(!s)return;const n=s.indexOf(r);this.listeners[e].splice(n,1),this.listeners[e].length||this.removeWindowListener(this.windowListeners[e])}addWindowListener(e){window.addEventListener(e.windowEventName,e.handler),e.registered=!0}removeWindowListener(e){e&&(window.removeEventListener(e.windowEventName,e.handler),e.registered=!1)}sendRetainedArgumentsForEvent(e){const r=this.retainedEventArguments[e];r&&(delete this.retainedEventArguments[e],r.forEach(s=>{this.notifyListeners(e,s)}))}}const Br=t=>encodeURIComponent(t).replace(/%(2[346B]|5E|60|7C)/g,decodeURIComponent).replace(/[()]/g,escape),qr=t=>t.replace(/(%[\dA-F]{2})+/gi,decodeURIComponent);class Ba extends ir{async getCookies(){const e=document.cookie,r={};return e.split(";").forEach(s=>{if(s.length<=0)return;let[n,i]=s.replace(/=/,"CAP_COOKIE").split("CAP_COOKIE");n=qr(n).trim(),i=qr(i).trim(),r[n]=i}),r}async setCookie(e){try{const r=Br(e.key),s=Br(e.value),n=`; expires=${(e.expires||"").replace("expires=","")}`,i=(e.path||"/").replace("path=",""),a=e.url!=null&&e.url.length>0?`domain=${e.url}`:"";document.cookie=`${r}=${s||""}${n}; path=${i}; ${a};`}catch(r){return Promise.reject(r)}}async deleteCookie(e){try{document.cookie=`${e.key}=; Max-Age=0`}catch(r){return Promise.reject(r)}}async clearCookies(){try{const e=document.cookie.split(";")||[];for(const r of e)document.cookie=r.replace(/^ +/,"").replace(/=.*/,`=;expires=${new Date().toUTCString()};path=/`)}catch(e){return Promise.reject(e)}}async clearAllCookies(){try{await this.clearCookies()}catch(e){return Promise.reject(e)}}}Ge("CapacitorCookies",{web:()=>new Ba});const qa=async t=>new Promise((e,r)=>{const s=new FileReader;s.onload=()=>{const n=s.result;e(n.indexOf(",")>=0?n.split(",")[1]:n)},s.onerror=n=>r(n),s.readAsDataURL(t)}),Ma=(t={})=>{const e=Object.keys(t);return Object.keys(t).map(n=>n.toLocaleLowerCase()).reduce((n,i,a)=>(n[i]=t[e[a]],n),{})},Fa=(t,e=!0)=>t?Object.entries(t).reduce((s,n)=>{const[i,a]=n;let o,l;return Array.isArray(a)?(l="",a.forEach(c=>{o=e?encodeURIComponent(c):c,l+=`${i}=${o}&`}),l.slice(0,-1)):(o=e?encodeURIComponent(a):a,l=`${i}=${o}`),`${s}&${l}`},"").substr(1):null,Va=(t,e={})=>{const r=Object.assign({method:t.method||"GET",headers:t.headers},e),n=Ma(t.headers)["content-type"]||"";if(typeof t.data=="string")r.body=t.data;else if(n.includes("application/x-www-form-urlencoded")){const i=new URLSearchParams;for(const[a,o]of Object.entries(t.data||{}))i.set(a,o);r.body=i.toString()}else if(n.includes("multipart/form-data")||t.data instanceof FormData){const i=new FormData;if(t.data instanceof FormData)t.data.forEach((o,l)=>{i.append(l,o)});else for(const o of Object.keys(t.data))i.append(o,t.data[o]);r.body=i;const a=new Headers(r.headers);a.delete("content-type"),r.headers=a}else(n.includes("application/json")||typeof t.data=="object")&&(r.body=JSON.stringify(t.data));return r};class Wa extends ir{async request(e){const r=Va(e,e.webFetchExtra),s=Fa(e.params,e.shouldEncodeUrlParams),n=s?`${e.url}?${s}`:e.url,i=await fetch(n,r),a=i.headers.get("content-type")||"";let{responseType:o="text"}=i.ok?e:{};a.includes("application/json")&&(o="json");let l,c;switch(o){case"arraybuffer":case"blob":c=await i.blob(),l=await qa(c);break;case"json":l=await i.json();break;default:l=await i.text()}const h={};return i.headers.forEach((p,f)=>{h[f]=p}),{data:l,headers:h,status:i.status,url:i.url}}async get(e){return this.request(Object.assign(Object.assign({},e),{method:"GET"}))}async post(e){return this.request(Object.assign(Object.assign({},e),{method:"POST"}))}async put(e){return this.request(Object.assign(Object.assign({},e),{method:"PUT"}))}async patch(e){return this.request(Object.assign(Object.assign({},e),{method:"PATCH"}))}async delete(e){return this.request(Object.assign(Object.assign({},e),{method:"DELETE"}))}}Ge("CapacitorHttp",{web:()=>new Wa});var Mr;(function(t){t.Dark="DARK",t.Light="LIGHT",t.Default="DEFAULT"})(Mr||(Mr={}));var Fr;(function(t){t.StatusBar="StatusBar",t.NavigationBar="NavigationBar"})(Fr||(Fr={}));class Ha extends ir{async setStyle(){this.unavailable("not available for web")}async setAnimation(){this.unavailable("not available for web")}async show(){this.unavailable("not available for web")}async hide(){this.unavailable("not available for web")}}Ge("SystemBars",{web:()=>new Ha});function Ka(t){return new DataView(Uint8Array.from(t).buffer)}function za(t){return Array.from(new Uint8Array(t.buffer,t.byteOffset,t.byteLength))}function Ga(t){return`0000${t.toString(16).padStart(4,"0")}-0000-1000-8000-00805f9b34fb`}function hs(t){const e=[];let r,s,n=1,i=0;for(r=0;r<t.length;r++)s=t.charCodeAt(r),(s>47&&s<58||s>64&&s<71||s>96&&s<103)&&(i=i<<4^(s>64?s+9:s)&15,(n^=1)&&e.push(i&255));return Ka(e)}function Qe(t){return za(t).map(e=>{let r=e.toString(16);return r.length==1&&(r="0"+r),r}).join("")}function _o(t){if(typeof t=="string")return t;if(typeof t=="number")return Ga(t);throw new Error("Invalid UUID")}function bo(t){const e={};if(t)return t.forEach((r,s)=>{e[s.toString()]=r}),e}function Vr(t){if(t!==void 0){if(typeof t=="string"){const e=hs(t);return new Uint8Array(e.buffer,e.byteOffset,e.byteLength)}return t instanceof DataView?new Uint8Array(t.buffer,t.byteOffset,t.byteLength):t}}function pt(t){if(t!==void 0)return t instanceof DataView?Qe(t):Qe(new DataView(t.buffer,t.byteOffset,t.byteLength))}function Eo(t){if(t.buffer instanceof SharedArrayBuffer){const r=new Uint8Array(t.buffer,t.byteOffset,t.byteLength).slice().buffer;return new DataView(r)}return t}const Ja="modulepreload",Ya=function(t,e){return new URL(t,e).href},Wr={},ar=function(e,r,s){let n=Promise.resolve();if(r&&r.length>0){let c=function(h){return Promise.all(h.map(p=>Promise.resolve(p).then(f=>({status:"fulfilled",value:f}),f=>({status:"rejected",reason:f}))))};const a=document.getElementsByTagName("link"),o=document.querySelector("meta[property=csp-nonce]"),l=o?.nonce||o?.getAttribute("nonce");n=c(r.map(h=>{if(h=Ya(h,s),h in Wr)return;Wr[h]=!0;const p=h.endsWith(".css"),f=p?'[rel="stylesheet"]':"";if(s)for(let m=a.length-1;m>=0;m--){const w=a[m];if(w.href===h&&(!p||w.rel==="stylesheet"))return}else if(document.querySelector(`link[href="${h}"]${f}`))return;const g=document.createElement("link");if(g.rel=p?"stylesheet":Ja,p||(g.as="script"),g.crossOrigin="",g.href=h,l&&g.setAttribute("nonce",l),document.head.appendChild(g),p)return new Promise((m,w)=>{g.addEventListener("load",m),g.addEventListener("error",()=>w(new Error(`Unable to preload CSS for ${h}`)))})}))}function i(a){const o=new Event("vite:preloadError",{cancelable:!0});if(o.payload=a,window.dispatchEvent(o),!o.defaultPrevented)throw a}return n.then(a=>{for(const o of a||[])o.status==="rejected"&&i(o.reason);return e().catch(i)})},O=Ge("BluetoothLe",{web:()=>ar(()=>import("./web-DEeSqGRi.js"),[],import.meta.url).then(t=>new t.BluetoothLeWeb)}),Xa=()=>{let t=Promise.resolve();return e=>new Promise((r,s)=>{t=t.then(()=>e()).then(r).catch(s)})};function Nt(t){return t?Xa():e=>e()}function D(t){if(typeof t!="string")throw new Error(`Invalid UUID type ${typeof t}. Expected string.`);if(t=t.toLowerCase(),!(t.search(/^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$/)>=0))throw new Error(`Invalid UUID format ${t}. Expected 128 bit string (e.g. "0000180d-0000-1000-8000-00805f9b34fb").`);return t}class Qa{constructor(){this.scanListener=null,this.eventListeners=new Map,this.queue=Nt(!0)}enableQueue(){this.queue=Nt(!0)}disableQueue(){this.queue=Nt(!1)}async initialize(e){await this.queue(async()=>{await O.initialize(e)})}async isEnabled(){return await this.queue(async()=>(await O.isEnabled()).value)}async requestEnable(){await this.queue(async()=>{await O.requestEnable()})}async enable(){await this.queue(async()=>{await O.enable()})}async disable(){await this.queue(async()=>{await O.disable()})}async startEnabledNotifications(e){await this.queue(async()=>{var r;const s="onEnabledChanged";await((r=this.eventListeners.get(s))===null||r===void 0?void 0:r.remove());const n=await O.addListener(s,i=>{e(i.value)});this.eventListeners.set(s,n),await O.startEnabledNotifications()})}async stopEnabledNotifications(){await this.queue(async()=>{var e;const r="onEnabledChanged";await((e=this.eventListeners.get(r))===null||e===void 0?void 0:e.remove()),this.eventListeners.delete(r),await O.stopEnabledNotifications()})}async isLocationEnabled(){return await this.queue(async()=>(await O.isLocationEnabled()).value)}async openLocationSettings(){await this.queue(async()=>{await O.openLocationSettings()})}async openBluetoothSettings(){await this.queue(async()=>{await O.openBluetoothSettings()})}async openAppSettings(){await this.queue(async()=>{await O.openAppSettings()})}async setDisplayStrings(e){await this.queue(async()=>{await O.setDisplayStrings(e)})}async requestDevice(e){return e=e?this.validateRequestBleDeviceOptions(e):void 0,await this.queue(async()=>await O.requestDevice(e))}async requestLEScan(e,r){e=this.validateRequestBleDeviceOptions(e),await this.queue(async()=>{var s;await((s=this.scanListener)===null||s===void 0?void 0:s.remove()),this.scanListener=await O.addListener("onScanResult",n=>{const i=Object.assign(Object.assign({},n),{manufacturerData:this.convertObject(n.manufacturerData),serviceData:this.convertObject(n.serviceData),rawAdvertisement:n.rawAdvertisement?this.convertValue(n.rawAdvertisement):void 0});r(i)}),await O.requestLEScan(e)})}async stopLEScan(){await this.queue(async()=>{var e;await((e=this.scanListener)===null||e===void 0?void 0:e.remove()),this.scanListener=null,await O.stopLEScan()})}async getDevices(e){if(!Array.isArray(e))throw new Error("deviceIds must be an array");return this.queue(async()=>(await O.getDevices({deviceIds:e})).devices)}async getConnectedDevices(e){if(!Array.isArray(e))throw new Error("services must be an array");return e=e.map(D),this.queue(async()=>(await O.getConnectedDevices({services:e})).devices)}async getBondedDevices(){return this.queue(async()=>(await O.getBondedDevices()).devices)}async connect(e,r,s){await this.queue(async()=>{var n;if(r){const i=`disconnected|${e}`;await((n=this.eventListeners.get(i))===null||n===void 0?void 0:n.remove());const a=await O.addListener(i,()=>{r(e)});this.eventListeners.set(i,a)}await O.connect(Object.assign({deviceId:e},s))})}async createBond(e,r){await this.queue(async()=>{await O.createBond(Object.assign({deviceId:e},r))})}async isBonded(e){return await this.queue(async()=>(await O.isBonded({deviceId:e})).value)}async disconnect(e){await this.queue(async()=>{await O.disconnect({deviceId:e})})}async getServices(e){return await this.queue(async()=>(await O.getServices({deviceId:e})).services)}async discoverServices(e){await this.queue(async()=>{await O.discoverServices({deviceId:e})})}async getMtu(e){return await this.queue(async()=>(await O.getMtu({deviceId:e})).value)}async requestConnectionPriority(e,r){await this.queue(async()=>{await O.requestConnectionPriority({deviceId:e,connectionPriority:r})})}async readRssi(e){return await this.queue(async()=>{const s=await O.readRssi({deviceId:e});return parseFloat(s.value)})}async read(e,r,s,n){return r=D(r),s=D(s),await this.queue(async()=>{const a=await O.read(Object.assign({deviceId:e,service:r,characteristic:s},n));return this.convertValue(a.value)})}async write(e,r,s,n,i){return r=D(r),s=D(s),this.queue(async()=>{if(!n?.buffer)throw new Error("Invalid data.");let a=n;Z.getPlatform()!=="web"&&(a=Qe(n)),await O.write(Object.assign({deviceId:e,service:r,characteristic:s,value:a},i))})}async writeWithoutResponse(e,r,s,n,i){r=D(r),s=D(s),await this.queue(async()=>{if(!n?.buffer)throw new Error("Invalid data.");let a=n;Z.getPlatform()!=="web"&&(a=Qe(n)),await O.writeWithoutResponse(Object.assign({deviceId:e,service:r,characteristic:s,value:a},i))})}async readDescriptor(e,r,s,n,i){return r=D(r),s=D(s),n=D(n),await this.queue(async()=>{const o=await O.readDescriptor(Object.assign({deviceId:e,service:r,characteristic:s,descriptor:n},i));return this.convertValue(o.value)})}async writeDescriptor(e,r,s,n,i,a){return r=D(r),s=D(s),n=D(n),this.queue(async()=>{if(!i?.buffer)throw new Error("Invalid data.");let o=i;Z.getPlatform()!=="web"&&(o=Qe(i)),await O.writeDescriptor(Object.assign({deviceId:e,service:r,characteristic:s,descriptor:n,value:o},a))})}async startNotifications(e,r,s,n,i){r=D(r),s=D(s),await this.queue(async()=>{var a;const o=`notification|${e}|${r}|${s}`;await((a=this.eventListeners.get(o))===null||a===void 0?void 0:a.remove());const l=await O.addListener(o,c=>{n(this.convertValue(c?.value))});this.eventListeners.set(o,l),await O.startNotifications(Object.assign({deviceId:e,service:r,characteristic:s},i))})}async stopNotifications(e,r,s){r=D(r),s=D(s),await this.queue(async()=>{var n;const i=`notification|${e}|${r}|${s}`;await((n=this.eventListeners.get(i))===null||n===void 0?void 0:n.remove()),this.eventListeners.delete(i),await O.stopNotifications({deviceId:e,service:r,characteristic:s})})}validateRequestBleDeviceOptions(e){return e.services&&(e.services=e.services.map(D)),e.optionalServices&&(e.optionalServices=e.optionalServices.map(D)),e.serviceData&&Z.getPlatform()!=="web"&&(e.serviceData=e.serviceData.map(r=>Object.assign(Object.assign({},r),{serviceUuid:D(r.serviceUuid),dataPrefix:pt(r.dataPrefix),mask:pt(r.mask)}))),e.manufacturerData&&(Z.getPlatform()!=="web"?e.manufacturerData=e.manufacturerData.map(r=>Object.assign(Object.assign({},r),{dataPrefix:pt(r.dataPrefix),mask:pt(r.mask)})):e.manufacturerData=e.manufacturerData.map(r=>Object.assign(Object.assign({},r),{dataPrefix:Vr(r.dataPrefix),mask:Vr(r.mask)}))),e}convertValue(e){return typeof e=="string"?hs(e):e===void 0?new DataView(new ArrayBuffer(0)):e}convertObject(e){if(e===void 0)return;const r={};for(const s of Object.keys(e))r[s]=this.convertValue(e[s]);return r}}const V=new Qa,oe=["corporation","company","area","subarea","equipment","point"],Fe={corporation:"Corporação",company:"Empresa",area:"Área",subarea:"Subárea",equipment:"Equipamento",point:"Ponto de medição"},A=(t,e=1)=>t==null||!Number.isFinite(Number(t))?"—":Number(t).toLocaleString("pt-BR",{minimumFractionDigits:e,maximumFractionDigits:e}),ae=t=>t?new Date(t).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"medium"}):"—",C=t=>String(t??"").replace(/[&<>"']/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[e]);function Za(t,e=Date.now()){const r=e-new Date(t.last_received_at||0).getTime();return r<25e3?{online:!0,label:"Transmitindo",className:"green"}:r<65e3?{online:!1,label:"Atraso na transmissão",className:"gray"}:{online:!1,label:"Sem atualização",className:"gray"}}function ot(t,e){const r=[],s=new Set;for(;t&&!s.has(t);){s.add(t);const n=e.find(i=>i.id===t);if(!n)break;r.unshift(n),t=n.parent_id}return r}function or(t,e,r){return!e||ot(t,r).some(s=>s.id===e)}function eo(t,e){return ot(t,e).find(r=>r.kind==="company")?.id||null}function fs(t,e=new Date){const r=new Date(e),s=new Date(e);if(t==="month"||t==="3months"){const n=s.getDate();s.setDate(1),s.setMonth(s.getMonth()-(t==="month"?1:3));const i=new Date(s.getFullYear(),s.getMonth()+1,0).getDate();s.setDate(Math.min(n,i))}else s.setTime(r.getTime()-Number(t));return{from:s,to:r}}function ps(t,e){const r=new Date(t).getTime(),s=new Date(e).getTime();if(!Number.isFinite(r)||!Number.isFinite(s)||s-r<1e3||s-r>366*864e5)throw Error("Selecione um intervalo entre 1 segundo e 366 dias.");return{from:new Date(r),to:new Date(s)}}function gs(t){return/^[A-Za-z0-9][A-Za-z0-9 ._-]{2,23}$/.test(t)}function ms(t){const e=String(t??"");return'"'+(/^[=+\-@\t\r]/.test(e)?"'":"")+e.replaceAll('"','""')+'"'}function Jt(t){if(t==null||!Number.isFinite(Number(t)))return{key:"unknown",label:"Sem leitura",action:"Aguardando medição"};const e=Number(t);return e>=70?{key:"high",label:"Alto ajuste",action:"Sem necessidade de intervenção"}:e>=45?{key:"medium",label:"Médio ajuste",action:"Sem necessidade de intervenção"}:e>20?{key:"low",label:"Baixo ajuste",action:"Planejar intervenção"}:{key:"critical",label:"Sem ajuste",action:"Substituir a gaxeta"}}function to(t,e,r,s,n){const i=+new Date(r),a=+new Date(s),o=Math.min(a,+new Date(n));if(!(a>i)||!(o>=i))return"";const l=f=>Math.max(0,Math.min(1e3,(f-i)/(a-i)*1e3)).toFixed(2),c=f=>(280-Math.max(0,Math.min(100,Number(f)))*2.8).toFixed(2);let h=e?.stable_percent,p=h==null?"":`M0 ${c(h)}`;for(const f of t){const g=+new Date(f.received_at);g<i||g>o||(p+=h==null?`M${l(g)} ${c(f.stable_percent)}`:` H${l(g)} V${c(f.stable_percent)}`,h=f.stable_percent)}return h==null?"":p+` H${l(o)}`}const ue="7a1e0001-9b3c-4d2e-8f10-123456789001",ws="7a1e0002-9b3c-4d2e-8f10-123456789001",Ze="7a1e0003-9b3c-4d2e-8f10-123456789001",vs=t=>new TextDecoder().decode(new Uint8Array(t.buffer,t.byteOffset,t.byteLength)),ys=t=>{const e=new TextEncoder().encode(t);return new DataView(e.buffer,e.byteOffset,e.byteLength)};let Hr=!1,K=null,Yt=null,_s=()=>{},Xt=()=>{},bs=null,Dt=!1;async function Es(){Hr||(await V.initialize({androidNeverForLocation:!0}),Hr=!0)}const gt=()=>K;async function yt(){clearTimeout(bs),await V.stopLEScan().catch(()=>{})}async function ro(t,e){if(await Es(),await yt(),!Z.isNativePlatform()){const r=await V.requestDevice({services:[ue]});t(r),e("Sensor selecionado. Toque em Conectar.");return}await V.requestLEScan({services:[ue],allowDuplicates:!1},r=>t({...r.device,rssi:r.rssi})),e("Buscando sensores próximos…"),bs=setTimeout(async()=>{await yt(),e("Busca concluída. Selecione um sensor ou busque novamente.")},8e3)}function Ss(){clearInterval(Yt),Yt=null,K=null,Xt("Bluetooth desconectado. A última leitura local foi preservada.")}async function _t(){const t=K;Ss(),t&&await V.disconnect(t.deviceId).catch(()=>{})}async function so(t,e,r){await Es(),await yt(),await _t(),_s=e,Xt=r,r("Conectando ao sensor…"),await V.connect(t.deviceId,Ss,{timeout:2e4}),K=t;try{await Kr(),await V.startNotifications(t.deviceId,ue,ws,s=>ks(s)).catch(()=>{}),Yt=setInterval(()=>Kr().catch(()=>Xt("Falha na leitura local; tentando novamente.")),5e3),r("Bluetooth conectado. Leitura local a cada 5 segundos.")}catch(s){throw await _t(),s}}function ks(t){const e=JSON.parse(vs(t));if(typeof e!="object"||e===null)throw Error("Resposta BLE inválida.");_s(e,K)}async function Kr(){if(!(!K||Dt)){Dt=!0;try{const t=K.deviceId,e=await V.read(t,ue,ws);K?.deviceId===t&&ks(e)}finally{Dt=!1}}}async function no(t,e,r){if(!K)throw Error("Conecte o sensor por Bluetooth.");if(!e||r!==e)throw Error("O sensor Bluetooth não corresponde ao sensor selecionado. Confira o ID.");if(!gs(t))throw Error("Nome inválido. Use de 3 a 24 caracteres sem acentos.");const s=K.deviceId;Z.getPlatform()==="android"&&!await V.isBonded(s)&&await V.createBond(s,{timeout:3e4}),await V.read(s,ue,Ze,{timeout:3e4}),await V.write(s,ue,Ze,ys(t),{timeout:1e4});for(let n=0;n<8;n++){await new Promise(a=>setTimeout(a,300));const i=vs(await V.read(s,ue,Ze));if(i===t)return i}throw Error("A placa ainda não confirmou o nome. Confira o PIN e tente novamente.")}async function io(){if(!K)throw Error("Conecte um sensor.");Z.getPlatform()==="android"&&!await V.isBonded(K.deviceId)&&await V.createBond(K.deviceId,{timeout:3e4}),await V.read(K.deviceId,ue,Ze,{timeout:3e4}),await V.write(K.deviceId,ue,Ze,ys("identify"))}function ao(t){t.CapacitorUtils.Synapse=new Proxy({},{get(e,r){return new Proxy({},{get(s,n){return(i,a,o)=>{const l=t.Capacitor.Plugins[r];if(l===void 0){o(new Error(`Capacitor plugin ${r} not found`));return}if(typeof l[n]!="function"){o(new Error(`Method ${n} not found in Capacitor plugin ${r}`));return}(async()=>{try{const c=await l[n](i);a(c)}catch(c){o(c)}})()}}})}})}function oo(t){t.CapacitorUtils.Synapse=new Proxy({},{get(e,r){return t.cordova.plugins[r]}})}function lo(t=!1){typeof window>"u"||(window.CapacitorUtils=window.CapacitorUtils||{},window.Capacitor!==void 0&&!t?ao(window):window.cordova!==void 0&&oo(window))}var Qt;(function(t){t.Documents="DOCUMENTS",t.Data="DATA",t.Library="LIBRARY",t.Cache="CACHE",t.External="EXTERNAL",t.ExternalStorage="EXTERNAL_STORAGE",t.ExternalCache="EXTERNAL_CACHE",t.LibraryNoCloud="LIBRARY_NO_CLOUD",t.Temporary="TEMPORARY"})(Qt||(Qt={}));var Zt;(function(t){t.UTF8="utf8",t.ASCII="ascii",t.UTF16="utf16"})(Zt||(Zt={}));const co=Ge("Filesystem",{web:()=>ar(()=>import("./web-8iTD2sZM.js"),[],import.meta.url).then(t=>new t.FilesystemWeb)});lo();const uo=Ge("Share",{web:()=>ar(()=>import("./web-BfBGDy75.js"),[],import.meta.url).then(t=>new t.ShareWeb)});async function Ts(t,e){if(Z.isNativePlatform()){const n=await co.writeFile({path:e,data:"\uFEFF"+t,directory:Qt.Cache,encoding:Zt.UTF8});await uo.share({title:"Telemetria de gaxeta",files:[n.uri],dialogTitle:"Salvar ou compartilhar CSV"});return}const r=URL.createObjectURL(new Blob(["\uFEFF",t],{type:"text/csv;charset=utf-8"})),s=document.createElement("a");s.href=r,s.download=e,s.click(),setTimeout(()=>URL.revokeObjectURL(r),1e3)}const u=t=>document.getElementById(t),Oe=()=>en({icons:{LayoutGrid:Ks,Network:Gs,ChartNoAxesCombined:Ms,Router:Xs,Bluetooth:Us,BluetoothSearching:Ds,BookOpen:Bs,Plus:Js,Search:Qs,Radio:Ys,Wifi:Zs,Building2:qs,Factory:Ws,Folder:Hs,Cog:Vs,MapPin:zs,ChevronRight:Fs}}),d={clockOffset:0,devices:[],assets:[],gateways:[],sensorId:"",assetId:"",page:"sensors",collapsed:new Set,history:[],movements:[],seed:null,stats:{},period:36e5,range:fs(36e5),custom:!1,authorized:!1,loading:!1,timer:null,historyRequest:0,authRequest:0,editAsset:null,bleReading:null,bleDevice:null,detailSignature:""},Ve=t=>`<i data-lucide="${t}"></i>`,qe=t=>Za(t,Date.now()+d.clockOffset),Ae=()=>d.devices.find(t=>t.sensor_id===d.sensorId),lr=t=>d.assets.find(e=>e.id===t)?.name||"—",ee=t=>ot(t,d.assets).map(e=>e.tag?`${e.name} · ${e.tag}`:e.name).join(" / "),z=t=>t.desired_label||t.applied_label||(t.label==="Sensor de gaxeta"?t.sensor_id:t.label)||t.sensor_id;function B(t){u("globalMessage").textContent=t,u("globalMessage").hidden=!t}function W(t){return t?.message?.includes("Failed to fetch")?"Não foi possível conectar. Verifique sua conexão.":t?.code==="23505"?"Este ponto já tem um sensor. Escolha outro ponto ou remova o vínculo atual antes de transferir.":t?.code==="23503"?"Este cadastro possui vínculos. Confira o nível superior e os sensores associados.":t?.code==="42501"?"Sua conta não tem acesso a esta operação.":t?.message||String(t)}async function We(t,e){if(!t.disabled){t.disabled=!0;try{await e()}catch(r){B(W(r))}finally{t.disabled=!1}}}function Te(t,e,r,s=""){t.replaceChildren(),r!==null&&t.add(new Option(r,""));for(const n of e)t.add(new Option(n.label,n.value));t.value=s}async function Os(t){if(t&&d.authorized&&d.userId===t.user.id)return;const e=++d.authRequest;if(d.authorized=!1,clearTimeout(d.timer),d.historyRequest++,u("application").hidden=!0,u("auth").hidden=!1,!t){d.userId=null,d.devices=[],d.assets=[],d.gateways=[],d.history=[],d.movements=[],d.seed=null,d.stats={},d.historyRange=null,d.sensorId="",d.assetId="",d.detailSignature="",Q(),Ke();return}try{const r=await ce(X.rpc("gaxeta_has_access"));if(e!==d.authRequest)return;if(!r){u("authMessage").textContent="Este acesso ainda não está autorizado. Confirme o e-mail cadastrado e fale com o responsável pela operação.";return}d.authorized=!0,d.userId=t.user.id,u("auth").hidden=!0,u("application").hidden=!1,u("userEmail").textContent=t.user.email,B(""),t.user.user_metadata?.must_change_password&&(Tt=!0,u("closeAccount").hidden=!0,u("accountForm").reset(),u("accountDialog").showModal()),await ve(),he(["sensors","assets","telemetry","gateways"].includes(location.hash.slice(1))?location.hash.slice(1):"sensors")}catch(r){u("authMessage").textContent=W(r)}}async function ve(){if(!d.authorized||document.hidden)return;if(d.loading){d.refreshPending=!0;return}d.loading=!0,d.refreshPending=!1,clearTimeout(d.timer);const t=d.authRequest,e=d.dataRevision||0;try{const r=await La();if(!d.authorized||t!==d.authRequest||(d.dataRevision||0)!==e)return;Object.assign(d,r),Ae()||(d.sensorId=d.devices[0]?.sensor_id||""),d.assetId&&!d.assets.some(s=>s.id===d.assetId)&&(d.assetId=""),u("connection").textContent="Conectado",u("connection").className="connection ok",u("lastSync").textContent=`Última consulta ${ae(new Date)}`,Q(),d.page==="telemetry"&&await Ce()}catch(r){u("connection").textContent="Conexão indisponível",u("connection").className="connection error",B(W(r)),kt(),$s(),Oe()}finally{d.loading=!1,d.authorized&&(d.timer=setTimeout(ve,d.refreshPending?0:5e3))}}function Q(){u("sensorCount").textContent=d.devices.length;const t=d.devices.filter(s=>qe(s).online).length;u("onlineCount").textContent=t,u("offlineCount").textContent=d.devices.length-t,As(),ho(),kt();const e=Ae(),r=JSON.stringify(e&&[e.sensor_id,e.desired_label,e.applied_label,e.measurement_point_id,e.gateway_id,e.firmware_version]);r!==d.detailSignature&&!u("detailPane").contains(document.activeElement)&&(go(),d.detailSignature=r),$s(),Cs(),vo(),Oe()}function As(){const t=u("treeSearch").value.trim().toLocaleLowerCase("pt-BR"),e=new Set;if(t){for(const n of d.assets)if(`${n.name} ${n.tag}`.toLocaleLowerCase("pt-BR").includes(t))for(const i of ot(n.id,d.assets))e.add(i.id)}const r={corporation:"building-2",company:"factory",area:"folder",subarea:"folder",equipment:"cog",point:"map-pin"};function s(n){const i=d.assets.filter(a=>a.parent_id===n&&(!t||e.has(a.id)));return i.length?'<ul role="group">'+i.map(a=>{const o=d.assets.some(h=>h.parent_id===a.id),l=d.collapsed.has(a.id)&&!t,c=d.devices.filter(h=>or(h.measurement_point_id,a.id,d.assets)).length;return`<li role="treeitem" aria-selected="${d.assetId===a.id}" ${o?`aria-expanded="${!l}"`:""}><div class="tree-row ${d.assetId===a.id?"selected":""}"><button class="tree-toggle" data-toggle="${a.id}" aria-label="${l?"Expandir":"Recolher"} ${C(a.name)}" ${o?"":"disabled"}>${o?l?"＋":"−":"·"}</button><button class="tree-node" data-asset="${a.id}" title="${C(ee(a.id))}">${Ve(r[a.kind])}<span><small class="node-kind">${Fe[a.kind]}</small>${C(a.tag?`${a.name} · ${a.tag}`:a.name)}</span><small class="node-count">${c}</small></button><button class="tree-action" data-edit-asset="${a.id}" aria-label="Editar ${C(a.name)}" title="Editar">✎</button><button class="tree-action" data-child-asset="${a.id}" aria-label="${a.kind==="point"?"Vincular sensor a":"Adicionar abaixo de"} ${C(a.name)}" title="${a.kind==="point"?"Vincular sensor":"Adicionar nível abaixo"}">＋</button></div>${a.kind==="point"?d.devices.filter(h=>h.measurement_point_id===a.id).map(h=>`<button class="tree-sensor" data-tree-sensor="${C(h.sensor_id)}">${Ve("radio")}${C(z(h))} <strong>${A(h.stable_percent)}%</strong></button>`).join(""):""}${l?"":s(a.id)}</li>`}).join("")+"</ul>":""}u("tree").innerHTML=s(null)||`<div class="tree-empty">${t?"Nenhum ativo encontrado.":"Cadastre sua corporação para começar. Depois, acrescente empresas, áreas, equipamentos e pontos de medição."}</div>`,u("assetCount").textContent=`${d.assets.length} ativos`,u("editAsset").disabled=!d.assetId}function ho(){const t=d.assets.find(s=>s.id===d.assetId),e=t?oe[oe.indexOf(t.kind)+1]:null;if(!t){u("assetInspector").innerHTML='<h2>Sua estrutura de ativos</h2><p>Selecione um nível da árvore para editar ou adicionar o próximo.</p><ol class="hierarchy-guide"><li>Corporação</li><li>Empresa</li><li>Área</li><li>Subárea</li><li>Equipamento e TAG</li><li>Ponto de medição e sensor</li></ol><p>O sensor é vinculado no último nível. O equipamento pode ter vários pontos.</p>';return}const r=d.devices.filter(s=>or(s.measurement_point_id,t.id,d.assets));u("assetInspector").innerHTML=`<span class="eyebrow">${Fe[t.kind]}</span><h2>${C(t.name)}</h2><p class="inspector-path">${C(ee(t.id))}</p>${t.tag?"<p><strong>TAG / código:</strong> "+C(t.tag)+"</p>":""}${t.position?"<p><strong>Posição:</strong> "+C(t.position)+"</p>":""}<div class="inspector-actions"><button class="secondary" data-inspector="edit">Editar este nível</button><button class="primary" data-inspector="child">${e?"Adicionar "+Fe[e].toLowerCase():"Vincular sensor"}</button></div><h3>${r.length} sensores neste ramo</h3>${r.map(s=>'<div class="inspector-sensor"><strong>'+C(z(s))+"</strong><span>"+C(ee(s.measurement_point_id))+'</span><button class="text-button" data-inspect-sensor="'+C(s.sensor_id)+'">Editar vínculo</button><button class="text-button" data-inspect-history="'+C(s.sensor_id)+'">Ver histórico →</button></div>').join("")||"<p>Nenhum sensor vinculado. Crie os níveis até o ponto de medição e selecione o sensor disponível.</p>"}`}function kt(){const t=u("sensorSearch").value.trim().toLocaleLowerCase("pt-BR"),e=u("statusFilter").value,r=d.devices.filter(s=>or(s.measurement_point_id,d.assetId,d.assets)&&(z(s)+" "+s.sensor_id+" "+s.wifi_mac+" "+s.ble_mac+" "+ee(s.measurement_point_id)).toLocaleLowerCase("pt-BR").includes(t)&&(e==="all"||e==="unassigned"&&!s.measurement_point_id||e==="online"&&qe(s).online||e==="offline"&&!qe(s).online));u("scopeTitle").textContent=d.assetId?lr(d.assetId):"Todos os sensores",u("visibleCount").textContent=r.length+" sensores",u("sensorGrid").innerHTML=r.map(s=>{const n=qe(s),i=Jt(s.stable_percent),a=Math.max(0,Math.min(100,Number(s.stable_percent)||0));return`<article class="sensor-card health-${i.key}"><button class="card-open" data-sensor="${C(s.sensor_id)}" aria-label="Abrir telemetria de ${C(z(s))}"><div class="card-head"><strong>${C(z(s))}</strong>${Ve("radio")}</div><div class="card-location">${C(ee(s.measurement_point_id)||"Sensor sem vínculo · selecione Editar")}</div><div class="card-value">${A(s.stable_percent)}<small>%</small></div><div class="card-label">Ajuste estabilizado · variação de 5 p.p.</div><div class="mini-scale"><i style="width:${a}%"></i></div><div class="adjustment-badge">${i.label}</div><p class="card-advice">${i.action}</p><div class="card-metrics"><div>${A(s.last_percent)} %<small>Leitura bruta</small></div><div>${A(s.last_voltage_v,3)} V<small>Tensão estimada</small></div></div><div class="card-footer"><span><span class="dot ${n.className}"></span> ${n.label}</span><span>Ver histórico →</span></div></button><button class="card-edit" data-edit-sensor="${C(s.sensor_id)}">Editar nome e localização</button></article>`}).join("")||'<div class="empty-state"><h3>Nenhum sensor nesta seleção</h3><p>Use Todos para localizar sensores sem vínculo. No cartão, selecione Editar nome e localização para escolher o ponto de medição.</p><button class="secondary" id="showAllSensors">Mostrar todos os sensores</button></div>'}function Cs(){const t=u("historySearch").value.trim().toLocaleLowerCase("pt-BR"),e=d.devices.filter(r=>r.sensor_id===d.sensorId||(z(r)+" "+ee(r.measurement_point_id)+" "+r.sensor_id).toLocaleLowerCase("pt-BR").includes(t));Te(u("historySensor"),e.map(r=>({value:r.sensor_id,label:z(r)+" — "+(ee(r.measurement_point_id)||"Sem vínculo")})),e.length?null:"Nenhum sensor",d.sensorId),u("historyLocation").textContent=ee(Ae()?.measurement_point_id)||"Sensor sem ponto de medição"}function fo(t){const e=ot(t.measurement_point_id,d.assets);u("sensorLocation").innerHTML=oe.slice(0,-1).map(s=>`<label>${Fe[s]}<select id="location-${s}"></select></label>`).join("");function r(s,n=!1){for(let a=s;a<5;a++){const o=oe[a],l=a?u("location-"+oe[a-1]).value:null;Te(u("location-"+o),d.assets.filter(c=>c.kind===o&&c.parent_id===l).map(c=>({value:c.id,label:c.name+(c.tag?" · "+c.tag:"")})),a===0?"Selecione a corporação":"Selecione "+Fe[o].toLowerCase(),n&&e.find(c=>c.kind===o)?.id||"")}const i=u("location-equipment").value;Te(u("sensorPoint"),po(t).filter(a=>d.assets.find(o=>o.id===a.value)?.parent_id===i),"Sem vínculo",n&&t.measurement_point_id||""),Rs(n&&t.gateway_id||"")}r(0,!0),oe.slice(0,-1).forEach((s,n)=>u("location-"+s).onchange=()=>r(n+1))}function cr(t){d.sensorId=t,d.detailSignature="",he("sensors"),Q(),u("detailPane").scrollIntoView?.({behavior:"smooth",block:"start"}),u("sensorName")?.focus({preventScroll:!0})}function po(t){return d.assets.filter(e=>e.kind==="point"&&!d.devices.some(r=>r.sensor_id!==t.sensor_id&&r.measurement_point_id===e.id)).map(e=>({value:e.id,label:ee(e.id)}))}function go(){const t=Ae();if(!t){u("detailPane").innerHTML='<div class="detail-empty"><h2>Selecione um sensor</h2><p>A leitura aparece após a primeira transmissão.</p></div>';return}const e=qe(t),r=d.assets.find(i=>i.id===t.measurement_point_id),s=d.gateways.find(i=>i.id===t.gateway_id),n=[["ID",t.sensor_id],["MAC Wi-Fi",t.wifi_mac||"—"],["MAC BLE",t.ble_mac||"—"],["Ponto",r?`${r.name}${r.tag?" · "+r.tag:""}`:"Sem vínculo"],["Posição",r?.position||"Não informada"],["Transporte","Wi-Fi direto"],["Gateway futuro",s?.name||"Sem vínculo"],["Firmware",t.firmware_version||"Anterior à v4"]];u("detailPane").innerHTML=`<div class="detail-heading">${C(z(t))}${Ve("radio")}</div><div class="detail-body"><div class="live-line" id="detailStatus"><span class="dot ${e.className}"></span>${e.label}</div><div class="last-reading" id="detailTime">${ae(t.last_received_at)}</div><div class="detail-tabs"><strong>Detalhes e vínculo</strong><button id="detailHistory">Ver histórico →</button></div><form id="sensorForm"><label>Nome do sensor<input id="sensorName" required minlength="3" maxlength="24" title="3 a 24 caracteres sem acentos" value="${C(z(t))}"></label><div id="sensorLocation" class="location-selects"></div><label>Ponto de medição<select id="sensorPoint"></select></label><button type="button" id="createSensorPoint" class="text-button">+ Criar ponto no equipamento selecionado</button><label>Gateway futuro<select id="sensorGateway"></select></label><button class="primary" type="submit">Salvar vínculo e nome</button></form><span class="confirmed" id="nameState">Nome da plataforma salvo. Bluetooth: ${C(t.applied_label||"não informado")}. A sincronização local é opcional.</span><button id="applyBleName" class="secondary">Sincronizar nome Bluetooth (opcional)</button><span class="transport-note">${Ve("wifi")}Envio direto por Wi-Fi</span><details class="technical-detail"><summary>Identificação técnica e diagnóstico</summary><dl class="detail-fields">${n.map(([i,a])=>`<dt>${C(i)}</dt><dd>${C(a)}</dd>`).join("")}<dt>Sequência</dt><dd id="detailSequence">${t.last_sequence??"—"}</dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi">${t.last_rssi??"—"} dBm</dd><dt>Ruído ADC</dt><dd id="detailNoise">${A(t.adc_noise,2)} contagens</dd></dl></details><small style="display:block;line-height:1.5">Posição e tensão estimadas. Curso de referência: 50 mm. A calibração física define a escala final.</small></div>`,fo(t),u("createSensorPoint").onclick=()=>{const i=u("location-equipment").value;if(!i){B("Selecione corporação, empresa, área, subárea e equipamento primeiro.");return}d.assetId=i,He(),u("assetSensor").value=t.sensor_id,u("assetSensorName").value=z(t)},u("sensorPoint").onchange=()=>Rs(u("sensorGateway").value),u("detailHistory").onclick=()=>he("telemetry"),u("sensorForm").onsubmit=async i=>{i.preventDefault(),await We(i.submitter,mo)},u("applyBleName").onclick=async i=>{await We(i.currentTarget,async()=>{if(!gt()||d.bleReading?.sensor_id!==d.sensorId){ur(),u("bleStatus").textContent="Conecte o sensor com ID "+d.sensorId+" para aplicar o nome.";return}await wo()})},Oe()}function Rs(t=""){const e=eo(u("sensorPoint").value,d.assets);Te(u("sensorGateway"),d.gateways.filter(r=>!e||r.company_id===e).map(r=>({value:r.id,label:`${r.name} · ${lr(r.company_id)}`})),"Sem vínculo",t)}function $s(){const t=Ae();if(!t||!u("detailStatus"))return;const e=qe(t);u("detailStatus").innerHTML=`<span class="dot ${e.className}"></span>${e.label}`,u("detailTime").textContent=ae(t.last_received_at),u("detailSequence").textContent=t.last_sequence??"—",u("detailRssi").textContent=`${t.last_rssi??"—"} dBm`,u("detailNoise").textContent=`${A(t.adc_noise,2)} contagens`}async function mo(){const t=d.sensorId,e=u("sensorName").value.trim();if(!gs(e))throw Error("Use de 3 a 24 caracteres: letras sem acento, números, espaço, ponto, hífen ou sublinhado.");const r=await ce(X.rpc("gaxeta_configure_sensor",{p_sensor_id:t,p_label:e,p_point_id:u("sensorPoint").value||null,p_gateway_id:u("sensorGateway").value||null}));d.dataRevision=(d.dataRevision||0)+1,d.devices=d.devices.map(s=>s.sensor_id===t?r:s),d.detailSignature="",Q(),B("Nome e localização salvos na plataforma. O sensor já aparece no ramo selecionado.")}async function wo(){const t=Ae();if(!t?.desired_label)throw Error("Salve primeiro o nome desejado.");const e=await no(t.desired_label,t.sensor_id,d.bleReading?.sensor_id);B(`Nome “${e}” gravado e lido na placa. A confirmação na nuvem aparecerá na próxima transmissão.`),await ve()}function he(t){d.page=t,location.hash=t,document.body.classList.toggle("asset-mode",t==="assets"),u("detailPane").hidden=t==="assets",u("assetInspector").hidden=t!=="assets",u("workspace").hidden=!["sensors","assets"].includes(t),u("telemetryPage").hidden=t!=="telemetry",u("gatewayPage").hidden=t!=="gateways",u("pageTitle").textContent={sensors:"Sensores",assets:"Árvore de ativos",telemetry:"Telemetria",gateways:"Gateways"}[t];for(const e of document.querySelectorAll("[data-page]"))e.classList.toggle("active",e.dataset.page===t),e.setAttribute("aria-current",e.dataset.page===t?"page":"false");t==="telemetry"&&Ce().catch(e=>B(W(e)))}function Ps(){const t=u("assetKind").value,e=oe[oe.indexOf(t)-1];Te(u("assetParent"),d.assets.filter(r=>r.kind===e).map(r=>({value:r.id,label:ee(r.id)})),t==="corporation"?"Raiz da estrutura":"Selecione o ativo superior",d.editAsset?.parent_id||d.assetId),t==="corporation"&&(u("assetParent").value=""),u("assetParent").disabled=t==="corporation",u("assetParent").required=t!=="corporation",u("positionLabel").hidden=t!=="point",u("assetSensorFields").hidden=t!=="point",u("assetParentLabel").textContent=t==="corporation"?"Raiz da árvore":"Dentro de qual "+Fe[e].toLowerCase()+"?",u("assetHelp").textContent=t==="corporation"?"Comece pela organização. O TAG pertence ao equipamento.":t==="equipment"?"Cadastre o equipamento e seu TAG. Depois adicione os pontos 1, 2, 3…":t==="point"?"Escolha o equipamento, indique o ponto/lado e selecione o sensor.":"Cadastre este nível dentro do nível superior. O sensor será vinculado ao ponto de medição."}function He(t=!1){d.editAsset=t?d.assets.find(r=>r.id===d.assetId):null;const e=d.editAsset;u("assetDialogTitle").textContent=e?"Editar ativo":"Novo ativo",u("assetFormMessage").textContent="",u("assetKind").disabled=!!e,u("assetKind").value=e?.kind||oe[Math.min(5,oe.indexOf(d.assets.find(r=>r.id===d.assetId)?.kind)+1)]||"corporation",u("assetName").value=e?.name||"",u("assetTag").value=e?.tag||"",u("assetPosition").value=e?.position||"",u("deleteAsset").hidden=!e,Ps(),Te(u("assetSensor"),d.devices.filter(r=>!d.devices.some(s=>s.sensor_id!==r.sensor_id&&s.measurement_point_id===e?.id)).map(r=>({value:r.sensor_id,label:z(r)+(r.measurement_point_id?" · atualmente em "+ee(r.measurement_point_id):" · sem vínculo")})),"Vincular depois",d.devices.find(r=>r.measurement_point_id===e?.id)?.sensor_id||""),u("assetSensorName").value=z(d.devices.find(r=>r.sensor_id===u("assetSensor").value)||{sensor_id:""}),u("assetDialog").showModal()}function vo(){u("gatewayGrid").innerHTML=d.gateways.map(t=>`<article class="gateway-card">${Ve("router")}<h3>${C(t.name)}</h3><p>${C(lr(t.company_id))}</p><code>${C(t.identifier)}</code><p>${d.devices.filter(e=>e.gateway_id===t.id).length} sensores vinculados</p><span class="pending">Vínculo cadastral. Transporte Bluetooth para gateway ainda não ativado.</span></article>`).join("")||'<div class="empty-state"><h3>Nenhum gateway cadastrado</h3><p>Os sensores continuam transmitindo diretamente pelo Wi-Fi.</p></div>'}function zr(t){return new Date(t.getTime()-t.getTimezoneOffset()*6e4).toISOString().slice(0,16)}async function Ce(){const t=++d.historyRequest,e=d.sensorId;if(!e){d.history=[],d.stats={},Ke();return}d.custom||(d.range=fs(d.period,new Date(Date.now()+d.clockOffset)));const r={...d.range},s=await ce(X.rpc("gaxeta_history",{p_sensor_id:e,p_from:r.from.toISOString(),p_to:r.to.toISOString()}));t!==d.historyRequest||e!==d.sensorId||!d.authorized||(d.history=s.history||[],d.movements=s.movements||[],d.seed=s.seed||null,d.movementsTruncated=!!s.movements_truncated,d.stats=s.stats||{},d.historyRange=r,d.bucketSeconds=s.bucket_seconds,u("customRange").contains(document.activeElement)||(u("fromTime").value=zr(r.from),u("toTime").value=zr(r.to)),Ke())}function Ke(){const t=d.history,e=Ae(),r=d.historyRange||d.range;u("historyTitle").textContent=e?z(e):"Deslocamento da gaxeta",u("historyCurrent").textContent=`${A(e?.stable_percent)} %`;const s=Jt(e?.stable_percent);u("historyHealth").className="health-banner health-"+s.key,u("historyHealth").textContent=s.label+" · "+s.action,u("historyRaw").textContent="Leitura bruta atual: "+A(e?.last_percent)+"% · referência desde "+ae(e?.stable_since),u("historyMin").textContent=`${A(d.stats.min)} %`,u("historyMax").textContent=`${A(d.stats.max)} %`,u("historyCount").textContent=A(d.stats.count||0,0),u("chartEmpty").hidden=t.length>0,u("chartFrom").textContent=ae(r.from),u("chartTo").textContent=ae(r.to),u("aggregationNote").textContent=d.movementsTruncated?"Muitos movimentos neste intervalo. Reduza o período para exibir o gráfico completo.":"Linha: variação ≥ 5 p.p. · faixa bruta: mín./máx. · médias de "+A(d.bucketSeconds||1,0)+" s",u("exportCsv").disabled=!t.length,u("exportMovements").disabled=!d.movements.length||d.movementsTruncated,u("movementCount").textContent=d.movementsTruncated?"Mais de 5.000 registros — reduza o período":d.movements.filter(o=>o.previous_percent!=null).length+" mudanças no período",u("movementRows").innerHTML=d.movements.slice(-30).reverse().map(o=>{const l=Jt(o.stable_percent);return`<tr><td>${ae(o.received_at)}</td><td>${o.previous_percent==null?"Referência inicial":A(o.previous_percent)+" %"}</td><td>${A(o.stable_percent)} %</td><td>${o.previous_percent==null?"—":A(o.stable_percent-o.previous_percent)+" p.p."}</td><td><span class="adjustment-badge health-${l.key}">${l.label}</span></td></tr>`}).join("")||'<tr><td colspan="5">Nenhuma mudança de 5 pontos neste período. A referência anterior é mantida enquanto chegam novas leituras.</td></tr>';const n=(o,l)=>{const c=Math.max(0,Math.min(1e3,(new Date(o.received_at)-r.from)/(r.to-r.from)*1e3)),h=280-Math.max(0,Math.min(100,Number(o[l])))*2.8;return`${c.toFixed(2)} ${h.toFixed(2)}`},i=d.movementsTruncated?"":to(d.movements,d.seed,r.from,r.to,d.stats.last_received_at||t.at(-1)?.received_at),a=t.length?t.map((o,l)=>`${l?"L":"M"}${n(o,"min_percent")}`).join(" ")+[...t].reverse().map(o=>`L${n(o,"max_percent")}`).join(" ")+" Z":"";u("historyChart").innerHTML=t.length?`<path class="chart-band" d="${u("showRawBand").checked?a:""}"/><path class="chart-line" d="${i}"/>${t.length===1&&i?`<circle cx="${n(t[0],"travel_percent").split(" ")[0]}" cy="${n(t[0],"stable_percent").split(" ")[1]}" r="4" fill="#174f6a"/>`:""}`:"",u("historyChart").setAttribute("aria-label",`${t.length} intervalos. ${A(d.stats.count||0,0)} leituras. Mínimo ${A(d.stats.min)}%, máximo ${A(d.stats.max)}%. Arraste para ampliar.`),u("historyRows").innerHTML=t.slice(-30).reverse().map(o=>`<tr><td>${ae(o.received_at)}</td><td>${A(o.stable_percent)} %<small class="raw-average">Bruta: ${A(o.travel_percent)}%</small></td><td>${A(o.min_percent)} / ${A(o.max_percent)} %</td><td>${A(o.position_mm,2)} mm</td><td>${A(o.voltage_v,3)} V</td><td>${A(o.samples,0)}</td></tr>`).join("")||'<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>'}function ur(){u("bleDialog").showModal()}function yo(t,e){d.bleReading=t,d.bleDevice=e,u("bleLive").hidden=!1,u("bleName").textContent=t.device||e?.name||"Sensor",u("bleIdentity").textContent=t.sensor_id||"Firmware sem identificação; atualize para configurar.",u("blePercent").textContent=`${A(t.travel_percent)} %`,u("bleVoltage").textContent=`${A(t.voltage_v,3)} V`,u("bleTimestamp").textContent=`Leitura local ${ae(new Date)} · sequência ${t.sequence??"—"}`}function ze(t){u("bleStatus").textContent=t,u("disconnectBle").disabled=!gt(),u("identifyBle").disabled=!gt(),u("linkBle").disabled=!gt()}u("loginForm").onsubmit=async t=>{t.preventDefault(),await We(t.submitter,async()=>{u("authMessage").textContent="Entrando…";const{error:e}=await X.auth.signInWithPassword({email:u("email").value.trim(),password:u("password").value});if(e){u("authMessage").textContent=e.message;return}u("authMessage").textContent=""})};u("signup").onclick=()=>{u("authMessage").textContent="O acesso é individual e cadastrado pelo responsável pela operação. Use a credencial privada fornecida à sua conta."};let Tt=!1;u("account").onclick=()=>{u("accountMessage").textContent="",u("accountForm").reset(),u("accountDialog").showModal()};u("closeAccount").onclick=()=>{Tt||u("accountDialog").close()};u("accountDialog").addEventListener("cancel",t=>{Tt&&t.preventDefault()});u("accountForm").onsubmit=async t=>{t.preventDefault();const e=u("newPassword").value;if(e!==u("confirmPassword").value){u("accountMessage").textContent="As senhas não coincidem.";return}t.submitter.disabled=!0;try{const{error:r}=await X.auth.updateUser({password:e,data:{must_change_password:!1}});if(r)throw r;Tt=!1,u("closeAccount").hidden=!1,u("accountDialog").close(),u("accountForm").reset(),B("Sua senha foi atualizada.")}catch(r){u("accountMessage").textContent=W(r)}finally{t.submitter.disabled=!1}};u("logout").onclick=async()=>{await _t(),await X.auth.signOut(),await Os(null)};u("refresh").onclick=()=>ve();document.querySelectorAll("[data-page]").forEach(t=>t.onclick=()=>he(t.dataset.page));u("clearAsset").onclick=()=>{d.assetId="",Q()};u("treeSearch").oninput=()=>{As(),Oe()};u("sensorSearch").oninput=()=>{kt(),Oe()};u("statusFilter").onchange=()=>{kt(),Oe()};u("tree").onclick=t=>{const e=t.target.closest("[data-edit-asset]"),r=t.target.closest("[data-child-asset]"),s=t.target.closest("[data-tree-sensor]");if(s){d.sensorId=s.dataset.treeSensor,Q(),he("telemetry");return}if(e){d.assetId=e.dataset.editAsset,He(!0);return}if(r){d.assetId=r.dataset.childAsset,He(d.assets.find(a=>a.id===d.assetId)?.kind==="point");return}const n=t.target.closest("[data-toggle]"),i=t.target.closest("[data-asset]");if(n){const a=n.dataset.toggle;d.collapsed.has(a)?d.collapsed.delete(a):d.collapsed.add(a)}else i&&(d.assetId=i.dataset.asset);Q()};u("sensorGrid").onclick=t=>{if(t.target.closest("#showAllSensors")){d.assetId="",u("sensorSearch").value="",u("statusFilter").value="all",Q();return}const e=t.target.closest("[data-edit-sensor]");if(e){cr(e.dataset.editSensor);return}const r=t.target.closest("[data-sensor]");r&&(d.sensorId=r.dataset.sensor,d.detailSignature="",d.history=[],d.stats={},Q(),Ke(),he("telemetry"))};u("assetInspector").onclick=t=>{const e=t.target.closest("[data-inspector]"),r=t.target.closest("[data-inspect-sensor]"),s=t.target.closest("[data-inspect-history]");e&&He(e.dataset.inspector==="edit"||d.assets.find(n=>n.id===d.assetId)?.kind==="point"),r&&cr(r.dataset.inspectSensor),s&&(d.sensorId=s.dataset.inspectHistory,Q(),he("telemetry"))};u("addAsset").onclick=()=>He();u("editAsset").onclick=()=>He(!0);u("assetKind").onchange=Ps;u("assetForm").onsubmit=async t=>{t.preventDefault();const e=t.submitter;e.disabled=!0;try{const r={name:u("assetName").value.trim(),tag:u("assetTag").value.trim(),kind:u("assetKind").value,parent_id:u("assetKind").value==="corporation"?null:u("assetParent").value,position:u("assetKind").value==="point"?u("assetPosition").value.trim():""},s=r.kind==="point"?u("assetSensor").value:null,n=await ce(X.rpc("gaxeta_save_asset",{p_id:d.editAsset?.id||null,p_parent_id:r.parent_id||null,p_kind:r.kind,p_name:r.name,p_tag:r.tag,p_position:r.position,p_sensor_id:s||null,p_sensor_label:s?u("assetSensorName").value.trim():null}));s&&(d.sensorId=s),d.dataRevision=(d.dataRevision||0)+1,d.assets=[...d.assets.filter(i=>i.id!==n.id),n],d.assetId=n.id,u("assetDialog").close(),await ve(),d.detailSignature="",Q(),B(s?"Ponto e vínculo do sensor salvos.":"Ativo salvo. Use + ao lado dele para criar o próximo nível.")}catch(r){u("assetFormMessage").textContent=W(r)}finally{e.disabled=!1}};u("deleteAsset").onclick=async t=>{const e=d.editAsset?.id;if(e){if(d.assets.some(r=>r.parent_id===e)||d.devices.some(r=>r.measurement_point_id===e)||d.gateways.some(r=>r.company_id===e)){u("assetFormMessage").textContent="Remova os vínculos e ativos subordinados antes de excluir.";return}confirm("Excluir este ativo vazio?")&&await We(t.currentTarget,async()=>{await ce(X.from("gaxeta_assets").delete().eq("id",e)),d.assetId="",u("assetDialog").close(),await ve(),B("Ativo vazio excluído.")})}};u("addGateway").onclick=()=>{Te(u("gatewayCompany"),d.assets.filter(t=>t.kind==="company").map(t=>({value:t.id,label:ee(t.id)})),"Selecione a empresa"),u("gatewayForm").reset(),u("gatewayMessage").textContent="",u("gatewayDialog").showModal()};u("gatewayForm").onsubmit=async t=>{t.preventDefault(),t.submitter.disabled=!0;try{await ce(X.from("gaxeta_gateways").insert({name:u("gatewayName").value.trim(),identifier:u("gatewayIdentifier").value.trim(),company_id:u("gatewayCompany").value})),u("gatewayDialog").close(),await ve()}catch(e){u("gatewayMessage").textContent=W(e)}finally{t.submitter.disabled=!1}};document.querySelectorAll("[data-close]").forEach(t=>t.onclick=()=>u(t.dataset.close).close());document.querySelectorAll("[data-range]").forEach(t=>t.onclick=()=>{d.period=t.dataset.range,d.custom=!1,document.querySelectorAll("[data-range]").forEach(e=>e.classList.toggle("selected",e===t)),Ce().catch(e=>B(W(e)))});u("customRange").onsubmit=t=>{t.preventDefault();try{d.range=ps(u("fromTime").value,u("toTime").value),d.custom=!0,document.querySelectorAll("[data-range]").forEach(e=>e.classList.remove("selected")),Ce().catch(e=>B(W(e)))}catch(e){B(W(e))}};u("resetZoom").onclick=()=>{d.custom=!1,Ce().catch(t=>B(W(t)))};u("historySensor").onchange=()=>{d.sensorId=u("historySensor").value,d.historyRequest++,d.history=[],d.stats={},Q(),Ke(),Ce().catch(t=>B(W(t)))};let we=null;const dr=t=>Math.max(0,Math.min(1,(t.clientX-u("historyChart").getBoundingClientRect().left)/u("historyChart").getBoundingClientRect().width));u("historyChart").onpointerdown=t=>{d.history.length&&(we=dr(t),u("historyChart").setPointerCapture(t.pointerId))};u("historyChart").onpointermove=t=>{const e=dr(t),r=d.historyRange||d.range;if(we!==null){let i=u("historyChart").querySelector(".chart-selection");i||(i=document.createElementNS("http://www.w3.org/2000/svg","rect"),i.setAttribute("class","chart-selection"),i.setAttribute("height","280"),u("historyChart").append(i)),i.setAttribute("x",Math.min(e,we)*1e3),i.setAttribute("width",Math.abs(e-we)*1e3);return}const s=r.from.getTime()+e*(r.to-r.from),n=d.history.reduce((i,a)=>!i||Math.abs(new Date(a.received_at)-s)<Math.abs(new Date(i.received_at)-s)?a:i,null);n&&(u("chartTooltip").hidden=!1,u("chartTooltip").textContent=`${ae(n.received_at)}
-Estabilizado ${A(n.stable_percent)}% · média bruta ${A(n.travel_percent)}% · mín. ${A(n.min_percent)}% · máx. ${A(n.max_percent)}%
-${A(n.samples,0)} leituras`)};u("historyChart").onpointerleave=()=>{u("chartTooltip").hidden=!0};u("historyChart").onpointercancel=()=>{we=null,u("historyChart").querySelector(".chart-selection")?.remove()};u("historyChart").onpointerup=t=>{if(we===null)return;const e=dr(t),r=we;if(we=null,u("historyChart").querySelector(".chart-selection")?.remove(),Math.abs(e-r)<.01)return;const s=d.historyRange||d.range,n=s.to-s.from;try{d.range=ps(new Date(s.from.getTime()+Math.min(r,e)*n),new Date(s.from.getTime()+Math.max(r,e)*n)),d.custom=!0,Ce().catch(i=>B(W(i)))}catch(i){B(W(i))}};u("exportCsv").onclick=async()=>{const e=[["horario","percentual_estabilizado","media_percentual","min_percentual","max_percentual","posicao_estimada_mm","tensao_estimada_v","leituras"],...d.history.map(r=>[r.received_at,r.stable_percent,r.travel_percent,r.min_percent,r.max_percent,r.position_mm,r.voltage_v,r.samples])].map(r=>r.map(ms).join(";")).join(`\r
-`);try{await Ts(e,`gaxeta-${d.sensorId}-intervalos.csv`)}catch(r){B(W(r))}};u("exportMovements").onclick=async()=>{if(d.movementsTruncated){B("Reduza o período para exportar todas as mudanças.");return}const t=[["horario","percentual_anterior","percentual_estabilizado","variacao_pontos","regra"],...d.movements.map(e=>[e.received_at,e.previous_percent,e.stable_percent,e.previous_percent==null?"":Number(e.stable_percent)-Number(e.previous_percent),e.rule_version])].map(e=>e.map(ms).join(";")).join(`\r
-`);try{await Ts(t,`gaxeta-${d.sensorId}-mudancas.csv`)}catch(e){B(W(e))}};u("historySearch").oninput=Cs;u("showRawBand").onchange=Ke;u("historyEdit").onclick=()=>{d.sensorId&&cr(d.sensorId)};u("assetSensor").onchange=()=>{u("assetSensorName").value=z(d.devices.find(t=>t.sensor_id===u("assetSensor").value)||{sensor_id:""})};u("openBle").onclick=ur;u("findSensor").onclick=ur;u("scanBle").onclick=async t=>{await We(t.currentTarget,async()=>{const e=new Map;u("bleDevices").replaceChildren(),await ro(r=>{e.set(r.deviceId,r),u("bleDevices").innerHTML=[...e.values()].map(s=>`<button class="ble-device" data-ble="${C(s.deviceId)}"><span><strong>${C(s.name||s.localName||"Sensor Gaxeta")}</strong><small>${C(s.deviceId)} ${s.rssi==null?"":`· ${s.rssi} dBm`}</small></span>Conectar →</button>`).join("")},ze)})};u("bleDevices").onclick=async t=>{const e=t.target.closest("[data-ble]");if(e)try{await so({deviceId:e.dataset.ble,name:e.querySelector("strong").textContent},yo,ze)}catch(r){ze(W(r))}};u("disconnectBle").onclick=()=>_t();u("bleDialog").addEventListener("close",()=>yt());u("identifyBle").onclick=async t=>{await We(t.currentTarget,async()=>{await io(),ze("Comando enviado. Observe o LED do sensor por 10 segundos.")})};u("linkBle").onclick=()=>{const t=d.bleReading?.sensor_id;if(!t){ze("Atualize o firmware para identificar o sensor por ID.");return}if(!d.devices.some(e=>e.sensor_id===t)){ze("Sensor identificado. Aguarde sua primeira transmissão para registrá-lo na plataforma.");return}d.sensorId=t,d.assetId="",d.detailSignature="",u("bleDialog").close(),he("sensors"),Q(),u("detailPane").scrollIntoView({behavior:"smooth",block:"start"})};document.addEventListener("visibilitychange",()=>{document.hidden||ve()});window.addEventListener("hashchange",()=>{const t=location.hash.slice(1);d.authorized&&["sensors","assets","telemetry","gateways"].includes(t)&&d.page!==t&&he(t)});X.auth.onAuthStateChange((t,e)=>{["SIGNED_IN","SIGNED_OUT","INITIAL_SESSION"].includes(t)&&setTimeout(()=>Os(e),0)});Oe();export{Zt as E,ir as W,Va as b,hs as h,bo as m,Eo as t,_o as w};
+`);const R=await T.signMessage(new TextEncoder().encode(m),"utf8");if(!R||!(R instanceof Uint8Array))throw new Error("@supabase/auth-js: Wallet signMessage() API returned an recognized value");w=R}}try{const{data:v,error:_}=await S(this.fetch,"POST",`${this.url}/token?grant_type=web3`,{headers:this.headers,body:Object.assign({chain:"solana",message:m,signature:ke(w)},!((f=e.options)===null||f===void 0)&&f.captchaToken?{gotrue_meta_security:{captcha_token:(g=e.options)===null||g===void 0?void 0:g.captchaToken}}:null),xform:re});if(_)throw _;if(!v||!v.session||!v.user){const E=new $e;return this._returnResult({data:{user:null,session:null},error:E})}return v.session&&(await this._saveSession(v.session),await this._notifyAllSubscribers("SIGNED_IN",v.session)),this._returnResult({data:Object.assign({},v),error:_})}catch(v){if(b(v))return this._returnResult({data:{user:null,session:null},error:v});throw v}}async _exchangeCodeForSession(e){const r=await _e(this.storage,`${this.storageKey}-code-verifier`),[s,n]=(r??"").split("/");try{if(!s&&this.flowType==="pkce")throw new wi;const{data:i,error:a}=await S(this.fetch,"POST",`${this.url}/token?grant_type=pkce`,{headers:this.headers,body:{auth_code:e,code_verifier:s},xform:re});if(await M(this.storage,`${this.storageKey}-code-verifier`),a)throw a;if(!i||!i.session||!i.user){const o=new $e;return this._returnResult({data:{user:null,session:null,redirectType:null},error:o})}return i.session&&(await this._saveSession(i.session),await this._notifyAllSubscribers("SIGNED_IN",i.session)),this._returnResult({data:Object.assign(Object.assign({},i),{redirectType:n??null}),error:a})}catch(i){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(i))return this._returnResult({data:{user:null,session:null,redirectType:null},error:i});throw i}}async signInWithIdToken(e){try{const{options:r,provider:s,token:n,access_token:i,nonce:a}=e,o=await S(this.fetch,"POST",`${this.url}/token?grant_type=id_token`,{headers:this.headers,body:{provider:s,id_token:n,access_token:i,nonce:a,gotrue_meta_security:{captcha_token:r?.captchaToken}},xform:re}),{data:l,error:c}=o;if(c)return this._returnResult({data:{user:null,session:null},error:c});if(!l||!l.session||!l.user){const h=new $e;return this._returnResult({data:{user:null,session:null},error:h})}return l.session&&(await this._saveSession(l.session),await this._notifyAllSubscribers("SIGNED_IN",l.session)),this._returnResult({data:l,error:c})}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async signInWithOtp(e){var r,s,n,i,a;try{if("email"in e){const{email:o,options:l}=e;let c=null,h=null;this.flowType==="pkce"&&([c,h]=await Pe(this.storage,this.storageKey));const{error:p}=await S(this.fetch,"POST",`${this.url}/otp`,{headers:this.headers,body:{email:o,data:(r=l?.data)!==null&&r!==void 0?r:{},create_user:(s=l?.shouldCreateUser)!==null&&s!==void 0?s:!0,gotrue_meta_security:{captcha_token:l?.captchaToken},code_challenge:c,code_challenge_method:h},redirectTo:l?.emailRedirectTo});return this._returnResult({data:{user:null,session:null},error:p})}if("phone"in e){const{phone:o,options:l}=e,{data:c,error:h}=await S(this.fetch,"POST",`${this.url}/otp`,{headers:this.headers,body:{phone:o,data:(n=l?.data)!==null&&n!==void 0?n:{},create_user:(i=l?.shouldCreateUser)!==null&&i!==void 0?i:!0,gotrue_meta_security:{captcha_token:l?.captchaToken},channel:(a=l?.channel)!==null&&a!==void 0?a:"sms"}});return this._returnResult({data:{user:null,session:null,messageId:c?.message_id},error:h})}throw new ht("You must provide either an email or phone number.")}catch(o){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(o))return this._returnResult({data:{user:null,session:null},error:o});throw o}}async verifyOtp(e){var r,s;try{let n,i;"options"in e&&(n=(r=e.options)===null||r===void 0?void 0:r.redirectTo,i=(s=e.options)===null||s===void 0?void 0:s.captchaToken);const{data:a,error:o}=await S(this.fetch,"POST",`${this.url}/verify`,{headers:this.headers,body:Object.assign(Object.assign({},e),{gotrue_meta_security:{captcha_token:i}}),redirectTo:n,xform:re});if(o)throw o;if(!a)throw new Error("An error occurred on token verification.");const l=a.session,c=a.user;return l?.access_token&&(await this._saveSession(l),await this._notifyAllSubscribers(e.type=="recovery"?"PASSWORD_RECOVERY":"SIGNED_IN",l)),this._returnResult({data:{user:c,session:l},error:null})}catch(n){if(b(n))return this._returnResult({data:{user:null,session:null},error:n});throw n}}async signInWithSSO(e){var r,s,n,i,a;try{let o=null,l=null;this.flowType==="pkce"&&([o,l]=await Pe(this.storage,this.storageKey));const c=await S(this.fetch,"POST",`${this.url}/sso`,{body:Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({},"providerId"in e?{provider_id:e.providerId}:null),"domain"in e?{domain:e.domain}:null),{redirect_to:(s=(r=e.options)===null||r===void 0?void 0:r.redirectTo)!==null&&s!==void 0?s:void 0}),!((n=e?.options)===null||n===void 0)&&n.captchaToken?{gotrue_meta_security:{captcha_token:e.options.captchaToken}}:null),{skip_http_redirect:!0,code_challenge:o,code_challenge_method:l}),headers:this.headers,xform:Fi});return!((i=c.data)===null||i===void 0)&&i.url&&F()&&!(!((a=e.options)===null||a===void 0)&&a.skipBrowserRedirect)&&window.location.assign(c.data.url),this._returnResult(c)}catch(o){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(o))return this._returnResult({data:null,error:o});throw o}}async reauthenticate(){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._reauthenticate())}async _reauthenticate(){try{return await this._useSession(async e=>{const{data:{session:r},error:s}=e;if(s)throw s;if(!r)throw new G;const{error:n}=await S(this.fetch,"GET",`${this.url}/reauthenticate`,{headers:this.headers,jwt:r.access_token});return this._returnResult({data:{user:null,session:null},error:n})})}catch(e){if(b(e))return this._returnResult({data:{user:null,session:null},error:e});throw e}}async resend(e){try{const r=`${this.url}/resend`;if("email"in e){const{email:s,type:n,options:i}=e,{error:a}=await S(this.fetch,"POST",r,{headers:this.headers,body:{email:s,type:n,gotrue_meta_security:{captcha_token:i?.captchaToken}},redirectTo:i?.emailRedirectTo});return this._returnResult({data:{user:null,session:null},error:a})}else if("phone"in e){const{phone:s,type:n,options:i}=e,{data:a,error:o}=await S(this.fetch,"POST",r,{headers:this.headers,body:{phone:s,type:n,gotrue_meta_security:{captcha_token:i?.captchaToken}}});return this._returnResult({data:{user:null,session:null,messageId:a?.message_id},error:o})}throw new ht("You must provide either an email or phone number and a type")}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async getSession(){return await this.initializePromise,await this._acquireLock(-1,async()=>this._useSession(async r=>r))}async _acquireLock(e,r){this._debug("#_acquireLock","begin",e);try{if(this.lockAcquired){const s=this.pendingInLock.length?this.pendingInLock[this.pendingInLock.length-1]:Promise.resolve(),n=(async()=>(await s,await r()))();return this.pendingInLock.push((async()=>{try{await n}catch{}})()),n}return await this.lock(`lock:${this.storageKey}`,e,async()=>{this._debug("#_acquireLock","lock acquired for storage key",this.storageKey);try{this.lockAcquired=!0;const s=r();for(this.pendingInLock.push((async()=>{try{await s}catch{}})()),await s;this.pendingInLock.length;){const n=[...this.pendingInLock];await Promise.all(n),this.pendingInLock.splice(0,n.length)}return await s}finally{this._debug("#_acquireLock","lock released for storage key",this.storageKey),this.lockAcquired=!1}})}finally{this._debug("#_acquireLock","end")}}async _useSession(e){this._debug("#_useSession","begin");try{const r=await this.__loadSession();return await e(r)}finally{this._debug("#_useSession","end")}}async __loadSession(){this._debug("#__loadSession()","begin"),this.lockAcquired||this._debug("#__loadSession()","used outside of an acquired lock!",new Error().stack);try{let e=null;const r=await _e(this.storage,this.storageKey);if(this._debug("#getSession()","session from storage",r),r!==null&&(this._isValidSession(r)?e=r:(this._debug("#getSession()","session from storage is not valid"),await this._removeSession())),!e)return{data:{session:null},error:null};const s=e.expires_at?e.expires_at*1e3-Date.now()<$t:!1;if(this._debug("#__loadSession()",`session has${s?"":" not"} expired`,"expires_at",e.expires_at),!s){if(this.userStorage){const a=await _e(this.userStorage,this.storageKey+"-user");a?.user?e.user=a.user:e.user=xt()}if(this.storage.isServer&&e.user&&!e.user.__isUserNotAvailableProxy){const a={value:this.suppressGetSessionWarning};e.user=Ui(e.user,a),a.value&&(this.suppressGetSessionWarning=!0)}return{data:{session:e},error:null}}const{data:n,error:i}=await this._callRefreshToken(e.refresh_token);return i?this._returnResult({data:{session:null},error:i}):this._returnResult({data:{session:n},error:null})}finally{this._debug("#__loadSession()","end")}}async getUser(e){if(e)return await this._getUser(e);await this.initializePromise;const r=await this._acquireLock(-1,async()=>await this._getUser());return r.data.user&&(this.suppressGetSessionWarning=!0),r}async _getUser(e){try{return e?await S(this.fetch,"GET",`${this.url}/user`,{headers:this.headers,jwt:e,xform:me}):await this._useSession(async r=>{var s,n,i;const{data:a,error:o}=r;if(o)throw o;return!(!((s=a.session)===null||s===void 0)&&s.access_token)&&!this.hasCustomAuthorizationHeader?{data:{user:null},error:new G}:await S(this.fetch,"GET",`${this.url}/user`,{headers:this.headers,jwt:(i=(n=a.session)===null||n===void 0?void 0:n.access_token)!==null&&i!==void 0?i:void 0,xform:me})})}catch(r){if(b(r))return gi(r)&&(await this._removeSession(),await M(this.storage,`${this.storageKey}-code-verifier`)),this._returnResult({data:{user:null},error:r});throw r}}async updateUser(e,r={}){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._updateUser(e,r))}async _updateUser(e,r={}){try{return await this._useSession(async s=>{const{data:n,error:i}=s;if(i)throw i;if(!n.session)throw new G;const a=n.session;let o=null,l=null;this.flowType==="pkce"&&e.email!=null&&([o,l]=await Pe(this.storage,this.storageKey));const{data:c,error:h}=await S(this.fetch,"PUT",`${this.url}/user`,{headers:this.headers,redirectTo:r?.emailRedirectTo,body:Object.assign(Object.assign({},e),{code_challenge:o,code_challenge_method:l}),jwt:a.access_token,xform:me});if(h)throw h;return a.user=c.user,await this._saveSession(a),await this._notifyAllSubscribers("USER_UPDATED",a),this._returnResult({data:{user:a.user},error:null})})}catch(s){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(s))return this._returnResult({data:{user:null},error:s});throw s}}async setSession(e){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._setSession(e))}async _setSession(e){try{if(!e.access_token||!e.refresh_token)throw new G;const r=Date.now()/1e3;let s=r,n=!0,i=null;const{payload:a}=It(e.access_token);if(a.exp&&(s=a.exp,n=s<=r),n){const{data:o,error:l}=await this._callRefreshToken(e.refresh_token);if(l)return this._returnResult({data:{user:null,session:null},error:l});if(!o)return{data:{user:null,session:null},error:null};i=o}else{const{data:o,error:l}=await this._getUser(e.access_token);if(l)throw l;i={access_token:e.access_token,refresh_token:e.refresh_token,user:o.user,token_type:"bearer",expires_in:s-r,expires_at:s},await this._saveSession(i),await this._notifyAllSubscribers("SIGNED_IN",i)}return this._returnResult({data:{user:i.user,session:i},error:null})}catch(r){if(b(r))return this._returnResult({data:{session:null,user:null},error:r});throw r}}async refreshSession(e){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._refreshSession(e))}async _refreshSession(e){try{return await this._useSession(async r=>{var s;if(!e){const{data:a,error:o}=r;if(o)throw o;e=(s=a.session)!==null&&s!==void 0?s:void 0}if(!e?.refresh_token)throw new G;const{data:n,error:i}=await this._callRefreshToken(e.refresh_token);return i?this._returnResult({data:{user:null,session:null},error:i}):n?this._returnResult({data:{user:n.user,session:n},error:null}):this._returnResult({data:{user:null,session:null},error:null})})}catch(r){if(b(r))return this._returnResult({data:{user:null,session:null},error:r});throw r}}async _getSessionFromURL(e,r){try{if(!F())throw new ft("No browser detected.");if(e.error||e.error_description||e.error_code)throw new ft(e.error_description||"Error in URL with unspecified error_description",{error:e.error||"unspecified_error",code:e.error_code||"unspecified_code"});switch(r){case"implicit":if(this.flowType==="pkce")throw new Sr("Not a valid PKCE flow url.");break;case"pkce":if(this.flowType==="implicit")throw new ft("Not a valid implicit grant flow url.");break;default:}if(r==="pkce"){if(this._debug("#_initialize()","begin","is PKCE flow",!0),!e.code)throw new Sr("No code detected.");const{data:E,error:y}=await this._exchangeCodeForSession(e.code);if(y)throw y;const T=new URL(window.location.href);return T.searchParams.delete("code"),window.history.replaceState(window.history.state,"",T.toString()),{data:{session:E.session,redirectType:null},error:null}}const{provider_token:s,provider_refresh_token:n,access_token:i,refresh_token:a,expires_in:o,expires_at:l,token_type:c}=e;if(!i||!o||!a||!c)throw new ft("No session defined in URL");const h=Math.round(Date.now()/1e3),p=parseInt(o);let f=h+p;l&&(f=parseInt(l));const g=f-h;g*1e3<=Ne&&console.warn(`@supabase/gotrue-js: Session as retrieved from URL expires in ${g}s, should have been closer to ${p}s`);const m=f-p;h-m>=120?console.warn("@supabase/gotrue-js: Session as retrieved from URL was issued over 120s ago, URL could be stale",m,f,h):h-m<0&&console.warn("@supabase/gotrue-js: Session as retrieved from URL was issued in the future? Check the device clock for skew",m,f,h);const{data:w,error:v}=await this._getUser(i);if(v)throw v;const _={provider_token:s,provider_refresh_token:n,access_token:i,expires_in:p,expires_at:f,refresh_token:a,token_type:c,user:w.user};return window.location.hash="",this._debug("#_getSessionFromURL()","clearing window.location.hash"),this._returnResult({data:{session:_,redirectType:e.type},error:null})}catch(s){if(b(s))return this._returnResult({data:{session:null,redirectType:null},error:s});throw s}}_isImplicitGrantCallback(e){return typeof this.detectSessionInUrl=="function"?this.detectSessionInUrl(new URL(window.location.href),e):!!(e.access_token||e.error_description)}async _isPKCECallback(e){const r=await _e(this.storage,`${this.storageKey}-code-verifier`);return!!(e.code&&r)}async signOut(e={scope:"global"}){return await this.initializePromise,await this._acquireLock(-1,async()=>await this._signOut(e))}async _signOut({scope:e}={scope:"global"}){return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({error:i});const a=(s=n.session)===null||s===void 0?void 0:s.access_token;if(a){const{error:o}=await this.admin.signOut(a,e);if(o&&!(pi(o)&&(o.status===404||o.status===401||o.status===403)))return this._returnResult({error:o})}return e!=="others"&&(await this._removeSession(),await M(this.storage,`${this.storageKey}-code-verifier`)),this._returnResult({error:null})})}onAuthStateChange(e){const r=ki(),s={id:r,callback:e,unsubscribe:()=>{this._debug("#unsubscribe()","state change callback with id removed",r),this.stateChangeEmitters.delete(r)}};return this._debug("#onAuthStateChange()","registered callback with id",r),this.stateChangeEmitters.set(r,s),(async()=>(await this.initializePromise,await this._acquireLock(-1,async()=>{this._emitInitialSession(r)})))(),{data:{subscription:s}}}async _emitInitialSession(e){return await this._useSession(async r=>{var s,n;try{const{data:{session:i},error:a}=r;if(a)throw a;await((s=this.stateChangeEmitters.get(e))===null||s===void 0?void 0:s.callback("INITIAL_SESSION",i)),this._debug("INITIAL_SESSION","callback id",e,"session",i)}catch(i){await((n=this.stateChangeEmitters.get(e))===null||n===void 0?void 0:n.callback("INITIAL_SESSION",null)),this._debug("INITIAL_SESSION","callback id",e,"error",i),console.error(i)}})}async resetPasswordForEmail(e,r={}){let s=null,n=null;this.flowType==="pkce"&&([s,n]=await Pe(this.storage,this.storageKey,!0));try{return await S(this.fetch,"POST",`${this.url}/recover`,{body:{email:e,code_challenge:s,code_challenge_method:n,gotrue_meta_security:{captcha_token:r.captchaToken}},headers:this.headers,redirectTo:r.redirectTo})}catch(i){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(i))return this._returnResult({data:null,error:i});throw i}}async getUserIdentities(){var e;try{const{data:r,error:s}=await this.getUser();if(s)throw s;return this._returnResult({data:{identities:(e=r.user.identities)!==null&&e!==void 0?e:[]},error:null})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async linkIdentity(e){return"token"in e?this.linkIdentityIdToken(e):this.linkIdentityOAuth(e)}async linkIdentityOAuth(e){var r;try{const{data:s,error:n}=await this._useSession(async i=>{var a,o,l,c,h;const{data:p,error:f}=i;if(f)throw f;const g=await this._getUrlForProvider(`${this.url}/user/identities/authorize`,e.provider,{redirectTo:(a=e.options)===null||a===void 0?void 0:a.redirectTo,scopes:(o=e.options)===null||o===void 0?void 0:o.scopes,queryParams:(l=e.options)===null||l===void 0?void 0:l.queryParams,skipBrowserRedirect:!0});return await S(this.fetch,"GET",g,{headers:this.headers,jwt:(h=(c=p.session)===null||c===void 0?void 0:c.access_token)!==null&&h!==void 0?h:void 0})});if(n)throw n;return F()&&!(!((r=e.options)===null||r===void 0)&&r.skipBrowserRedirect)&&window.location.assign(s?.url),this._returnResult({data:{provider:e.provider,url:s?.url},error:null})}catch(s){if(b(s))return this._returnResult({data:{provider:e.provider,url:null},error:s});throw s}}async linkIdentityIdToken(e){return await this._useSession(async r=>{var s;try{const{error:n,data:{session:i}}=r;if(n)throw n;const{options:a,provider:o,token:l,access_token:c,nonce:h}=e,p=await S(this.fetch,"POST",`${this.url}/token?grant_type=id_token`,{headers:this.headers,jwt:(s=i?.access_token)!==null&&s!==void 0?s:void 0,body:{provider:o,id_token:l,access_token:c,nonce:h,link_identity:!0,gotrue_meta_security:{captcha_token:a?.captchaToken}},xform:re}),{data:f,error:g}=p;return g?this._returnResult({data:{user:null,session:null},error:g}):!f||!f.session||!f.user?this._returnResult({data:{user:null,session:null},error:new $e}):(f.session&&(await this._saveSession(f.session),await this._notifyAllSubscribers("USER_UPDATED",f.session)),this._returnResult({data:f,error:g}))}catch(n){if(await M(this.storage,`${this.storageKey}-code-verifier`),b(n))return this._returnResult({data:{user:null,session:null},error:n});throw n}})}async unlinkIdentity(e){try{return await this._useSession(async r=>{var s,n;const{data:i,error:a}=r;if(a)throw a;return await S(this.fetch,"DELETE",`${this.url}/user/identities/${e.identity_id}`,{headers:this.headers,jwt:(n=(s=i.session)===null||s===void 0?void 0:s.access_token)!==null&&n!==void 0?n:void 0})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _refreshAccessToken(e){const r=`#_refreshAccessToken(${e.substring(0,5)}...)`;this._debug(r,"begin");try{const s=Date.now();return await Ci(async n=>(n>0&&await Ai(200*Math.pow(2,n-1)),this._debug(r,"refreshing attempt",n),await S(this.fetch,"POST",`${this.url}/token?grant_type=refresh_token`,{body:{refresh_token:e},headers:this.headers,xform:re})),(n,i)=>{const a=200*Math.pow(2,n);return i&&Pt(i)&&Date.now()+a-s<Ne})}catch(s){if(this._debug(r,"error",s),b(s))return this._returnResult({data:{session:null,user:null},error:s});throw s}finally{this._debug(r,"end")}}_isValidSession(e){return typeof e=="object"&&e!==null&&"access_token"in e&&"refresh_token"in e&&"expires_at"in e}async _handleProviderSignIn(e,r){const s=await this._getUrlForProvider(`${this.url}/authorize`,e,{redirectTo:r.redirectTo,scopes:r.scopes,queryParams:r.queryParams});return this._debug("#_handleProviderSignIn()","provider",e,"options",r,"url",s),F()&&!r.skipBrowserRedirect&&window.location.assign(s),{data:{provider:e,url:s},error:null}}async _recoverAndRefresh(){var e,r;const s="#_recoverAndRefresh()";this._debug(s,"begin");try{const n=await _e(this.storage,this.storageKey);if(n&&this.userStorage){let a=await _e(this.userStorage,this.storageKey+"-user");!this.storage.isServer&&Object.is(this.storage,this.userStorage)&&!a&&(a={user:n.user},await De(this.userStorage,this.storageKey+"-user",a)),n.user=(e=a?.user)!==null&&e!==void 0?e:xt()}else if(n&&!n.user&&!n.user){const a=await _e(this.storage,this.storageKey+"-user");a&&a?.user?(n.user=a.user,await M(this.storage,this.storageKey+"-user"),await De(this.storage,this.storageKey,n)):n.user=xt()}if(this._debug(s,"session from storage",n),!this._isValidSession(n)){this._debug(s,"session is not valid"),n!==null&&await this._removeSession();return}const i=((r=n.expires_at)!==null&&r!==void 0?r:1/0)*1e3-Date.now()<$t;if(this._debug(s,`session has${i?"":" not"} expired with margin of ${$t}s`),i){if(this.autoRefreshToken&&n.refresh_token){const{error:a}=await this._callRefreshToken(n.refresh_token);a&&(console.error(a),Pt(a)||(this._debug(s,"refresh failed with a non-retryable error, removing the session",a),await this._removeSession()))}}else if(n.user&&n.user.__isUserNotAvailableProxy===!0)try{const{data:a,error:o}=await this._getUser(n.access_token);!o&&a?.user?(n.user=a.user,await this._saveSession(n),await this._notifyAllSubscribers("SIGNED_IN",n)):this._debug(s,"could not get user data, skipping SIGNED_IN notification")}catch(a){console.error("Error getting user data:",a),this._debug(s,"error getting user data, skipping SIGNED_IN notification",a)}else await this._notifyAllSubscribers("SIGNED_IN",n)}catch(n){this._debug(s,"error",n),console.error(n);return}finally{this._debug(s,"end")}}async _callRefreshToken(e){var r,s;if(!e)throw new G;if(this.refreshingDeferred)return this.refreshingDeferred.promise;const n=`#_callRefreshToken(${e.substring(0,5)}...)`;this._debug(n,"begin");try{this.refreshingDeferred=new St;const{data:i,error:a}=await this._refreshAccessToken(e);if(a)throw a;if(!i.session)throw new G;await this._saveSession(i.session),await this._notifyAllSubscribers("TOKEN_REFRESHED",i.session);const o={data:i.session,error:null};return this.refreshingDeferred.resolve(o),o}catch(i){if(this._debug(n,"error",i),b(i)){const a={data:null,error:i};return Pt(i)||await this._removeSession(),(r=this.refreshingDeferred)===null||r===void 0||r.resolve(a),a}throw(s=this.refreshingDeferred)===null||s===void 0||s.reject(i),i}finally{this.refreshingDeferred=null,this._debug(n,"end")}}async _notifyAllSubscribers(e,r,s=!0){const n=`#_notifyAllSubscribers(${e})`;this._debug(n,"begin",r,`broadcast = ${s}`);try{this.broadcastChannel&&s&&this.broadcastChannel.postMessage({event:e,session:r});const i=[],a=Array.from(this.stateChangeEmitters.values()).map(async o=>{try{await o.callback(e,r)}catch(l){i.push(l)}});if(await Promise.all(a),i.length>0){for(let o=0;o<i.length;o+=1)console.error(i[o]);throw i[0]}}finally{this._debug(n,"end")}}async _saveSession(e){this._debug("#_saveSession()",e),this.suppressGetSessionWarning=!0,await M(this.storage,`${this.storageKey}-code-verifier`);const r=Object.assign({},e),s=r.user&&r.user.__isUserNotAvailableProxy===!0;if(this.userStorage){!s&&r.user&&await De(this.userStorage,this.storageKey+"-user",{user:r.user});const n=Object.assign({},r);delete n.user;const i=Cr(n);await De(this.storage,this.storageKey,i)}else{const n=Cr(r);await De(this.storage,this.storageKey,n)}}async _removeSession(){this._debug("#_removeSession()"),this.suppressGetSessionWarning=!1,await M(this.storage,this.storageKey),await M(this.storage,this.storageKey+"-code-verifier"),await M(this.storage,this.storageKey+"-user"),this.userStorage&&await M(this.userStorage,this.storageKey+"-user"),await this._notifyAllSubscribers("SIGNED_OUT",null)}_removeVisibilityChangedCallback(){this._debug("#_removeVisibilityChangedCallback()");const e=this.visibilityChangedCallback;this.visibilityChangedCallback=null;try{e&&F()&&window?.removeEventListener&&window.removeEventListener("visibilitychange",e)}catch(r){console.error("removing visibilitychange callback failed",r)}}async _startAutoRefresh(){await this._stopAutoRefresh(),this._debug("#_startAutoRefresh()");const e=setInterval(()=>this._autoRefreshTokenTick(),Ne);this.autoRefreshTicker=e,e&&typeof e=="object"&&typeof e.unref=="function"?e.unref():typeof Deno<"u"&&typeof Deno.unrefTimer=="function"&&Deno.unrefTimer(e),setTimeout(async()=>{await this.initializePromise,await this._autoRefreshTokenTick()},0)}async _stopAutoRefresh(){this._debug("#_stopAutoRefresh()");const e=this.autoRefreshTicker;this.autoRefreshTicker=null,e&&clearInterval(e)}async startAutoRefresh(){this._removeVisibilityChangedCallback(),await this._startAutoRefresh()}async stopAutoRefresh(){this._removeVisibilityChangedCallback(),await this._stopAutoRefresh()}async _autoRefreshTokenTick(){this._debug("#_autoRefreshTokenTick()","begin");try{await this._acquireLock(0,async()=>{try{const e=Date.now();try{return await this._useSession(async r=>{const{data:{session:s}}=r;if(!s||!s.refresh_token||!s.expires_at){this._debug("#_autoRefreshTokenTick()","no session");return}const n=Math.floor((s.expires_at*1e3-e)/Ne);this._debug("#_autoRefreshTokenTick()",`access token expires in ${n} ticks, a tick lasts ${Ne}ms, refresh threshold is ${Ht} ticks`),n<=Ht&&await this._callRefreshToken(s.refresh_token)})}catch(r){console.error("Auto refresh tick failed with error. This is likely a transient error.",r)}}finally{this._debug("#_autoRefreshTokenTick()","end")}})}catch(e){if(e.isAcquireTimeout||e instanceof cs)this._debug("auto refresh token tick lock not available");else throw e}}async _handleVisibilityChange(){if(this._debug("#_handleVisibilityChange()"),!F()||!window?.addEventListener)return this.autoRefreshToken&&this.startAutoRefresh(),!1;try{this.visibilityChangedCallback=async()=>await this._onVisibilityChanged(!1),window?.addEventListener("visibilitychange",this.visibilityChangedCallback),await this._onVisibilityChanged(!0)}catch(e){console.error("_handleVisibilityChange",e)}}async _onVisibilityChanged(e){const r=`#_onVisibilityChanged(${e})`;this._debug(r,"visibilityState",document.visibilityState),document.visibilityState==="visible"?(this.autoRefreshToken&&this._startAutoRefresh(),e||(await this.initializePromise,await this._acquireLock(-1,async()=>{if(document.visibilityState!=="visible"){this._debug(r,"acquired the lock to recover the session, but the browser visibilityState is no longer visible, aborting");return}await this._recoverAndRefresh()}))):document.visibilityState==="hidden"&&this.autoRefreshToken&&this._stopAutoRefresh()}async _getUrlForProvider(e,r,s){const n=[`provider=${encodeURIComponent(r)}`];if(s?.redirectTo&&n.push(`redirect_to=${encodeURIComponent(s.redirectTo)}`),s?.scopes&&n.push(`scopes=${encodeURIComponent(s.scopes)}`),this.flowType==="pkce"){const[i,a]=await Pe(this.storage,this.storageKey),o=new URLSearchParams({code_challenge:`${encodeURIComponent(i)}`,code_challenge_method:`${encodeURIComponent(a)}`});n.push(o.toString())}if(s?.queryParams){const i=new URLSearchParams(s.queryParams);n.push(i.toString())}return s?.skipBrowserRedirect&&n.push(`skip_http_redirect=${s.skipBrowserRedirect}`),`${e}?${n.join("&")}`}async _unenroll(e){try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;return i?this._returnResult({data:null,error:i}):await S(this.fetch,"DELETE",`${this.url}/factors/${e.factorId}`,{headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _enroll(e){try{return await this._useSession(async r=>{var s,n;const{data:i,error:a}=r;if(a)return this._returnResult({data:null,error:a});const o=Object.assign({friendly_name:e.friendlyName,factor_type:e.factorType},e.factorType==="phone"?{phone:e.phone}:e.factorType==="totp"?{issuer:e.issuer}:{}),{data:l,error:c}=await S(this.fetch,"POST",`${this.url}/factors`,{body:o,headers:this.headers,jwt:(s=i?.session)===null||s===void 0?void 0:s.access_token});return c?this._returnResult({data:null,error:c}):(e.factorType==="totp"&&l.type==="totp"&&(!((n=l?.totp)===null||n===void 0)&&n.qr_code)&&(l.totp.qr_code=`data:image/svg+xml;utf-8,${l.totp.qr_code}`),this._returnResult({data:l,error:null}))})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _verify(e){return this._acquireLock(-1,async()=>{try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({data:null,error:i});const a=Object.assign({challenge_id:e.challengeId},"webauthn"in e?{webauthn:Object.assign(Object.assign({},e.webauthn),{credential_response:e.webauthn.type==="create"?na(e.webauthn.credential_response):ia(e.webauthn.credential_response)})}:{code:e.code}),{data:o,error:l}=await S(this.fetch,"POST",`${this.url}/factors/${e.factorId}/verify`,{body:a,headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token});return l?this._returnResult({data:null,error:l}):(await this._saveSession(Object.assign({expires_at:Math.round(Date.now()/1e3)+o.expires_in},o)),await this._notifyAllSubscribers("MFA_CHALLENGE_VERIFIED",o),this._returnResult({data:o,error:l}))})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}})}async _challenge(e){return this._acquireLock(-1,async()=>{try{return await this._useSession(async r=>{var s;const{data:n,error:i}=r;if(i)return this._returnResult({data:null,error:i});const a=await S(this.fetch,"POST",`${this.url}/factors/${e.factorId}/challenge`,{body:e,headers:this.headers,jwt:(s=n?.session)===null||s===void 0?void 0:s.access_token});if(a.error)return a;const{data:o}=a;if(o.type!=="webauthn")return{data:o,error:null};switch(o.webauthn.type){case"create":return{data:Object.assign(Object.assign({},o),{webauthn:Object.assign(Object.assign({},o.webauthn),{credential_options:Object.assign(Object.assign({},o.webauthn.credential_options),{publicKey:ra(o.webauthn.credential_options.publicKey)})})}),error:null};case"request":return{data:Object.assign(Object.assign({},o),{webauthn:Object.assign(Object.assign({},o.webauthn),{credential_options:Object.assign(Object.assign({},o.webauthn.credential_options),{publicKey:sa(o.webauthn.credential_options.publicKey)})})}),error:null}}})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}})}async _challengeAndVerify(e){const{data:r,error:s}=await this._challenge({factorId:e.factorId});return s?this._returnResult({data:null,error:s}):await this._verify({factorId:e.factorId,challengeId:r.id,code:e.code})}async _listFactors(){var e;const{data:{user:r},error:s}=await this.getUser();if(s)return{data:null,error:s};const n={all:[],phone:[],totp:[],webauthn:[]};for(const i of(e=r?.factors)!==null&&e!==void 0?e:[])n.all.push(i),i.status==="verified"&&n[i.factor_type].push(i);return{data:n,error:null}}async _getAuthenticatorAssuranceLevel(){var e,r;const{data:{session:s},error:n}=await this.getSession();if(n)return this._returnResult({data:null,error:n});if(!s)return{data:{currentLevel:null,nextLevel:null,currentAuthenticationMethods:[]},error:null};const{payload:i}=It(s.access_token);let a=null;i.aal&&(a=i.aal);let o=a;((r=(e=s.user.factors)===null||e===void 0?void 0:e.filter(h=>h.status==="verified"))!==null&&r!==void 0?r:[]).length>0&&(o="aal2");const c=i.amr||[];return{data:{currentLevel:a,nextLevel:o,currentAuthenticationMethods:c},error:null}}async _getAuthorizationDetails(e){try{return await this._useSession(async r=>{const{data:{session:s},error:n}=r;return n?this._returnResult({data:null,error:n}):s?await S(this.fetch,"GET",`${this.url}/oauth/authorizations/${e}`,{headers:this.headers,jwt:s.access_token,xform:i=>({data:i,error:null})}):this._returnResult({data:null,error:new G})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async _approveAuthorization(e,r){try{return await this._useSession(async s=>{const{data:{session:n},error:i}=s;if(i)return this._returnResult({data:null,error:i});if(!n)return this._returnResult({data:null,error:new G});const a=await S(this.fetch,"POST",`${this.url}/oauth/authorizations/${e}/consent`,{headers:this.headers,jwt:n.access_token,body:{action:"approve"},xform:o=>({data:o,error:null})});return a.data&&a.data.redirect_url&&F()&&!r?.skipBrowserRedirect&&window.location.assign(a.data.redirect_url),a})}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}async _denyAuthorization(e,r){try{return await this._useSession(async s=>{const{data:{session:n},error:i}=s;if(i)return this._returnResult({data:null,error:i});if(!n)return this._returnResult({data:null,error:new G});const a=await S(this.fetch,"POST",`${this.url}/oauth/authorizations/${e}/consent`,{headers:this.headers,jwt:n.access_token,body:{action:"deny"},xform:o=>({data:o,error:null})});return a.data&&a.data.redirect_url&&F()&&!r?.skipBrowserRedirect&&window.location.assign(a.data.redirect_url),a})}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}async _listOAuthGrants(){try{return await this._useSession(async e=>{const{data:{session:r},error:s}=e;return s?this._returnResult({data:null,error:s}):r?await S(this.fetch,"GET",`${this.url}/user/oauth/grants`,{headers:this.headers,jwt:r.access_token,xform:n=>({data:n,error:null})}):this._returnResult({data:null,error:new G})})}catch(e){if(b(e))return this._returnResult({data:null,error:e});throw e}}async _revokeOAuthGrant(e){try{return await this._useSession(async r=>{const{data:{session:s},error:n}=r;return n?this._returnResult({data:null,error:n}):s?(await S(this.fetch,"DELETE",`${this.url}/user/oauth/grants`,{headers:this.headers,jwt:s.access_token,query:{client_id:e.clientId},noResolveJson:!0}),{data:{},error:null}):this._returnResult({data:null,error:new G})})}catch(r){if(b(r))return this._returnResult({data:null,error:r});throw r}}async fetchJwk(e,r={keys:[]}){let s=r.keys.find(o=>o.kid===e);if(s)return s;const n=Date.now();if(s=this.jwks.keys.find(o=>o.kid===e),s&&this.jwks_cached_at+hi>n)return s;const{data:i,error:a}=await S(this.fetch,"GET",`${this.url}/.well-known/jwks.json`,{headers:this.headers});if(a)throw a;return!i.keys||i.keys.length===0||(this.jwks=i,this.jwks_cached_at=n,s=i.keys.find(o=>o.kid===e),!s)?null:s}async getClaims(e,r={}){try{let s=e;if(!s){const{data:g,error:m}=await this.getSession();if(m||!g.session)return this._returnResult({data:null,error:m});s=g.session.access_token}const{header:n,payload:i,signature:a,raw:{header:o,payload:l}}=It(s);r?.allowExpired||Li(i.exp);const c=!n.alg||n.alg.startsWith("HS")||!n.kid||!("crypto"in globalThis&&"subtle"in globalThis.crypto)?null:await this.fetchJwk(n.kid,r?.keys?{keys:r.keys}:r?.jwks);if(!c){const{error:g}=await this.getUser(s);if(g)throw g;return{data:{claims:i,header:n,signature:a},error:null}}const h=Ni(n.alg),p=await crypto.subtle.importKey("jwk",c,h,!0,["verify"]);if(!await crypto.subtle.verify(h,p,a,Ei(`${o}.${l}`)))throw new Gt("Invalid JWT signature");return{data:{claims:i,header:n,signature:a},error:null}}catch(s){if(b(s))return this._returnResult({data:null,error:s});throw s}}}nt.nextInstanceID={};const pa=nt,ga="2.89.0";let Je="";typeof Deno<"u"?Je="deno":typeof document<"u"?Je="web":typeof navigator<"u"&&navigator.product==="ReactNative"?Je="react-native":Je="node";const ma={"X-Client-Info":`supabase-js-${Je}/${ga}`},wa={headers:ma},va={schema:"public"},ya={autoRefreshToken:!0,persistSession:!0,detectSessionInUrl:!0,flowType:"implicit"},_a={};function it(t){"@babel/helpers - typeof";return it=typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"?function(e){return typeof e}:function(e){return e&&typeof Symbol=="function"&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},it(t)}function ba(t,e){if(it(t)!="object"||!t)return t;var r=t[Symbol.toPrimitive];if(r!==void 0){var s=r.call(t,e);if(it(s)!="object")return s;throw new TypeError("@@toPrimitive must return a primitive value.")}return(e==="string"?String:Number)(t)}function Ea(t){var e=ba(t,"string");return it(e)=="symbol"?e:e+""}function Sa(t,e,r){return(e=Ea(e))in t?Object.defineProperty(t,e,{value:r,enumerable:!0,configurable:!0,writable:!0}):t[e]=r,t}function Lr(t,e){var r=Object.keys(t);if(Object.getOwnPropertySymbols){var s=Object.getOwnPropertySymbols(t);e&&(s=s.filter(function(n){return Object.getOwnPropertyDescriptor(t,n).enumerable})),r.push.apply(r,s)}return r}function L(t){for(var e=1;e<arguments.length;e++){var r=arguments[e]!=null?arguments[e]:{};e%2?Lr(Object(r),!0).forEach(function(s){Sa(t,s,r[s])}):Object.getOwnPropertyDescriptors?Object.defineProperties(t,Object.getOwnPropertyDescriptors(r)):Lr(Object(r)).forEach(function(s){Object.defineProperty(t,s,Object.getOwnPropertyDescriptor(r,s))})}return t}const ka=t=>t?(...e)=>t(...e):(...e)=>fetch(...e),Ta=()=>Headers,Oa=(t,e,r)=>{const s=ka(r),n=Ta();return async(i,a)=>{var o;const l=(o=await e())!==null&&o!==void 0?o:t;let c=new n(a?.headers);return c.has("apikey")||c.set("apikey",t),c.has("Authorization")||c.set("Authorization",`Bearer ${l}`),s(i,L(L({},a),{},{headers:c}))}};function Aa(t){return t.endsWith("/")?t:t+"/"}function Ca(t,e){var r,s;const{db:n,auth:i,realtime:a,global:o}=t,{db:l,auth:c,realtime:h,global:p}=e,f={db:L(L({},l),n),auth:L(L({},c),i),realtime:L(L({},h),a),storage:{},global:L(L(L({},p),o),{},{headers:L(L({},(r=p?.headers)!==null&&r!==void 0?r:{}),(s=o?.headers)!==null&&s!==void 0?s:{})}),accessToken:async()=>""};return t.accessToken?f.accessToken=t.accessToken:delete f.accessToken,f}function Ra(t){const e=t?.trim();if(!e)throw new Error("supabaseUrl is required.");if(!e.match(/^https?:\/\//i))throw new Error("Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.");try{return new URL(Aa(e))}catch{throw Error("Invalid supabaseUrl: Provided URL is malformed.")}}var $a=class extends pa{constructor(t){super(t)}},Pa=class{constructor(t,e,r){var s,n;this.supabaseUrl=t,this.supabaseKey=e;const i=Ra(t);if(!e)throw new Error("supabaseKey is required.");this.realtimeUrl=new URL("realtime/v1",i),this.realtimeUrl.protocol=this.realtimeUrl.protocol.replace("http","ws"),this.authUrl=new URL("auth/v1",i),this.storageUrl=new URL("storage/v1",i),this.functionsUrl=new URL("functions/v1",i);const a=`sb-${i.hostname.split(".")[0]}-auth-token`,o={db:va,realtime:_a,auth:L(L({},ya),{},{storageKey:a}),global:wa},l=Ca(r??{},o);if(this.storageKey=(s=l.auth.storageKey)!==null&&s!==void 0?s:"",this.headers=(n=l.global.headers)!==null&&n!==void 0?n:{},l.accessToken)this.accessToken=l.accessToken,this.auth=new Proxy({},{get:(h,p)=>{throw new Error(`@supabase/supabase-js: Supabase Client is configured with the accessToken option, accessing supabase.auth.${String(p)} is not possible`)}});else{var c;this.auth=this._initSupabaseAuthClient((c=l.auth)!==null&&c!==void 0?c:{},this.headers,l.global.fetch)}this.fetch=Oa(e,this._getAccessToken.bind(this),l.global.fetch),this.realtime=this._initRealtimeClient(L({headers:this.headers,accessToken:this._getAccessToken.bind(this)},l.realtime)),this.accessToken&&this.accessToken().then(h=>this.realtime.setAuth(h)).catch(h=>console.warn("Failed to set initial Realtime auth token:",h)),this.rest=new un(new URL("rest/v1",i).href,{headers:this.headers,schema:l.db.schema,fetch:this.fetch}),this.storage=new oi(this.storageUrl.href,this.headers,this.fetch,r?.storage),l.accessToken||this._listenForAuthEvents()}get functions(){return new nn(this.functionsUrl.href,{headers:this.headers,customFetch:this.fetch})}from(t){return this.rest.from(t)}schema(t){return this.rest.schema(t)}rpc(t,e={},r={head:!1,get:!1,count:void 0}){return this.rest.rpc(t,e,r)}channel(t,e={config:{}}){return this.realtime.channel(t,e)}getChannels(){return this.realtime.getChannels()}removeChannel(t){return this.realtime.removeChannel(t)}removeAllChannels(){return this.realtime.removeAllChannels()}async _getAccessToken(){var t=this,e,r;if(t.accessToken)return await t.accessToken();const{data:s}=await t.auth.getSession();return(e=(r=s.session)===null||r===void 0?void 0:r.access_token)!==null&&e!==void 0?e:t.supabaseKey}_initSupabaseAuthClient({autoRefreshToken:t,persistSession:e,detectSessionInUrl:r,storage:s,userStorage:n,storageKey:i,flowType:a,lock:o,debug:l,throwOnError:c},h,p){const f={Authorization:`Bearer ${this.supabaseKey}`,apikey:`${this.supabaseKey}`};return new $a({url:this.authUrl.href,headers:L(L({},f),h),storageKey:i,autoRefreshToken:t,persistSession:e,detectSessionInUrl:r,storage:s,userStorage:n,flowType:a,lock:o,debug:l,throwOnError:c,fetch:p,hasCustomAuthorizationHeader:Object.keys(this.headers).some(g=>g.toLowerCase()==="authorization")})}_initRealtimeClient(t){return new An(this.realtimeUrl.href,L(L({},t),{},{params:L(L({},{apikey:this.supabaseKey}),t?.params)}))}_listenForAuthEvents(){return this.auth.onAuthStateChange((t,e)=>{this._handleTokenChanged(t,"CLIENT",e?.access_token)})}_handleTokenChanged(t,e,r){(t==="TOKEN_REFRESHED"||t==="SIGNED_IN")&&this.changedAccessToken!==r?(this.changedAccessToken=r,this.realtime.setAuth(r)):t==="SIGNED_OUT"&&(this.realtime.setAuth(),e=="STORAGE"&&this.auth.signOut(),this.changedAccessToken=void 0)}};const Ia=(t,e,r)=>new Pa(t,e,r);function xa(){if(typeof window<"u"||typeof process>"u")return!1;const t=process.version;if(t==null)return!1;const e=t.match(/^v(\d+)\./);return e?parseInt(e[1],10)<=18:!1}xa()&&console.warn("⚠️  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217");
+
+// ---- 05-vendor-capacitor.js ----
+// VENDOR (não editar): núcleo do Capacitor e cliente Bluetooth LE, extraídos do pacote publicado e reformatados.
+var Dr;
+(function (t) {
+  ((t[(t.SCAN_MODE_LOW_POWER = 0)] = "SCAN_MODE_LOW_POWER"),
+    (t[(t.SCAN_MODE_BALANCED = 1)] = "SCAN_MODE_BALANCED"),
+    (t[(t.SCAN_MODE_LOW_LATENCY = 2)] = "SCAN_MODE_LOW_LATENCY"));
+})(Dr || (Dr = {}));
+var Ur;
+(function (t) {
+  ((t[(t.CONNECTION_PRIORITY_BALANCED = 0)] = "CONNECTION_PRIORITY_BALANCED"),
+    (t[(t.CONNECTION_PRIORITY_HIGH = 1)] = "CONNECTION_PRIORITY_HIGH"),
+    (t[(t.CONNECTION_PRIORITY_LOW_POWER = 2)] = "CONNECTION_PRIORITY_LOW_POWER"));
+})(Ur || (Ur = {}));
+var Me;
+(function (t) {
+  ((t.Unimplemented = "UNIMPLEMENTED"), (t.Unavailable = "UNAVAILABLE"));
+})(Me || (Me = {}));
+class Lt extends Error {
+  constructor(e, r, s) {
+    (super(e), (this.message = e), (this.code = r), (this.data = s));
+  }
+}
+const Na = (t) => {
+    var e, r;
+    return t?.androidBridge
+      ? "android"
+      : !((r = (e = t?.webkit) === null || e === void 0 ? void 0 : e.messageHandlers) === null || r === void 0) && r.bridge
+        ? "ios"
+        : "web";
+  },
+  Da = (t) => {
+    const e = t.CapacitorCustomPlatform || null,
+      r = t.Capacitor || {},
+      s = (r.Plugins = r.Plugins || {}),
+      n = () => (e !== null ? e.name : Na(t)),
+      i = () => n() !== "web",
+      a = (p) => {
+        const f = c.get(p);
+        return !!(f?.platforms.has(n()) || o(p));
+      },
+      o = (p) => {
+        var f;
+        return (f = r.PluginHeaders) === null || f === void 0 ? void 0 : f.find((g) => g.name === p);
+      },
+      l = (p) => t.console.error(p),
+      c = new Map(),
+      h = (p, f = {}) => {
+        const g = c.get(p);
+        if (g) return (console.warn(`Capacitor plugin "${p}" already registered. Cannot register plugins twice.`), g.proxy);
+        const m = n(),
+          w = o(p);
+        let v;
+        const _ = async () => (
+            !v && m in f
+              ? (v = typeof f[m] == "function" ? (v = await f[m]()) : (v = f[m]))
+              : e !== null && !v && "web" in f && (v = typeof f.web == "function" ? (v = await f.web()) : (v = f.web)),
+            v
+          ),
+          E = (P, I) => {
+            var ie, fe;
+            if (w) {
+              const pe = w?.methods.find((te) => I === te.name);
+              if (pe)
+                return pe.rtype === "promise"
+                  ? (te) => r.nativePromise(p, I.toString(), te)
+                  : (te, lt) => r.nativeCallback(p, I.toString(), te, lt);
+              if (P) return (ie = P[I]) === null || ie === void 0 ? void 0 : ie.bind(P);
+            } else {
+              if (P) return (fe = P[I]) === null || fe === void 0 ? void 0 : fe.bind(P);
+              throw new Lt(`"${p}" plugin is not implemented on ${m}`, Me.Unimplemented);
+            }
+          },
+          y = (P) => {
+            let I;
+            const ie = (...fe) => {
+              const pe = _().then((te) => {
+                const lt = E(te, P);
+                if (lt) {
+                  const ct = lt(...fe);
+                  return ((I = ct?.remove), ct);
+                } else throw new Lt(`"${p}.${P}()" is not implemented on ${m}`, Me.Unimplemented);
+              });
+              return (P === "addListener" && (pe.remove = async () => I()), pe);
+            };
+            return (
+              (ie.toString = () => `${P.toString()}() { [capacitor code] }`),
+              Object.defineProperty(ie, "name", {
+                value: P,
+                writable: !1,
+                configurable: !1,
+              }),
+              ie
+            );
+          },
+          T = y("addListener"),
+          N = y("removeListener"),
+          R = (P, I) => {
+            const ie = T(
+                {
+                  eventName: P,
+                },
+                I,
+              ),
+              fe = async () => {
+                const te = await ie;
+                N(
+                  {
+                    eventName: P,
+                    callbackId: te,
+                  },
+                  I,
+                );
+              },
+              pe = new Promise((te) =>
+                ie.then(() =>
+                  te({
+                    remove: fe,
+                  }),
+                ),
+              );
+            return (
+              (pe.remove = async () => {
+                (console.warn("Using addListener() without 'await' is deprecated."), await fe());
+              }),
+              pe
+            );
+          },
+          x = new Proxy(
+            {},
+            {
+              get(P, I) {
+                switch (I) {
+                  case "$$typeof":
+                    return;
+                  case "toJSON":
+                    return () => ({});
+                  case "addListener":
+                    return w ? R : T;
+                  case "removeListener":
+                    return N;
+                  default:
+                    return y(I);
+                }
+              },
+            },
+          );
+        return (
+          (s[p] = x),
+          c.set(p, {
+            name: p,
+            proxy: x,
+            platforms: new Set([...Object.keys(f), ...(w ? [m] : [])]),
+          }),
+          x
+        );
+      };
+    return (
+      r.convertFileSrc || (r.convertFileSrc = (p) => p),
+      (r.getPlatform = n),
+      (r.handleError = l),
+      (r.isNativePlatform = i),
+      (r.isPluginAvailable = a),
+      (r.registerPlugin = h),
+      (r.Exception = Lt),
+      (r.DEBUG = !!r.DEBUG),
+      (r.isLoggingEnabled = !!r.isLoggingEnabled),
+      r
+    );
+  },
+  Ua = (t) => (t.Capacitor = Da(t)),
+  Z = Ua(
+    typeof globalThis < "u"
+      ? globalThis
+      : typeof self < "u"
+        ? self
+        : typeof window < "u"
+          ? window
+          : typeof global < "u"
+            ? global
+            : {},
+  ),
+  Ge = Z.registerPlugin;
+class ir {
+  constructor() {
+    ((this.listeners = {}), (this.retainedEventArguments = {}), (this.windowListeners = {}));
+  }
+  addListener(e, r) {
+    let s = !1;
+    (this.listeners[e] || ((this.listeners[e] = []), (s = !0)), this.listeners[e].push(r));
+    const i = this.windowListeners[e];
+    (i && !i.registered && this.addWindowListener(i), s && this.sendRetainedArgumentsForEvent(e));
+    const a = async () => this.removeListener(e, r);
+    return Promise.resolve({
+      remove: a,
+    });
+  }
+  async removeAllListeners() {
+    this.listeners = {};
+    for (const e in this.windowListeners) this.removeWindowListener(this.windowListeners[e]);
+    this.windowListeners = {};
+  }
+  notifyListeners(e, r, s) {
+    const n = this.listeners[e];
+    if (!n) {
+      if (s) {
+        let i = this.retainedEventArguments[e];
+        (i || (i = []), i.push(r), (this.retainedEventArguments[e] = i));
+      }
+      return;
+    }
+    n.forEach((i) => i(r));
+  }
+  hasListeners(e) {
+    var r;
+    return !!(!((r = this.listeners[e]) === null || r === void 0) && r.length);
+  }
+  registerWindowListener(e, r) {
+    this.windowListeners[r] = {
+      registered: !1,
+      windowEventName: e,
+      pluginEventName: r,
+      handler: (s) => {
+        this.notifyListeners(r, s);
+      },
+    };
+  }
+  unimplemented(e = "not implemented") {
+    return new Z.Exception(e, Me.Unimplemented);
+  }
+  unavailable(e = "not available") {
+    return new Z.Exception(e, Me.Unavailable);
+  }
+  async removeListener(e, r) {
+    const s = this.listeners[e];
+    if (!s) return;
+    const n = s.indexOf(r);
+    (this.listeners[e].splice(n, 1), this.listeners[e].length || this.removeWindowListener(this.windowListeners[e]));
+  }
+  addWindowListener(e) {
+    (window.addEventListener(e.windowEventName, e.handler), (e.registered = !0));
+  }
+  removeWindowListener(e) {
+    e && (window.removeEventListener(e.windowEventName, e.handler), (e.registered = !1));
+  }
+  sendRetainedArgumentsForEvent(e) {
+    const r = this.retainedEventArguments[e];
+    r &&
+      (delete this.retainedEventArguments[e],
+      r.forEach((s) => {
+        this.notifyListeners(e, s);
+      }));
+  }
+}
+const Br = (t) =>
+    encodeURIComponent(t)
+      .replace(/%(2[346B]|5E|60|7C)/g, decodeURIComponent)
+      .replace(/[()]/g, escape),
+  qr = (t) => t.replace(/(%[\dA-F]{2})+/gi, decodeURIComponent);
+class Ba extends ir {
+  async getCookies() {
+    const e = document.cookie,
+      r = {};
+    return (
+      e.split(";").forEach((s) => {
+        if (s.length <= 0) return;
+        let [n, i] = s.replace(/=/, "CAP_COOKIE").split("CAP_COOKIE");
+        ((n = qr(n).trim()), (i = qr(i).trim()), (r[n] = i));
+      }),
+      r
+    );
+  }
+  async setCookie(e) {
+    try {
+      const r = Br(e.key),
+        s = Br(e.value),
+        n = `; expires=${(e.expires || "").replace("expires=", "")}`,
+        i = (e.path || "/").replace("path=", ""),
+        a = e.url != null && e.url.length > 0 ? `domain=${e.url}` : "";
+      document.cookie = `${r}=${s || ""}${n}; path=${i}; ${a};`;
+    } catch (r) {
+      return Promise.reject(r);
+    }
+  }
+  async deleteCookie(e) {
+    try {
+      document.cookie = `${e.key}=; Max-Age=0`;
+    } catch (r) {
+      return Promise.reject(r);
+    }
+  }
+  async clearCookies() {
+    try {
+      const e = document.cookie.split(";") || [];
+      for (const r of e) document.cookie = r.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+  async clearAllCookies() {
+    try {
+      await this.clearCookies();
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+}
+Ge("CapacitorCookies", {
+  web: () => new Ba(),
+});
+const qa = async (t) =>
+    new Promise((e, r) => {
+      const s = new FileReader();
+      ((s.onload = () => {
+        const n = s.result;
+        e(n.indexOf(",") >= 0 ? n.split(",")[1] : n);
+      }),
+        (s.onerror = (n) => r(n)),
+        s.readAsDataURL(t));
+    }),
+  Ma = (t = {}) => {
+    const e = Object.keys(t);
+    return Object.keys(t)
+      .map((n) => n.toLocaleLowerCase())
+      .reduce((n, i, a) => ((n[i] = t[e[a]]), n), {});
+  },
+  Fa = (t, e = !0) =>
+    t
+      ? Object.entries(t)
+          .reduce((s, n) => {
+            const [i, a] = n;
+            let o, l;
+            return (
+              Array.isArray(a)
+                ? ((l = ""),
+                  a.forEach((c) => {
+                    ((o = e ? encodeURIComponent(c) : c), (l += `${i}=${o}&`));
+                  }),
+                  l.slice(0, -1))
+                : ((o = e ? encodeURIComponent(a) : a), (l = `${i}=${o}`)),
+              `${s}&${l}`
+            );
+          }, "")
+          .substr(1)
+      : null,
+  Va = (t, e = {}) => {
+    const r = Object.assign(
+        {
+          method: t.method || "GET",
+          headers: t.headers,
+        },
+        e,
+      ),
+      n = Ma(t.headers)["content-type"] || "";
+    if (typeof t.data == "string") r.body = t.data;
+    else if (n.includes("application/x-www-form-urlencoded")) {
+      const i = new URLSearchParams();
+      for (const [a, o] of Object.entries(t.data || {})) i.set(a, o);
+      r.body = i.toString();
+    } else if (n.includes("multipart/form-data") || t.data instanceof FormData) {
+      const i = new FormData();
+      if (t.data instanceof FormData)
+        t.data.forEach((o, l) => {
+          i.append(l, o);
+        });
+      else for (const o of Object.keys(t.data)) i.append(o, t.data[o]);
+      r.body = i;
+      const a = new Headers(r.headers);
+      (a.delete("content-type"), (r.headers = a));
+    } else (n.includes("application/json") || typeof t.data == "object") && (r.body = JSON.stringify(t.data));
+    return r;
+  };
+class Wa extends ir {
+  async request(e) {
+    const r = Va(e, e.webFetchExtra),
+      s = Fa(e.params, e.shouldEncodeUrlParams),
+      n = s ? `${e.url}?${s}` : e.url,
+      i = await fetch(n, r),
+      a = i.headers.get("content-type") || "";
+    let { responseType: o = "text" } = i.ok ? e : {};
+    a.includes("application/json") && (o = "json");
+    let l, c;
+    switch (o) {
+      case "arraybuffer":
+      case "blob":
+        ((c = await i.blob()), (l = await qa(c)));
+        break;
+      case "json":
+        l = await i.json();
+        break;
+      default:
+        l = await i.text();
+    }
+    const h = {};
+    return (
+      i.headers.forEach((p, f) => {
+        h[f] = p;
+      }),
+      {
+        data: l,
+        headers: h,
+        status: i.status,
+        url: i.url,
+      }
+    );
+  }
+  async get(e) {
+    return this.request(
+      Object.assign(Object.assign({}, e), {
+        method: "GET",
+      }),
+    );
+  }
+  async post(e) {
+    return this.request(
+      Object.assign(Object.assign({}, e), {
+        method: "POST",
+      }),
+    );
+  }
+  async put(e) {
+    return this.request(
+      Object.assign(Object.assign({}, e), {
+        method: "PUT",
+      }),
+    );
+  }
+  async patch(e) {
+    return this.request(
+      Object.assign(Object.assign({}, e), {
+        method: "PATCH",
+      }),
+    );
+  }
+  async delete(e) {
+    return this.request(
+      Object.assign(Object.assign({}, e), {
+        method: "DELETE",
+      }),
+    );
+  }
+}
+Ge("CapacitorHttp", {
+  web: () => new Wa(),
+});
+var Mr;
+(function (t) {
+  ((t.Dark = "DARK"), (t.Light = "LIGHT"), (t.Default = "DEFAULT"));
+})(Mr || (Mr = {}));
+var Fr;
+(function (t) {
+  ((t.StatusBar = "StatusBar"), (t.NavigationBar = "NavigationBar"));
+})(Fr || (Fr = {}));
+class Ha extends ir {
+  async setStyle() {
+    this.unavailable("not available for web");
+  }
+  async setAnimation() {
+    this.unavailable("not available for web");
+  }
+  async show() {
+    this.unavailable("not available for web");
+  }
+  async hide() {
+    this.unavailable("not available for web");
+  }
+}
+Ge("SystemBars", {
+  web: () => new Ha(),
+});
+function Ka(t) {
+  return new DataView(Uint8Array.from(t).buffer);
+}
+function za(t) {
+  return Array.from(new Uint8Array(t.buffer, t.byteOffset, t.byteLength));
+}
+function Ga(t) {
+  return `0000${t.toString(16).padStart(4, "0")}-0000-1000-8000-00805f9b34fb`;
+}
+function hs(t) {
+  const e = [];
+  let r,
+    s,
+    n = 1,
+    i = 0;
+  for (r = 0; r < t.length; r++)
+    ((s = t.charCodeAt(r)),
+      ((s > 47 && s < 58) || (s > 64 && s < 71) || (s > 96 && s < 103)) &&
+        ((i = (i << 4) ^ ((s > 64 ? s + 9 : s) & 15)), (n ^= 1) && e.push(i & 255)));
+  return Ka(e);
+}
+function Qe(t) {
+  return za(t)
+    .map((e) => {
+      let r = e.toString(16);
+      return (r.length == 1 && (r = "0" + r), r);
+    })
+    .join("");
+}
+function _o(t) {
+  if (typeof t == "string") return t;
+  if (typeof t == "number") return Ga(t);
+  throw new Error("Invalid UUID");
+}
+function bo(t) {
+  const e = {};
+  if (t)
+    return (
+      t.forEach((r, s) => {
+        e[s.toString()] = r;
+      }),
+      e
+    );
+}
+function Vr(t) {
+  if (t !== void 0) {
+    if (typeof t == "string") {
+      const e = hs(t);
+      return new Uint8Array(e.buffer, e.byteOffset, e.byteLength);
+    }
+    return t instanceof DataView ? new Uint8Array(t.buffer, t.byteOffset, t.byteLength) : t;
+  }
+}
+function pt(t) {
+  if (t !== void 0) return t instanceof DataView ? Qe(t) : Qe(new DataView(t.buffer, t.byteOffset, t.byteLength));
+}
+function Eo(t) {
+  if (t.buffer instanceof SharedArrayBuffer) {
+    const r = new Uint8Array(t.buffer, t.byteOffset, t.byteLength).slice().buffer;
+    return new DataView(r);
+  }
+  return t;
+}
+const Ja = "modulepreload",
+  Ya = function (t, e) {
+    return new URL(t, e).href;
+  },
+  Wr = {},
+  ar = function (e, r, s) {
+    let n = Promise.resolve();
+    if (r && r.length > 0) {
+      let c = function (h) {
+        return Promise.all(
+          h.map((p) =>
+            Promise.resolve(p).then(
+              (f) => ({
+                status: "fulfilled",
+                value: f,
+              }),
+              (f) => ({
+                status: "rejected",
+                reason: f,
+              }),
+            ),
+          ),
+        );
+      };
+      const a = document.getElementsByTagName("link"),
+        o = document.querySelector("meta[property=csp-nonce]"),
+        l = o?.nonce || o?.getAttribute("nonce");
+      n = c(
+        r.map((h) => {
+          if (((h = Ya(h, s)), h in Wr)) return;
+          Wr[h] = !0;
+          const p = h.endsWith(".css"),
+            f = p ? '[rel="stylesheet"]' : "";
+          if (s)
+            for (let m = a.length - 1; m >= 0; m--) {
+              const w = a[m];
+              if (w.href === h && (!p || w.rel === "stylesheet")) return;
+            }
+          else if (document.querySelector(`link[href="${h}"]${f}`)) return;
+          const g = document.createElement("link");
+          if (
+            ((g.rel = p ? "stylesheet" : Ja),
+            p || (g.as = "script"),
+            (g.crossOrigin = ""),
+            (g.href = h),
+            l && g.setAttribute("nonce", l),
+            document.head.appendChild(g),
+            p)
+          )
+            return new Promise((m, w) => {
+              (g.addEventListener("load", m), g.addEventListener("error", () => w(new Error(`Unable to preload CSS for ${h}`))));
+            });
+        }),
+      );
+    }
+    function i(a) {
+      const o = new Event("vite:preloadError", {
+        cancelable: !0,
+      });
+      if (((o.payload = a), window.dispatchEvent(o), !o.defaultPrevented)) throw a;
+    }
+    return n.then((a) => {
+      for (const o of a || []) o.status === "rejected" && i(o.reason);
+      return e().catch(i);
+    });
+  },
+  O = Ge("BluetoothLe", {
+    web: () => ar(() => import("./web-DEeSqGRi.js"), [], import.meta.url).then((t) => new t.BluetoothLeWeb()),
+  }),
+  Xa = () => {
+    let t = Promise.resolve();
+    return (e) =>
+      new Promise((r, s) => {
+        t = t
+          .then(() => e())
+          .then(r)
+          .catch(s);
+      });
+  };
+function Nt(t) {
+  return t ? Xa() : (e) => e();
+}
+function D(t) {
+  if (typeof t != "string") throw new Error(`Invalid UUID type ${typeof t}. Expected string.`);
+  if (((t = t.toLowerCase()), !(t.search(/^[0-9a-f]{8}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{4}\b-[0-9a-f]{12}$/) >= 0)))
+    throw new Error(`Invalid UUID format ${t}. Expected 128 bit string (e.g. "0000180d-0000-1000-8000-00805f9b34fb").`);
+  return t;
+}
+class Qa {
+  constructor() {
+    ((this.scanListener = null), (this.eventListeners = new Map()), (this.queue = Nt(!0)));
+  }
+  enableQueue() {
+    this.queue = Nt(!0);
+  }
+  disableQueue() {
+    this.queue = Nt(!1);
+  }
+  async initialize(e) {
+    await this.queue(async () => {
+      await O.initialize(e);
+    });
+  }
+  async isEnabled() {
+    return await this.queue(async () => (await O.isEnabled()).value);
+  }
+  async requestEnable() {
+    await this.queue(async () => {
+      await O.requestEnable();
+    });
+  }
+  async enable() {
+    await this.queue(async () => {
+      await O.enable();
+    });
+  }
+  async disable() {
+    await this.queue(async () => {
+      await O.disable();
+    });
+  }
+  async startEnabledNotifications(e) {
+    await this.queue(async () => {
+      var r;
+      const s = "onEnabledChanged";
+      await ((r = this.eventListeners.get(s)) === null || r === void 0 ? void 0 : r.remove());
+      const n = await O.addListener(s, (i) => {
+        e(i.value);
+      });
+      (this.eventListeners.set(s, n), await O.startEnabledNotifications());
+    });
+  }
+  async stopEnabledNotifications() {
+    await this.queue(async () => {
+      var e;
+      const r = "onEnabledChanged";
+      (await ((e = this.eventListeners.get(r)) === null || e === void 0 ? void 0 : e.remove()),
+        this.eventListeners.delete(r),
+        await O.stopEnabledNotifications());
+    });
+  }
+  async isLocationEnabled() {
+    return await this.queue(async () => (await O.isLocationEnabled()).value);
+  }
+  async openLocationSettings() {
+    await this.queue(async () => {
+      await O.openLocationSettings();
+    });
+  }
+  async openBluetoothSettings() {
+    await this.queue(async () => {
+      await O.openBluetoothSettings();
+    });
+  }
+  async openAppSettings() {
+    await this.queue(async () => {
+      await O.openAppSettings();
+    });
+  }
+  async setDisplayStrings(e) {
+    await this.queue(async () => {
+      await O.setDisplayStrings(e);
+    });
+  }
+  async requestDevice(e) {
+    return ((e = e ? this.validateRequestBleDeviceOptions(e) : void 0), await this.queue(async () => await O.requestDevice(e)));
+  }
+  async requestLEScan(e, r) {
+    ((e = this.validateRequestBleDeviceOptions(e)),
+      await this.queue(async () => {
+        var s;
+        (await ((s = this.scanListener) === null || s === void 0 ? void 0 : s.remove()),
+          (this.scanListener = await O.addListener("onScanResult", (n) => {
+            const i = Object.assign(Object.assign({}, n), {
+              manufacturerData: this.convertObject(n.manufacturerData),
+              serviceData: this.convertObject(n.serviceData),
+              rawAdvertisement: n.rawAdvertisement ? this.convertValue(n.rawAdvertisement) : void 0,
+            });
+            r(i);
+          })),
+          await O.requestLEScan(e));
+      }));
+  }
+  async stopLEScan() {
+    await this.queue(async () => {
+      var e;
+      (await ((e = this.scanListener) === null || e === void 0 ? void 0 : e.remove()),
+        (this.scanListener = null),
+        await O.stopLEScan());
+    });
+  }
+  async getDevices(e) {
+    if (!Array.isArray(e)) throw new Error("deviceIds must be an array");
+    return this.queue(
+      async () =>
+        (
+          await O.getDevices({
+            deviceIds: e,
+          })
+        ).devices,
+    );
+  }
+  async getConnectedDevices(e) {
+    if (!Array.isArray(e)) throw new Error("services must be an array");
+    return (
+      (e = e.map(D)),
+      this.queue(
+        async () =>
+          (
+            await O.getConnectedDevices({
+              services: e,
+            })
+          ).devices,
+      )
+    );
+  }
+  async getBondedDevices() {
+    return this.queue(async () => (await O.getBondedDevices()).devices);
+  }
+  async connect(e, r, s) {
+    await this.queue(async () => {
+      var n;
+      if (r) {
+        const i = `disconnected|${e}`;
+        await ((n = this.eventListeners.get(i)) === null || n === void 0 ? void 0 : n.remove());
+        const a = await O.addListener(i, () => {
+          r(e);
+        });
+        this.eventListeners.set(i, a);
+      }
+      await O.connect(
+        Object.assign(
+          {
+            deviceId: e,
+          },
+          s,
+        ),
+      );
+    });
+  }
+  async createBond(e, r) {
+    await this.queue(async () => {
+      await O.createBond(
+        Object.assign(
+          {
+            deviceId: e,
+          },
+          r,
+        ),
+      );
+    });
+  }
+  async isBonded(e) {
+    return await this.queue(
+      async () =>
+        (
+          await O.isBonded({
+            deviceId: e,
+          })
+        ).value,
+    );
+  }
+  async disconnect(e) {
+    await this.queue(async () => {
+      await O.disconnect({
+        deviceId: e,
+      });
+    });
+  }
+  async getServices(e) {
+    return await this.queue(
+      async () =>
+        (
+          await O.getServices({
+            deviceId: e,
+          })
+        ).services,
+    );
+  }
+  async discoverServices(e) {
+    await this.queue(async () => {
+      await O.discoverServices({
+        deviceId: e,
+      });
+    });
+  }
+  async getMtu(e) {
+    return await this.queue(
+      async () =>
+        (
+          await O.getMtu({
+            deviceId: e,
+          })
+        ).value,
+    );
+  }
+  async requestConnectionPriority(e, r) {
+    await this.queue(async () => {
+      await O.requestConnectionPriority({
+        deviceId: e,
+        connectionPriority: r,
+      });
+    });
+  }
+  async readRssi(e) {
+    return await this.queue(async () => {
+      const s = await O.readRssi({
+        deviceId: e,
+      });
+      return parseFloat(s.value);
+    });
+  }
+  async read(e, r, s, n) {
+    return (
+      (r = D(r)),
+      (s = D(s)),
+      await this.queue(async () => {
+        const a = await O.read(
+          Object.assign(
+            {
+              deviceId: e,
+              service: r,
+              characteristic: s,
+            },
+            n,
+          ),
+        );
+        return this.convertValue(a.value);
+      })
+    );
+  }
+  async write(e, r, s, n, i) {
+    return (
+      (r = D(r)),
+      (s = D(s)),
+      this.queue(async () => {
+        if (!n?.buffer) throw new Error("Invalid data.");
+        let a = n;
+        (Z.getPlatform() !== "web" && (a = Qe(n)),
+          await O.write(
+            Object.assign(
+              {
+                deviceId: e,
+                service: r,
+                characteristic: s,
+                value: a,
+              },
+              i,
+            ),
+          ));
+      })
+    );
+  }
+  async writeWithoutResponse(e, r, s, n, i) {
+    ((r = D(r)),
+      (s = D(s)),
+      await this.queue(async () => {
+        if (!n?.buffer) throw new Error("Invalid data.");
+        let a = n;
+        (Z.getPlatform() !== "web" && (a = Qe(n)),
+          await O.writeWithoutResponse(
+            Object.assign(
+              {
+                deviceId: e,
+                service: r,
+                characteristic: s,
+                value: a,
+              },
+              i,
+            ),
+          ));
+      }));
+  }
+  async readDescriptor(e, r, s, n, i) {
+    return (
+      (r = D(r)),
+      (s = D(s)),
+      (n = D(n)),
+      await this.queue(async () => {
+        const o = await O.readDescriptor(
+          Object.assign(
+            {
+              deviceId: e,
+              service: r,
+              characteristic: s,
+              descriptor: n,
+            },
+            i,
+          ),
+        );
+        return this.convertValue(o.value);
+      })
+    );
+  }
+  async writeDescriptor(e, r, s, n, i, a) {
+    return (
+      (r = D(r)),
+      (s = D(s)),
+      (n = D(n)),
+      this.queue(async () => {
+        if (!i?.buffer) throw new Error("Invalid data.");
+        let o = i;
+        (Z.getPlatform() !== "web" && (o = Qe(i)),
+          await O.writeDescriptor(
+            Object.assign(
+              {
+                deviceId: e,
+                service: r,
+                characteristic: s,
+                descriptor: n,
+                value: o,
+              },
+              a,
+            ),
+          ));
+      })
+    );
+  }
+  async startNotifications(e, r, s, n, i) {
+    ((r = D(r)),
+      (s = D(s)),
+      await this.queue(async () => {
+        var a;
+        const o = `notification|${e}|${r}|${s}`;
+        await ((a = this.eventListeners.get(o)) === null || a === void 0 ? void 0 : a.remove());
+        const l = await O.addListener(o, (c) => {
+          n(this.convertValue(c?.value));
+        });
+        (this.eventListeners.set(o, l),
+          await O.startNotifications(
+            Object.assign(
+              {
+                deviceId: e,
+                service: r,
+                characteristic: s,
+              },
+              i,
+            ),
+          ));
+      }));
+  }
+  async stopNotifications(e, r, s) {
+    ((r = D(r)),
+      (s = D(s)),
+      await this.queue(async () => {
+        var n;
+        const i = `notification|${e}|${r}|${s}`;
+        (await ((n = this.eventListeners.get(i)) === null || n === void 0 ? void 0 : n.remove()),
+          this.eventListeners.delete(i),
+          await O.stopNotifications({
+            deviceId: e,
+            service: r,
+            characteristic: s,
+          }));
+      }));
+  }
+  validateRequestBleDeviceOptions(e) {
+    return (
+      e.services && (e.services = e.services.map(D)),
+      e.optionalServices && (e.optionalServices = e.optionalServices.map(D)),
+      e.serviceData &&
+        Z.getPlatform() !== "web" &&
+        (e.serviceData = e.serviceData.map((r) =>
+          Object.assign(Object.assign({}, r), {
+            serviceUuid: D(r.serviceUuid),
+            dataPrefix: pt(r.dataPrefix),
+            mask: pt(r.mask),
+          }),
+        )),
+      e.manufacturerData &&
+        (Z.getPlatform() !== "web"
+          ? (e.manufacturerData = e.manufacturerData.map((r) =>
+              Object.assign(Object.assign({}, r), {
+                dataPrefix: pt(r.dataPrefix),
+                mask: pt(r.mask),
+              }),
+            ))
+          : (e.manufacturerData = e.manufacturerData.map((r) =>
+              Object.assign(Object.assign({}, r), {
+                dataPrefix: Vr(r.dataPrefix),
+                mask: Vr(r.mask),
+              }),
+            ))),
+      e
+    );
+  }
+  convertValue(e) {
+    return typeof e == "string" ? hs(e) : e === void 0 ? new DataView(new ArrayBuffer(0)) : e;
+  }
+  convertObject(e) {
+    if (e === void 0) return;
+    const r = {};
+    for (const s of Object.keys(e)) r[s] = this.convertValue(e[s]);
+    return r;
+  }
+}
+const BleClient = new Qa();
+
+// ---- 06-vendor-capacitor-plugins.js ----
+// VENDOR (não editar): registro dos plugins Filesystem e Share do Capacitor.
+function ao(t) {
+  t.CapacitorUtils.Synapse = new Proxy(
+    {},
+    {
+      get(e, r) {
+        return new Proxy(
+          {},
+          {
+            get(s, n) {
+              return (i, a, o) => {
+                const l = t.Capacitor.Plugins[r];
+                if (l === void 0) {
+                  o(new Error(`Capacitor plugin ${r} not found`));
+                  return;
+                }
+                if (typeof l[n] != "function") {
+                  o(new Error(`Method ${n} not found in Capacitor plugin ${r}`));
+                  return;
+                }
+                (async () => {
+                  try {
+                    const c = await l[n](i);
+                    a(c);
+                  } catch (c) {
+                    o(c);
+                  }
+                })();
+              };
+            },
+          },
+        );
+      },
+    },
+  );
+}
+function oo(t) {
+  t.CapacitorUtils.Synapse = new Proxy(
+    {},
+    {
+      get(e, r) {
+        return t.cordova.plugins[r];
+      },
+    },
+  );
+}
+function lo(t = !1) {
+  typeof window > "u" ||
+    ((window.CapacitorUtils = window.CapacitorUtils || {}),
+    window.Capacitor !== void 0 && !t ? ao(window) : window.cordova !== void 0 && oo(window));
+}
+var FsDirectory;
+(function (t) {
+  ((t.Documents = "DOCUMENTS"),
+    (t.Data = "DATA"),
+    (t.Library = "LIBRARY"),
+    (t.Cache = "CACHE"),
+    (t.External = "EXTERNAL"),
+    (t.ExternalStorage = "EXTERNAL_STORAGE"),
+    (t.ExternalCache = "EXTERNAL_CACHE"),
+    (t.LibraryNoCloud = "LIBRARY_NO_CLOUD"),
+    (t.Temporary = "TEMPORARY"));
+})(FsDirectory || (FsDirectory = {}));
+var Zt;
+(function (t) {
+  ((t.UTF8 = "utf8"), (t.ASCII = "ascii"), (t.UTF16 = "utf16"));
+})(Zt || (Zt = {}));
+const FilesystemPlugin = Ge("Filesystem", {
+  web: () => ar(() => import("./web-8iTD2sZM.js"), [], import.meta.url).then((t) => new t.FilesystemWeb()),
+});
+lo();
+const SharePlugin = Ge("Share", {
+  web: () => ar(() => import("./web-BfBGDy75.js"), [], import.meta.url).then((t) => new t.ShareWeb()),
+});
+
+// ---- 10-core.js ----
+// =============================================================================
+// Núcleo: configuração, cliente Supabase e utilitários de formatação e domínio.
+// Tudo neste diretório é concatenado em ordem pelo build (escopo único de módulo).
+// Nomes novos usam 4+ caracteres para não colidir com os nomes curtos do vendor.
+// =============================================================================
+const CONFIG = Object.freeze({
+  supabaseUrl: "https://dejxzipydlnjhrjivgjp.supabase.co",
+  publishableKey: "sb_publishable_XkutzQ-1BaHXHuBDaD1eLw_xEukysyF",
+  // Endereço público do site: usado nos links de convite e recuperação, inclusive pelo app Android.
+  publicBaseUrl: "https://laboratoriochesterton.github.io/sensorgaxeta/",
+  callbackPage: "acesso.html",
+  inviteFunction: "gaxeta-invite",
+  pollMs: 5000,
+  contextCheckMs: 60000,
+  pageSize: 24,
+});
+
+// A URL de entrada é lida antes de o SDK consumir os parâmetros de convite/recuperação.
+const ENTRY_URL = Object.freeze({ hash: location.hash, search: location.search });
+
+async function fetchWithTimeout(input, init = {}) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  init.signal?.aborted ? controller.abort() : init.signal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener("abort", abort);
+  }
+}
+
+// `Ia` é o createClient do supabase-js no vendor.
+const sb = Ia(CONFIG.supabaseUrl, CONFIG.publishableKey, {
+  global: { fetch: fetchWithTimeout },
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
+
+async function unwrap(request) {
+  const { data, error } = await request;
+  if (error) throw error;
+  return data;
+}
+const callRpc = (name, params = {}) => unwrap(sb.rpc(name, params));
+
+const KIND_ORDER = ["corporation", "company", "area", "subarea", "equipment", "point"];
+const KIND_LABEL = {
+  corporation: "Corporação",
+  company: "Empresa",
+  area: "Área",
+  subarea: "Subárea",
+  equipment: "TAG",
+  point: "Spot",
+};
+// Filhos válidos por nível (a subárea é opcional: o TAG pode ficar direto na área).
+const KIND_CHILDREN = {
+  corporation: ["company"],
+  company: ["area"],
+  area: ["equipment", "subarea"],
+  subarea: ["equipment"],
+  equipment: ["point"],
+  point: [],
+};
+const KIND_ICON = { corporation: "building-2", company: "factory", area: "folder", subarea: "folder", equipment: "cog", point: "map-pin" };
+const ROLE_LABEL = { adm1: "ADM nível 1", adm2: "ADM nível 2", adm3: "ADM nível 3", corp: "Usuário de corporação" };
+
+const fmtNum = (value, digits = 1) =>
+  value == null || !Number.isFinite(Number(value))
+    ? "—"
+    : Number(value).toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const fmtDateTime = (value) => (value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" }) : "—");
+const esc = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+const $id = (id) => document.getElementById(id);
+const isNativeApp = () => Z.isNativePlatform();
+const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
+
+// Ícones Lucide incluídos no vendor (nomes minificados à direita).
+const renderIcons = () =>
+  en({
+    icons: {
+      LayoutGrid: Ks, Network: Gs, ChartNoAxesCombined: Ms, Router: Xs, Bluetooth: Us, BluetoothSearching: Ds, BookOpen: Bs,
+      Plus: Js, Search: Qs, Radio: Ys, Wifi: Zs, Building2: qs, Factory: Ws, Folder: Hs, Cog: Vs, MapPin: zs, ChevronRight: Fs,
+    },
+  });
+const icon = (name) => `<i data-lucide="${name}"></i>`;
+// Ícones adicionais desenhados aqui (traço simples), para não depender de novos pacotes.
+const GLYPHS = {
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.5c1.8.9 3 2.9 3 5.5"/>',
+  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  panel: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/>',
+  trash: '<path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  shield: '<path d="M12 3.5l7 2.5v5.5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6l7-2.5z"/>',
+};
+const glyph = (name) =>
+  `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
+
+// ----- Regras de domínio herdadas do pacote publicado (sem alteração de comportamento) -----
+function connectionStatus(t, e = Date.now()) {
+  const r = e - new Date(t.last_received_at || 0).getTime();
+  return r < 25e3
+    ? {
+        online: !0,
+        label: "Transmitindo",
+        className: "green",
+      }
+    : r < 65e3
+      ? {
+          online: !1,
+          label: "Atraso na transmissão",
+          className: "gray",
+        }
+      : {
+          online: !1,
+          label: "Sem atualização",
+          className: "gray",
+        };
+}
+function assetPath(t, e) {
+  const r = [],
+    s = new Set();
+  for (; t && !s.has(t);) {
+    s.add(t);
+    const n = e.find((i) => i.id === t);
+    if (!n) break;
+    (r.unshift(n), (t = n.parent_id));
+  }
+  return r;
+}
+function isUnderAsset(t, e, r) {
+  return !e || assetPath(t, r).some((s) => s.id === e);
+}
+function companyOf(t, e) {
+  return assetPath(t, e).find((r) => r.kind === "company")?.id || null;
+}
+function presetRange(t, e = new Date()) {
+  const r = new Date(e),
+    s = new Date(e);
+  if (t === "month" || t === "3months") {
+    const n = s.getDate();
+    (s.setDate(1), s.setMonth(s.getMonth() - (t === "month" ? 1 : 3)));
+    const i = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate();
+    s.setDate(Math.min(n, i));
+  } else s.setTime(r.getTime() - Number(t));
+  return {
+    from: s,
+    to: r,
+  };
+}
+function validateRange(t, e) {
+  const r = new Date(t).getTime(),
+    s = new Date(e).getTime();
+  if (!Number.isFinite(r) || !Number.isFinite(s) || s - r < 1e3 || s - r > 366 * 864e5)
+    throw Error("Selecione um intervalo entre 1 segundo e 366 dias.");
+  return {
+    from: new Date(r),
+    to: new Date(s),
+  };
+}
+function isValidSensorName(t) {
+  return /^[A-Za-z0-9][A-Za-z0-9 ._-]{2,23}$/.test(t);
+}
+function csvCell(t) {
+  const e = String(t ?? "");
+  return '"' + (/^[=+\-@\t\r]/.test(e) ? "'" : "") + e.replaceAll('"', '""') + '"';
+}
+function adjustmentInfo(t) {
+  if (t == null || !Number.isFinite(Number(t)))
+    return {
+      key: "unknown",
+      label: "Sem leitura",
+      action: "Aguardando medição",
+    };
+  const e = Number(t);
+  return e >= 70
+    ? {
+        key: "high",
+        label: "Alto ajuste",
+        action: "Sem necessidade de intervenção",
+      }
+    : e >= 45
+      ? {
+          key: "medium",
+          label: "Médio ajuste",
+          action: "Sem necessidade de intervenção",
+        }
+      : e > 20
+        ? {
+            key: "low",
+            label: "Baixo ajuste",
+            action: "Planejar intervenção",
+          }
+        : {
+            key: "critical",
+            label: "Sem ajuste",
+            action: "Substituir a gaxeta",
+          };
+}
+function buildStablePath(t, e, r, s, n) {
+  const i = +new Date(r),
+    a = +new Date(s),
+    o = Math.min(a, +new Date(n));
+  if (!(a > i) || !(o >= i)) return "";
+  const l = (f) => Math.max(0, Math.min(1e3, ((f - i) / (a - i)) * 1e3)).toFixed(2),
+    c = (f) => (280 - Math.max(0, Math.min(100, Number(f))) * 2.8).toFixed(2);
+  let h = e?.stable_percent,
+    p = h == null ? "" : `M0 ${c(h)}`;
+  for (const f of t) {
+    const g = +new Date(f.received_at);
+    g < i ||
+      g > o ||
+      ((p += h == null ? `M${l(g)} ${c(f.stable_percent)}` : ` H${l(g)} V${c(f.stable_percent)}`), (h = f.stable_percent));
+  }
+  return h == null ? "" : p + ` H${l(o)}`;
+}
+async function exportCsvFile(t, e) {
+  if (Z.isNativePlatform()) {
+    const n = await FilesystemPlugin.writeFile({
+      path: e,
+      data: "\uFEFF" + t,
+      directory: FsDirectory.Cache,
+      encoding: Zt.UTF8,
+    });
+    await SharePlugin.share({
+      title: "Telemetria de gaxeta",
+      files: [n.uri],
+      dialogTitle: "Salvar ou compartilhar CSV",
+    });
+    return;
+  }
+  const r = URL.createObjectURL(
+      new Blob(["\uFEFF", t], {
+        type: "text/csv;charset=utf-8",
+      }),
+    ),
+    s = document.createElement("a");
+  ((s.href = r), (s.download = e), s.click(), setTimeout(() => URL.revokeObjectURL(r), 1e3));
+}
+
+// ---- 20-ble.js ----
+// Bluetooth local (herdado do pacote publicado; nenhum comando é enviado sem ação do operador).
+const BLE_SERVICE = "7a1e0001-9b3c-4d2e-8f10-123456789001",
+  BLE_CHAR_READING = "7a1e0002-9b3c-4d2e-8f10-123456789001",
+  BLE_CHAR_NAME = "7a1e0003-9b3c-4d2e-8f10-123456789001",
+  bleDecode = (t) => new TextDecoder().decode(new Uint8Array(t.buffer, t.byteOffset, t.byteLength)),
+  bleEncode = (t) => {
+    const e = new TextEncoder().encode(t);
+    return new DataView(e.buffer, e.byteOffset, e.byteLength);
+  };
+let bleInitialized = !1,
+  bleDevice = null,
+  bleTimer = null,
+  bleOnReading = () => {},
+  bleOnStatus = () => {},
+  bleScanTimer = null,
+  bleReading = !1;
+async function bleInit() {
+  bleInitialized ||
+    (await BleClient.initialize({
+      androidNeverForLocation: !0,
+    }),
+    (bleInitialized = !0));
+}
+const bleCurrent = () => bleDevice;
+async function bleStopScan() {
+  (clearTimeout(bleScanTimer), await BleClient.stopLEScan().catch(() => {}));
+}
+async function bleScan(t, e) {
+  if ((await bleInit(), await bleStopScan(), !Z.isNativePlatform())) {
+    const r = await BleClient.requestDevice({
+      services: [BLE_SERVICE],
+    });
+    (t(r), e("Sensor selecionado. Toque em Conectar."));
+    return;
+  }
+  (await BleClient.requestLEScan(
+    {
+      services: [BLE_SERVICE],
+      allowDuplicates: !1,
+    },
+    (r) =>
+      t({
+        ...r.device,
+        rssi: r.rssi,
+      }),
+  ),
+    e("Buscando sensores próximos…"),
+    (bleScanTimer = setTimeout(async () => {
+      (await bleStopScan(), e("Busca concluída. Selecione um sensor ou busque novamente."));
+    }, 8e3)));
+}
+function bleDropped() {
+  (clearInterval(bleTimer),
+    (bleTimer = null),
+    (bleDevice = null),
+    bleOnStatus("Bluetooth desconectado. A última leitura local foi preservada."));
+}
+async function bleDisconnect() {
+  const t = bleDevice;
+  (bleDropped(), t && (await BleClient.disconnect(t.deviceId).catch(() => {})));
+}
+async function bleConnect(t, e, r) {
+  (await bleInit(),
+    await bleStopScan(),
+    await bleDisconnect(),
+    (bleOnReading = e),
+    (bleOnStatus = r),
+    r("Conectando ao sensor…"),
+    await BleClient.connect(t.deviceId, bleDropped, {
+      timeout: 2e4,
+    }),
+    (bleDevice = t));
+  try {
+    (await bleReadOnce(),
+      await BleClient.startNotifications(t.deviceId, BLE_SERVICE, BLE_CHAR_READING, (s) => bleParse(s)).catch(() => {}),
+      (bleTimer = setInterval(() => bleReadOnce().catch(() => bleOnStatus("Falha na leitura local; tentando novamente.")), 5e3)),
+      r("Bluetooth conectado. Leitura local a cada 5 segundos."));
+  } catch (s) {
+    throw (await bleDisconnect(), s);
+  }
+}
+function bleParse(t) {
+  const e = JSON.parse(bleDecode(t));
+  if (typeof e != "object" || e === null) throw Error("Resposta BLE inválida.");
+  bleOnReading(e, bleDevice);
+}
+async function bleReadOnce() {
+  if (!(!bleDevice || bleReading)) {
+    bleReading = !0;
+    try {
+      const t = bleDevice.deviceId,
+        e = await BleClient.read(t, BLE_SERVICE, BLE_CHAR_READING);
+      bleDevice?.deviceId === t && bleParse(e);
+    } finally {
+      bleReading = !1;
+    }
+  }
+}
+async function bleWriteName(t, e, r) {
+  if (!bleDevice) throw Error("Conecte o sensor por Bluetooth.");
+  if (!e || r !== e) throw Error("O sensor Bluetooth não corresponde ao sensor selecionado. Confira o ID.");
+  if (!isValidSensorName(t)) throw Error("Nome inválido. Use de 3 a 24 caracteres sem acentos.");
+  const s = bleDevice.deviceId;
+  (Z.getPlatform() === "android" &&
+    !(await BleClient.isBonded(s)) &&
+    (await BleClient.createBond(s, {
+      timeout: 3e4,
+    })),
+    await BleClient.read(s, BLE_SERVICE, BLE_CHAR_NAME, {
+      timeout: 3e4,
+    }),
+    await BleClient.write(s, BLE_SERVICE, BLE_CHAR_NAME, bleEncode(t), {
+      timeout: 1e4,
+    }));
+  for (let n = 0; n < 8; n++) {
+    await new Promise((a) => setTimeout(a, 300));
+    const i = bleDecode(await BleClient.read(s, BLE_SERVICE, BLE_CHAR_NAME));
+    if (i === t) return i;
+  }
+  throw Error("A placa ainda não confirmou o nome. Confira o PIN e tente novamente.");
+}
+async function bleIdentify() {
+  if (!bleDevice) throw Error("Conecte um sensor.");
+  (Z.getPlatform() === "android" &&
+    !(await BleClient.isBonded(bleDevice.deviceId)) &&
+    (await BleClient.createBond(bleDevice.deviceId, {
+      timeout: 3e4,
+    })),
+    await BleClient.read(bleDevice.deviceId, BLE_SERVICE, BLE_CHAR_NAME, {
+      timeout: 3e4,
+    }),
+    await BleClient.write(bleDevice.deviceId, BLE_SERVICE, BLE_CHAR_NAME, bleEncode("identify")));
+}
+
+// ---- 40-shell.js ----
+// =============================================================================
+// Casca da aplicação: estado, mensagens, permissões, navegação e atualização.
+// =============================================================================
+const state = {
+  clockOffset: 0,
+  devices: [], // sensores conhecidos nesta sessão (página atual e sensor selecionado)
+  assets: [], // cache dos ativos já carregados (a árvore é lida por ramo, sob demanda)
+  sensorId: "",
+  assetId: "",
+  page: "sensors",
+  history: [],
+  movements: [],
+  seed: null,
+  stats: {},
+  period: 36e5,
+  range: presetRange(36e5),
+  custom: false,
+  authorized: false,
+  loading: false,
+  timer: null,
+  historyRequest: 0,
+  authRequest: 0,
+  bleReading: null,
+  bleDevice: null,
+  ctx: null, // resposta de gaxeta_my_context()
+  userId: null,
+  lastContextCheck: 0,
+  sensors: { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 },
+  drawer: { open: false, mode: "detail", sensorId: "", opener: null },
+};
+const assetIndex = new Map();
+
+const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset);
+const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
+const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
+const assetName = (id) => assetIndex.get(id)?.name || "—";
+const assetPathLabel = (id) =>
+  assetPath(id, state.assets)
+    .map((asset) => (asset.tag ? `${asset.name} · ${asset.tag}` : asset.name))
+    .join(" / ");
+const deviceLabel = (device) =>
+  device.desired_label || device.applied_label || (device.label === "Sensor de gaxeta" ? device.sensor_id : device.label) || device.sensor_id;
+
+const myRole = () => state.ctx?.role || null;
+const hasCap = (name) => !!state.ctx?.capabilities?.[name];
+const isAdminWriter = () => myRole() === "adm1" || myRole() === "adm2";
+
+// ----- Mensagens -----
+let messageTimer = null;
+function showMessage(text, kind = "info") {
+  const box = $id("globalMessage");
+  clearTimeout(messageTimer);
+  box.textContent = text || "";
+  box.className = "message " + kind;
+  box.hidden = !text;
+  if (text && kind !== "error") messageTimer = setTimeout(() => (box.hidden = true), 7000);
+}
+function errorText(error) {
+  const message = error?.message || String(error || "");
+  if (error?.name === "AbortError" || /Failed to fetch|NetworkError|Load failed/i.test(message))
+    return "Não foi possível conectar. Verifique sua conexão e tente de novo.";
+  if (error?.code === "42501") return "Sua conta não tem permissão para esta operação.";
+  if (error?.code === "23505") {
+    if (/gateway|identifier/i.test(message + (error.details || ""))) return "Já existe um gateway com esta identificação.";
+    if (/e-mail|email/i.test(message)) return message;
+    return "Este spot já tem um sensor, ou o sensor já está em outro spot. Desfaça o vínculo atual antes.";
+  }
+  if (error?.code === "23503") return message || "Este cadastro possui dependências e não pode ser alterado.";
+  if (error?.code === "57014") return "A consulta demorou demais. Reduza o período e tente de novo.";
+  return message;
+}
+async function withBusy(button, task) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    await task();
+  } catch (error) {
+    showMessage(errorText(error), "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+function fillSelect(select, options, placeholder, value = "") {
+  select.replaceChildren();
+  if (placeholder !== null) select.add(new Option(placeholder, ""));
+  for (const option of options) select.add(new Option(option.label, option.value));
+  select.value = value;
+  if (select.value !== value) select.value = "";
+}
+const debounce = (task, wait = 300) => {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => task(...args), wait);
+  };
+};
+
+// Confirmação na própria página (sem caixas nativas do navegador).
+function askConfirm({ title, html, okLabel = "Confirmar", allowOk = true, danger = true }) {
+  const dialog = $id("confirmDialog");
+  $id("confirmTitle").textContent = title;
+  $id("confirmBody").innerHTML = html;
+  const ok = $id("confirmOk");
+  ok.textContent = okLabel;
+  ok.hidden = !allowOk;
+  ok.className = danger ? "danger" : "primary";
+  dialog.returnValue = "cancel";
+  dialog.showModal();
+  return new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "ok"), { once: true }));
+}
+
+// ----- Cache de ativos e sensores -----
+function rememberAssets(rows) {
+  for (const row of rows || []) assetIndex.set(row.id, { ...assetIndex.get(row.id), ...row });
+  state.assets = [...assetIndex.values()];
+}
+function forgetAsset(id) {
+  assetIndex.delete(id);
+  state.assets = [...assetIndex.values()];
+}
+// Garante no cache os ativos indicados e seus ancestrais (duas consultas no máximo).
+async function ensureAssets(ids) {
+  const fetchRows = async (wanted) => {
+    const rows = [];
+    for (let i = 0; i < wanted.length; i += 80)
+      rows.push(
+        ...(await unwrap(
+          sb.from("gaxeta_assets").select("id,parent_id,kind,name,tag,position,path,corporation_id").in("id", wanted.slice(i, i + 80)),
+        )),
+      );
+    rememberAssets(rows);
+    return rows;
+  };
+  const missing = [...new Set(ids.filter((id) => id && !assetIndex.get(id)?.path))];
+  if (!missing.length) return;
+  const rows = await fetchRows(missing);
+  const ancestors = [...new Set(rows.flatMap((row) => row.path || []))].filter((id) => !assetIndex.has(id));
+  if (ancestors.length) await fetchRows(ancestors);
+}
+function mergeDevices(rows) {
+  const byId = new Map(state.devices.map((device) => [device.sensor_id, device]));
+  for (const row of rows || []) byId.set(row.sensor_id, row);
+  state.devices = [...byId.values()];
+}
+function setServerTime(serverTime, observedAt) {
+  if (serverTime) state.clockOffset = new Date(serverTime).getTime() - observedAt;
+}
+// Atualiza só os sensores em uso (selecionado e painel aberto): uma chamada por ciclo.
+async function refreshKnownDevices() {
+  const ids = [...new Set([state.sensorId, state.drawer.open ? state.drawer.sensorId : ""].filter(Boolean))];
+  if (!ids.length) return;
+  const startedAt = Date.now();
+  const result = await callRpc("gaxeta_devices_status", { p_sensor_ids: ids });
+  setServerTime(result.server_time, startedAt);
+  mergeDevices(result.devices);
+  if (state.sensorId && !result.devices.some((device) => device.sensor_id === state.sensorId) && state.page === "telemetry") {
+    // O sensor saiu do escopo de quem está logado (vínculo ou acesso alterado).
+    state.devices = state.devices.filter((device) => device.sensor_id !== state.sensorId);
+    state.sensorId = "";
+    state.history = [];
+    state.movements = [];
+    state.stats = {};
+  }
+}
+
+// ----- Permissões na interface (o servidor decide; aqui só se evita oferecer o que será negado) -----
+function applyPermissions() {
+  const users = hasCap("manage_users");
+  document.querySelectorAll(".needs-users").forEach((element) => (element.hidden = !users));
+  $id("userName").textContent = state.ctx?.display_name || "";
+  $id("userRole").textContent = ROLE_LABEL[myRole()] || "";
+  $id("statusFilter").querySelector('[value="unassigned"]').hidden = !(myRole() || "").startsWith("adm");
+}
+async function checkContext() {
+  const context = await callRpc("gaxeta_my_context");
+  state.lastContextCheck = Date.now();
+  if (!context?.role) {
+    await leaveApp("Seu acesso foi alterado ou removido. Fale com o responsável pela operação.");
+    return false;
+  }
+  state.ctx = context;
+  applyPermissions();
+  return true;
+}
+
+// ----- Navegação -----
+const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários" };
+function renderPageActions() {
+  const actions = [];
+  if (state.page === "sensors") actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
+  if (state.page === "assets" && hasCap("manage_corporations") && !isNarrow() && !isNativeApp())
+    actions.push('<button class="primary compact" data-action="new-corporation">' + icon("plus") + "Nova corporação</button>");
+  if (state.page === "gateways" && hasCap("manage_gateways"))
+    actions.push('<button class="primary compact" data-action="new-gateway">' + icon("plus") + "Cadastrar gateway</button>");
+  if (state.page === "users" && hasCap("manage_users"))
+    actions.push('<button class="primary compact" data-action="new-user">' + icon("plus") + "Novo usuário</button>");
+  $id("pageActions").innerHTML = actions.join("");
+}
+function showPage(page) {
+  if (!PAGE_TITLES[page] || (page === "users" && !hasCap("manage_users"))) page = "sensors";
+  state.page = page;
+  if (location.hash.slice(1) !== page) history.replaceState(null, "", "#" + page);
+  document.body.dataset.page = page;
+  $id("workspace").hidden = !["sensors", "assets"].includes(page);
+  $id("sensorPane").hidden = page !== "sensors";
+  $id("assetInspector").hidden = page !== "assets";
+  $id("telemetryPage").hidden = page !== "telemetry";
+  $id("gatewayPage").hidden = page !== "gateways";
+  $id("usersPage").hidden = page !== "users";
+  $id("summary").hidden = page !== "sensors";
+  $id("pageTitle").textContent = PAGE_TITLES[page];
+  $id("userMenu").open = false;
+  setTreeDrawer(false);
+  for (const button of document.querySelectorAll("[data-page]")) {
+    button.classList.toggle("active", button.dataset.page === page);
+    button.setAttribute("aria-current", button.dataset.page === page ? "page" : "false");
+  }
+  renderPageActions();
+  const fail = (error) => showMessage(errorText(error), "error");
+  if (page === "sensors") loadSensors().catch(fail);
+  if (page === "assets") renderInspector().catch(fail);
+  if (page === "telemetry") openTelemetry().catch(fail);
+  if (page === "gateways") loadGateways().catch(fail);
+  if (page === "users") loadUsers().catch(fail);
+  if (page === "sensors" || page === "assets") ensureTreeRoot().catch(fail);
+  renderIcons();
+}
+function setConnection(ok) {
+  $id("connection").textContent = ok ? "Conectado" : "Sem conexão";
+  $id("connection").className = "connection " + (ok ? "ok" : "error");
+}
+
+// Atualização periódica. Não reabre painéis, não apaga edição e não mexe em filtros.
+async function refreshData(manual = false) {
+  if (!state.authorized || document.hidden) return;
+  if (state.loading) {
+    state.refreshPending = true;
+    return;
+  }
+  state.loading = true;
+  state.refreshPending = false;
+  clearTimeout(state.timer);
+  const session = state.authRequest;
+  try {
+    if (Date.now() - state.lastContextCheck > CONFIG.contextCheckMs && !(await checkContext())) return;
+    if (session !== state.authRequest) return;
+    if (state.page === "sensors") await loadSensors({ quiet: true });
+    else if (state.page === "telemetry") {
+      await refreshKnownDevices();
+      await loadHistory();
+    }
+    if (state.drawer.open) {
+      if (state.page !== "telemetry") await refreshKnownDevices();
+      updateDrawerLive();
+    }
+    setConnection(true);
+    $id("lastSync").textContent = `Última consulta ${fmtDateTime(new Date())}`;
+  } catch (error) {
+    if (error?.code === "42501") await checkContext().catch(() => {});
+    else {
+      setConnection(false);
+      if (manual) showMessage(errorText(error), "error");
+    }
+  } finally {
+    state.loading = false;
+    if (state.authorized) state.timer = setTimeout(refreshData, state.refreshPending ? 0 : CONFIG.pollMs);
+  }
+}
+function renderAll() {
+  if (state.page === "sensors") renderSensorGrid();
+  renderTree();
+  updateDrawerLive();
+  renderHistorySelect();
+  renderIcons();
+}
+const openSensorEditor = (sensorId) => openDrawer(sensorId, "detail");
+
+// Limpa da tela e da memória tudo o que pertence à sessão encerrada.
+function clearSessionData() {
+  clearTimeout(state.timer);
+  state.authorized = false;
+  state.authRequest++;
+  state.historyRequest++;
+  Object.assign(state, { devices: [], assets: [], sensorId: "", assetId: "", history: [], movements: [], seed: null, stats: {}, ctx: null, userId: null });
+  state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
+  assetIndex.clear();
+  resetTree();
+  closeDrawer(false);
+  for (const id of ["sensorGrid", "tree", "assetInspector", "gatewayGrid", "userRows", "auditRows", "movementRows", "historyRows", "historyChart"])
+    $id(id).replaceChildren();
+  document.querySelectorAll("dialog[open]").forEach((dialog) => dialog.close());
+}
+
+// ---- 50-tree.js ----
+// =============================================================================
+// Árvore de ativos: carregada por ramo (gaxeta_assets_children), com paginação
+// e busca no servidor (gaxeta_assets_search). Nunca baixa a árvore inteira.
+// =============================================================================
+const tree = { kids: new Map(), open: new Set(), searchRun: 0 };
+const kidsKey = (parentId) => parentId || "root";
+function resetTree() {
+  tree.kids.clear();
+  tree.open.clear();
+  tree.searchRun++;
+  if ($id("treeSearch")) $id("treeSearch").value = "";
+  if ($id("treeResults")) $id("treeResults").hidden = true;
+}
+async function loadKids(parentId, { more = false, force = false } = {}) {
+  const key = kidsKey(parentId);
+  const known = tree.kids.get(key);
+  if (known && !more && !force) return known;
+  const offset = more && known ? known.ids.length : 0;
+  const result = await callRpc("gaxeta_assets_children", { p_parent_id: parentId || null, p_limit: 100, p_offset: offset });
+  rememberAssets(result.items);
+  const ids = result.items.map((asset) => asset.id);
+  const entry = { ids: more && known ? [...known.ids, ...ids.filter((id) => !known.ids.includes(id))] : ids, total: result.total };
+  tree.kids.set(key, entry);
+  if (parentId && assetIndex.has(parentId)) assetIndex.get(parentId).has_children = entry.total > 0;
+  return entry;
+}
+async function ensureTreeRoot() {
+  await loadKids(null);
+  renderTree();
+  renderIcons();
+}
+function allowedChildKinds(asset) {
+  const kinds = asset ? KIND_CHILDREN[asset.kind] || [] : ["corporation"];
+  const role = myRole();
+  return kinds.filter((kind) => {
+    if (kind === "corporation") return role === "adm1";
+    // Corporações e empresas são criadas no desktop (o servidor valida de qualquer forma).
+    if (kind === "company" && (isNarrow() || isNativeApp())) return false;
+    if (role === "adm1" || role === "adm2") return true;
+    return role === "corp" && state.ctx.can_write && kind !== "company" && asset.access === "full";
+  });
+}
+function canEditAsset(asset) {
+  const role = myRole();
+  if (role === "adm1") return true;
+  if (role === "adm2") return asset.kind !== "corporation";
+  return role === "corp" && state.ctx.can_write && ["area", "subarea", "equipment", "point"].includes(asset.kind) && asset.access === "full";
+}
+function treeBranch(parentId) {
+  const entry = tree.kids.get(kidsKey(parentId));
+  if (!entry) return "";
+  let html = '<ul role="group">';
+  for (const id of entry.ids) {
+    const asset = assetIndex.get(id);
+    if (!asset) continue;
+    const open = tree.open.has(id);
+    const selected = state.assetId === id;
+    const label = asset.tag ? `${asset.name} · ${asset.tag}` : asset.name;
+    const sensor = asset.kind === "point" ? state.devices.find((device) => device.measurement_point_id === id) : null;
+    html +=
+      `<li role="treeitem" aria-selected="${selected}"${asset.has_children ? ` aria-expanded="${open}"` : ""}>` +
+      `<div class="tree-row${selected ? " selected" : ""}${asset.access === "path" ? " path-only" : ""}">` +
+      `<button class="tree-toggle" data-toggle="${id}" aria-label="${open ? "Recolher" : "Expandir"} ${esc(asset.name)}"${asset.has_children ? "" : " disabled"}>${asset.has_children ? (open ? "▾" : "▸") : ""}</button>` +
+      `<button class="tree-node" data-asset="${id}" title="${esc(KIND_LABEL[asset.kind] + ": " + label)}">${icon(KIND_ICON[asset.kind])}<span><small>${KIND_LABEL[asset.kind]}</small>${esc(label)}</span></button>` +
+      (allowedChildKinds(asset).length
+        ? `<button class="tree-action" data-add-child="${id}" aria-label="Adicionar abaixo de ${esc(asset.name)}" title="Adicionar abaixo">+</button>`
+        : "") +
+      "</div>" +
+      (sensor
+        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}${esc(deviceLabel(sensor))} <strong>${fmtNum(sensor.stable_percent)}%</strong></button>`
+        : "") +
+      (open ? treeBranch(id) : "") +
+      "</li>";
+  }
+  if (entry.total > entry.ids.length)
+    html += `<li><button class="tree-more" data-more="${parentId || ""}">Carregar mais (${entry.total - entry.ids.length} restantes)</button></li>`;
+  return html + "</ul>";
+}
+function renderTree() {
+  const root = tree.kids.get("root");
+  const box = $id("tree");
+  if (!root) {
+    box.innerHTML = '<div class="tree-empty">Carregando…</div>';
+    return;
+  }
+  if (!root.ids.length) {
+    box.innerHTML =
+      myRole() === "adm1"
+        ? '<div class="tree-empty"><strong>Nenhuma corporação cadastrada.</strong><p>Comece pela corporação; depois empresa, área, TAG e spot. A subárea é opcional.</p>' +
+          (isNarrow() || isNativeApp() ? "<p>A criação de corporações é feita no computador.</p>" : '<button class="secondary compact" data-add-child="">Criar corporação</button>') +
+          "</div>"
+        : '<div class="tree-empty"><strong>Nenhum ativo disponível.</strong><p>Sua conta ainda não tem ramos concedidos, ou a estrutura não foi cadastrada.</p></div>';
+    return;
+  }
+  box.innerHTML = treeBranch(null);
+}
+async function selectAsset(id) {
+  state.assetId = id || "";
+  renderTree();
+  if (state.page === "sensors") {
+    state.sensors.offset = 0;
+    await loadSensors();
+    setTreeDrawer(false);
+  } else if (state.page === "assets") {
+    await renderInspector();
+    if (isNarrow()) setTreeDrawer(false);
+  }
+  renderIcons();
+}
+// Abre os ancestrais de um ativo e o deixa visível na árvore.
+async function revealAsset(id) {
+  await ensureAssets([id]);
+  const asset = assetIndex.get(id);
+  if (!asset) return;
+  await loadKids(null);
+  for (const ancestorId of (asset.path || []).slice(0, -1)) {
+    await loadKids(ancestorId);
+    tree.open.add(ancestorId);
+  }
+  const entry = tree.kids.get(kidsKey(asset.parent_id));
+  if (entry && !entry.ids.includes(id)) entry.ids.push(id);
+}
+function setTreeDrawer(open) {
+  document.body.classList.toggle("tree-open", !!open);
+}
+
+$id("tree").onclick = async (event) => {
+  const pick = (name) => event.target.closest(`[data-${name}]`);
+  try {
+    if (pick("tree-sensor")) {
+      state.sensorId = pick("tree-sensor").dataset.treeSensor;
+      showPage("telemetry");
+    } else if (pick("add-child")) {
+      openAssetForm({ parentId: pick("add-child").dataset.addChild || null });
+    } else if (pick("more")) {
+      await loadKids(pick("more").dataset.more || null, { more: true });
+      renderTree();
+      renderIcons();
+    } else if (pick("toggle")) {
+      const id = pick("toggle").dataset.toggle;
+      if (tree.open.has(id)) tree.open.delete(id);
+      else {
+        tree.open.add(id);
+        await loadKids(id);
+      }
+      renderTree();
+      renderIcons();
+      $id("tree").querySelector(`[data-toggle="${id}"]`)?.focus();
+    } else if (pick("asset")) {
+      await selectAsset(pick("asset").dataset.asset);
+    }
+  } catch (error) {
+    showMessage(errorText(error), "error");
+  }
+};
+$id("clearAsset").onclick = () => selectAsset("").catch((error) => showMessage(errorText(error), "error"));
+$id("toggleTree").onclick = () => {
+  if (isNarrow()) setTreeDrawer(!document.body.classList.contains("tree-open"));
+  else {
+    const collapsed = document.body.classList.toggle("tree-collapsed");
+    $id("toggleTree").setAttribute("aria-expanded", String(!collapsed));
+  }
+};
+$id("closeTree").onclick = () => setTreeDrawer(false);
+
+// Busca por nome ou TAG, no servidor, dentro do que a conta pode ver.
+$id("treeSearch").oninput = debounce(async () => {
+  const query = $id("treeSearch").value.trim();
+  const box = $id("treeResults");
+  const run = ++tree.searchRun;
+  if (query.length < 2) {
+    box.hidden = true;
+    return;
+  }
+  try {
+    const rows = await callRpc("gaxeta_assets_search", { p_query: query, p_limit: 30 });
+    if (run !== tree.searchRun) return;
+    box.hidden = false;
+    box.innerHTML = rows.length
+      ? rows
+          .map(
+            (row) =>
+              `<button data-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(row.tag ? row.name + " · " + row.tag : row.name)}</strong><span>${esc((row.path_names || []).slice(0, -1).join(" / "))}</span></button>`,
+          )
+          .join("")
+      : '<p class="tree-empty">Nenhum ativo encontrado.</p>';
+  } catch (error) {
+    showMessage(errorText(error), "error");
+  }
+}, 300);
+$id("treeResults").onclick = async (event) => {
+  const button = event.target.closest("[data-result]");
+  if (!button) return;
+  try {
+    await revealAsset(button.dataset.result);
+    $id("treeResults").hidden = true;
+    $id("treeSearch").value = "";
+    await selectAsset(button.dataset.result);
+  } catch (error) {
+    showMessage(errorText(error), "error");
+  }
+};
+
+// ---- 60-sensors.js ----
+// =============================================================================
+// Sensores: lista paginada por ramo (gaxeta_devices_page) e painel lateral, que
+// só abre por Detalhes ou Editar e não é redesenhado pela atualização periódica.
+// =============================================================================
+function canEditDevice(device) {
+  if (isAdminWriter()) return true;
+  return myRole() === "corp" && state.ctx.can_write && !!device.measurement_point_id;
+}
+async function loadSensors({ quiet = false } = {}) {
+  const view = state.sensors;
+  const run = ++view.request;
+  const startedAt = Date.now();
+  if (!quiet && !view.ids.length) $id("sensorGrid").innerHTML = '<div class="empty-state"><p>Carregando sensores…</p></div>';
+  const onlineSince = new Date(startedAt + state.clockOffset - 25000).toISOString();
+  const [page, online] = await Promise.all([
+    callRpc("gaxeta_devices_page", {
+      p_asset_id: state.assetId || null,
+      p_search: view.search || null,
+      p_unlinked: view.filter === "unassigned",
+      p_limit: CONFIG.pageSize,
+      p_offset: view.offset,
+    }),
+    // Contagem geral de quem está transmitindo, respeitando o escopo da conta (sem baixar linhas).
+    sb.from("gaxeta_devices").select("sensor_id", { count: "exact", head: true }).gte("last_received_at", onlineSince),
+  ]);
+  if (run !== view.request || !state.authorized) return;
+  setServerTime(page.server_time, startedAt);
+  mergeDevices(page.items);
+  view.ids = page.items.map((device) => device.sensor_id);
+  view.total = page.total;
+  if (!view.ids.length && view.offset > 0) {
+    view.offset = Math.max(0, view.offset - CONFIG.pageSize);
+    return loadSensors({ quiet });
+  }
+  await ensureAssets(page.items.map((device) => device.measurement_point_id));
+  if (run !== view.request) return;
+  if (!state.assetId && !view.search && view.filter === "all") {
+    $id("sensorCount").textContent = page.total;
+    $id("onlineCount").textContent = online.count ?? "—";
+    $id("offlineCount").textContent = online.count == null ? "—" : Math.max(0, page.total - online.count);
+    view.allTotal = page.total;
+  } else if (online.count != null && view.allTotal != null) {
+    $id("onlineCount").textContent = online.count;
+    $id("offlineCount").textContent = Math.max(0, view.allTotal - online.count);
+  }
+  renderSensorGrid();
+  if (quiet) renderTree();
+  renderIcons();
+}
+function renderSensorGrid() {
+  const view = state.sensors;
+  const grid = $id("sensorGrid");
+  // Preserva o foco de teclado através do redesenho periódico.
+  const focusCard = document.activeElement?.closest?.("[data-card]")?.dataset.card;
+  const focusAct = document.activeElement?.dataset?.act;
+  let devices = view.ids.map(findDevice).filter(Boolean);
+  if (view.filter === "online") devices = devices.filter((device) => deviceStatus(device).online);
+  if (view.filter === "offline") devices = devices.filter((device) => !deviceStatus(device).online);
+  $id("scopeTitle").textContent = state.assetId ? assetPathLabel(state.assetId) || assetName(state.assetId) : view.filter === "unassigned" ? "Fila de associação" : "Todos os sensores";
+  const first = view.total ? view.offset + 1 : 0;
+  const last = Math.min(view.offset + CONFIG.pageSize, view.total);
+  $id("visibleCount").textContent = view.total ? `${first}–${last} de ${view.total}` : "";
+  grid.innerHTML =
+    devices
+      .map((device) => {
+        const status = deviceStatus(device);
+        const health = adjustmentInfo(device.stable_percent);
+        const scale = Math.max(0, Math.min(100, Number(device.stable_percent) || 0));
+        const path = assetPathLabel(device.measurement_point_id);
+        return (
+          `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
+          `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
+          `<p class="card-path${path ? "" : " unlinked"}">${esc(path || "Sem vínculo · fila de associação")}</p>` +
+          `<div class="card-main"><div class="card-value">${fmtNum(device.stable_percent)}<small>%</small></div>` +
+          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small>${health.action}</small></div></div>` +
+          `<div class="mini-scale"><i style="width:${scale}%"></i></div>` +
+          `<div class="card-meta"><span>Bruto ${fmtNum(device.last_percent)} %</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
+          (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
+          `</footer></article>`
+        );
+      })
+      .join("") ||
+    `<div class="empty-state"><h3>Nenhum sensor nesta seleção</h3><p>${
+      view.filter === "online" || view.filter === "offline"
+        ? "O filtro de conexão vale para os sensores desta página."
+        : state.assetId
+          ? "Este ramo ainda não tem sensor vinculado a um spot."
+          : "Nenhum sensor disponível para a sua conta."
+    }</p>${state.assetId || view.search || view.filter !== "all" ? '<button class="secondary compact" id="showAllSensors">Mostrar todos</button>' : ""}</div>`;
+  $id("sensorPager").innerHTML =
+    view.total > CONFIG.pageSize
+      ? `<button class="secondary compact" data-page-move="-1"${view.offset ? "" : " disabled"}>Anterior</button><span>${first}–${last} de ${view.total}</span><button class="secondary compact" data-page-move="1"${last < view.total ? "" : " disabled"}>Próxima</button>`
+      : "";
+  if (focusCard) grid.querySelector(`[data-card="${CSS.escape(focusCard)}"] [data-act="${focusAct || "detail"}"]`)?.focus({ preventScroll: true });
+}
+$id("sensorGrid").onclick = (event) => {
+  if (event.target.closest("#showAllSensors")) {
+    state.assetId = "";
+    state.sensors.search = $id("sensorSearch").value = "";
+    state.sensors.filter = $id("statusFilter").value = "all";
+    state.sensors.offset = 0;
+    renderTree();
+    loadSensors().catch((error) => showMessage(errorText(error), "error"));
+    return;
+  }
+  const button = event.target.closest("[data-act]");
+  const sensorId = event.target.closest("[data-card]")?.dataset.card;
+  if (!button || !sensorId) return;
+  if (button.dataset.act === "history") {
+    state.sensorId = sensorId;
+    state.history = [];
+    state.stats = {};
+    showPage("telemetry");
+  } else openDrawer(sensorId, button.dataset.act, button);
+};
+$id("sensorPager").onclick = (event) => {
+  const move = event.target.closest("[data-page-move]");
+  if (!move) return;
+  state.sensors.offset = Math.max(0, state.sensors.offset + Number(move.dataset.pageMove) * CONFIG.pageSize);
+  loadSensors().catch((error) => showMessage(errorText(error), "error"));
+};
+$id("sensorSearch").oninput = debounce(() => {
+  state.sensors.search = $id("sensorSearch").value.trim();
+  state.sensors.offset = 0;
+  loadSensors().catch((error) => showMessage(errorText(error), "error"));
+}, 350);
+$id("statusFilter").onchange = () => {
+  state.sensors.filter = $id("statusFilter").value;
+  state.sensors.offset = 0;
+  loadSensors().catch((error) => showMessage(errorText(error), "error"));
+};
+
+// ----- Seletor de localização em cascata (lê cada nível sob demanda) -----
+const PICK_LEVELS = ["corporation", "company", "area", "subarea", "equipment", "point"];
+const PICK_PLACEHOLDER = {
+  corporation: "Selecione a corporação",
+  company: "Selecione a empresa",
+  area: "Selecione a área",
+  subarea: "TAG direto na área (sem subárea)",
+  equipment: "Selecione o TAG",
+  point: "Selecione o spot",
+};
+function pickParent(level, values) {
+  if (level === "corporation") return null;
+  if (level === "company") return values.corporation;
+  if (level === "area") return values.company;
+  if (level === "subarea") return values.area;
+  if (level === "equipment") return values.subarea || values.area;
+  return values.equipment;
+}
+async function refillPicker(prefix, fromIndex, values, levels = PICK_LEVELS) {
+  for (let index = fromIndex; index < levels.length; index++) {
+    const level = levels[index];
+    const select = $id(prefix + level);
+    const parent = pickParent(level, values);
+    let options = [];
+    if (level === "corporation" || parent) {
+      const entry = await loadKids(parent);
+      options = entry.ids.map((id) => assetIndex.get(id)).filter((asset) => asset && asset.kind === level);
+      // O item atual pode estar além da primeira página do ramo: mantém-no selecionável.
+      if (values[level] && !options.some((asset) => asset.id === values[level]) && assetIndex.get(values[level])?.parent_id === (parent || null))
+        options.push(assetIndex.get(values[level]));
+    }
+    fillSelect(
+      select,
+      options.map((asset) => ({ value: asset.id, label: asset.tag ? `${asset.name} · ${asset.tag}` : asset.name })),
+      PICK_PLACEHOLDER[level],
+      values[level] || "",
+    );
+    values[level] = select.value;
+    select.disabled = level !== "corporation" && !parent;
+  }
+}
+
+// ----- Painel lateral -----
+function openDrawer(sensorId, mode = "detail", opener = null) {
+  const device = findDevice(sensorId);
+  if (!device) return;
+  if (mode === "edit" && !canEditDevice(device)) mode = "detail";
+  Object.assign(state.drawer, { open: true, mode, sensorId, opener: opener || state.drawer.opener });
+  $id("detailPane").hidden = false;
+  $id("scrim").hidden = false;
+  document.body.classList.add("drawer-open");
+  renderDrawer().catch((error) => showMessage(errorText(error), "error"));
+}
+function closeDrawer(restoreFocus = true) {
+  const opener = state.drawer.opener;
+  Object.assign(state.drawer, { open: false, sensorId: "", opener: null });
+  $id("detailPane").hidden = true;
+  $id("scrim").hidden = true;
+  document.body.classList.remove("drawer-open");
+  if (restoreFocus) {
+    const card = opener?.closest?.("[data-card]")?.dataset.card;
+    (card ? $id("sensorGrid").querySelector(`[data-card="${CSS.escape(card)}"] [data-act="${opener.dataset.act}"]`) : opener)?.focus?.();
+  }
+}
+$id("scrim").onclick = () => closeDrawer();
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.drawer.open && !document.querySelector("dialog[open]")) closeDrawer();
+});
+function updateDrawerLive() {
+  if (!state.drawer.open || !$id("detailStatus")) return;
+  const device = findDevice(state.drawer.sensorId);
+  if (!device) return;
+  const status = deviceStatus(device);
+  const health = adjustmentInfo(device.stable_percent);
+  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
+  $id("detailStable").textContent = fmtNum(device.stable_percent) + " %";
+  $id("detailRaw").textContent = fmtNum(device.last_percent) + " %";
+  $id("detailVolt").textContent = fmtNum(device.last_voltage_v, 3) + " V";
+  $id("detailHealth").textContent = health.label + " · " + health.action;
+  $id("detailHealth").className = "health-banner health-" + health.key;
+  if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
+  if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
+}
+async function renderDrawer() {
+  const { sensorId, mode } = state.drawer;
+  const device = findDevice(sensorId);
+  if (!device) return closeDrawer(false);
+  await ensureAssets([device.measurement_point_id]);
+  if (state.drawer.sensorId !== sensorId) return;
+  const pane = $id("detailPane");
+  const point = assetIndex.get(device.measurement_point_id);
+  const path = assetPathLabel(device.measurement_point_id);
+  const head =
+    `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
+    `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
+    `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
+    `<div class="drawer-values"><div><span>Estabilizado</span><strong id="detailStable"></strong></div><div><span>Bruto</span><strong id="detailRaw"></strong></div><div><span>Tensão est.</span><strong id="detailVolt"></strong></div></div>` +
+    `<div id="detailHealth" class="health-banner"></div>` +
+    `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
+  if (mode === "edit") {
+    pane.innerHTML =
+      head +
+      `<form id="sensorForm" novalidate><label>Nome do sensor na plataforma<input id="sensorName" required minlength="3" maxlength="24" value="${esc(deviceLabel(device))}" autocomplete="off"></label>` +
+      `<fieldset class="location-selects"><legend>Spot de instalação</legend>` +
+      PICK_LEVELS.map((level) => `<label>${level === "subarea" ? "Subárea (opcional)" : KIND_LABEL[level]}<select id="pick-${level}"></select></label>`).join("") +
+      `</fieldset><label>Gateway (opcional)<select id="sensorGateway"></select></label>` +
+      `<p id="sensorFormMessage" class="form-message" role="status"></p>` +
+      `<div class="drawer-actions"><button class="primary" type="submit">Salvar</button><button class="secondary" type="button" id="drawerCancel">Cancelar</button></div>` +
+      (isAdminWriter() && device.measurement_point_id ? `<button type="button" id="unlinkSensor" class="text-button danger-text">Desvincular do spot (volta à fila)</button>` : "") +
+      `</form></div>`;
+    const values = Object.fromEntries(PICK_LEVELS.map((level) => [level, ""]));
+    for (const asset of assetPath(device.measurement_point_id, state.assets)) values[asset.kind] = asset.id;
+    const fillGateways = async (keep) => {
+      const rows = values.company ? await unwrap(sb.from("gaxeta_gateways").select("id,name,identifier").eq("company_id", values.company).order("name").limit(200)) : [];
+      fillSelect($id("sensorGateway"), rows.map((row) => ({ value: row.id, label: `${row.name} · ${row.identifier}` })), values.company ? "Sem gateway" : "Escolha a empresa primeiro", keep || "");
+    };
+    await refillPicker("pick-", 0, values);
+    await fillGateways(device.gateway_id);
+    PICK_LEVELS.forEach((level, index) => {
+      $id("pick-" + level).onchange = () =>
+        withBusy(null, async () => {
+          values[level] = $id("pick-" + level).value;
+          for (const lower of PICK_LEVELS.slice(index + 1)) values[lower] = "";
+          await refillPicker("pick-", index + 1, values);
+          if (index <= 1) await fillGateways("");
+        });
+    });
+    $id("drawerCancel").onclick = () => openDrawer(sensorId, "detail");
+    $id("sensorForm").onsubmit = async (event) => {
+      event.preventDefault();
+      const name = $id("sensorName").value.trim();
+      const message = $id("sensorFormMessage");
+      if (!isValidSensorName(name)) return void (message.textContent = "Nome: 3 a 24 caracteres, letras sem acento, números, espaço, ponto, hífen ou sublinhado.");
+      if (!values.point && !isAdminWriter()) return void (message.textContent = "Selecione o spot de instalação.");
+      message.textContent = "Salvando…";
+      await withBusy(event.submitter, async () => {
+        try {
+          const saved = await callRpc("gaxeta_configure_sensor", { p_sensor_id: sensorId, p_label: name, p_point_id: values.point || null, p_gateway_id: $id("sensorGateway").value || null });
+          mergeDevices([saved]);
+          await ensureAssets([saved.measurement_point_id]);
+          showMessage(`Sensor ${name} salvo${saved.measurement_point_id ? " em " + assetPathLabel(saved.measurement_point_id) : ", sem vínculo"}.`, "success");
+          openDrawer(sensorId, "detail");
+          if (state.page === "sensors") await loadSensors({ quiet: true });
+        } catch (error) {
+          message.textContent = errorText(error);
+        }
+      });
+    };
+    if ($id("unlinkSensor"))
+      $id("unlinkSensor").onclick = async (event) => {
+        if (!(await askConfirm({ title: "Desvincular sensor", html: `<p>O sensor <b>${esc(deviceLabel(device))}</b> sai de <b>${esc(path)}</b> e volta à fila de associação. As leituras continuam chegando e o histórico é preservado.</p>`, okLabel: "Desvincular" }))) return;
+        await withBusy(event.target, async () => {
+          const saved = await callRpc("gaxeta_unlink_sensor", { p_sensor_id: sensorId, p_reason: "desvínculo pela interface" });
+          mergeDevices([saved]);
+          showMessage("Sensor desvinculado. Ele está na fila de associação.", "success");
+          openDrawer(sensorId, "detail");
+          if (state.page === "sensors") await loadSensors({ quiet: true });
+        });
+      };
+  } else {
+    const gateway = device.gateway_id ? (await unwrap(sb.from("gaxeta_gateways").select("name,identifier").eq("id", device.gateway_id).limit(1)))[0] : null;
+    if (state.drawer.sensorId !== sensorId) return;
+    const fields = [
+      ["ID", device.sensor_id],
+      ["MAC Wi-Fi", device.wifi_mac || "—"],
+      ["MAC BLE", device.ble_mac || "—"],
+      ["Spot", point ? point.name + (point.position ? " · " + point.position : "") : "Sem vínculo"],
+      ["Transporte", "Wi-Fi direto"],
+      ["Gateway", gateway ? `${gateway.name} · cadastrado` : "Sem gateway"],
+      ["Firmware", device.firmware_version || "Anterior à v4"],
+      ["Nome na placa", device.applied_label || "não informado"],
+    ];
+    pane.innerHTML =
+      head +
+      `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
+      (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
+      `</div><dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
+      `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
+      (canEditDevice(device)
+        ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
+        : "") +
+      `<small class="drawer-note">Posição e tensão são estimadas. Curso de referência: 50 mm.</small></div>`;
+    $id("detailHistory").onclick = () => {
+      state.sensorId = sensorId;
+      closeDrawer(false);
+      showPage("telemetry");
+    };
+    if ($id("detailEdit")) $id("detailEdit").onclick = () => openDrawer(sensorId, "edit");
+    if ($id("applyBleName"))
+      $id("applyBleName").onclick = (event) =>
+        withBusy(event.currentTarget, async () => {
+          if (!bleCurrent() || state.bleReading?.sensor_id !== sensorId) {
+            openBleDialog();
+            $id("bleStatus").textContent = "Conecte o sensor com ID " + sensorId + " para gravar o nome.";
+            return;
+          }
+          if (!device.desired_label) throw Error("Salve primeiro o nome do sensor na plataforma.");
+          const written = await bleWriteName(device.desired_label, device.sensor_id, state.bleReading?.sensor_id);
+          showMessage(`Nome “${written}” gravado e lido na placa. A confirmação na nuvem aparece na próxima transmissão.`, "success");
+        });
+  }
+  $id("drawerClose").onclick = () => closeDrawer();
+  updateDrawerLive();
+  renderIcons();
+  (mode === "edit" ? $id("sensorName") : $id("drawerClose")).focus({ preventScroll: true });
+}
+
+// ---- 65-assets.js ----
+// =============================================================================
+// Ativos: inspetor do nível selecionado, formulários persistentes (RPCs com
+// autorização no servidor), exclusão com dependências e vínculo sensor–spot.
+// =============================================================================
+const HIERARCHY_GUIDE =
+  '<ol class="hierarchy-guide"><li>Corporação</li><li>Empresa</li><li>Área</li><li>Subárea <em>(opcional)</em></li><li>TAG (equipamento)</li><li>Spot → sensor</li></ol>' +
+  "<p>O TAG pode ficar direto na área ou dentro de uma subárea. O sensor é vinculado ao spot. O gateway é cadastrado na empresa.</p>";
+
+async function renderInspector() {
+  const box = $id("assetInspector");
+  const assetId = state.assetId;
+  const asset = assetIndex.get(assetId);
+  if (!asset) {
+    box.innerHTML = `<div class="inspector-card"><h2>Estrutura de ativos</h2><p>Selecione um nível na árvore para ver detalhes, editar ou criar o próximo nível.</p>${HIERARCHY_GUIDE}</div>`;
+    return;
+  }
+  await ensureAssets([assetId]);
+  let sensor = null;
+  if (asset.kind === "point") {
+    sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
+    if (sensor) mergeDevices([sensor]);
+  }
+  if (state.assetId !== assetId || state.page !== "assets") return;
+  const childKinds = allowedChildKinds(asset);
+  const editable = canEditAsset(asset);
+  const canLink = asset.kind === "point" && (isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && asset.access === "full"));
+  const sensorBlock =
+    asset.kind !== "point"
+      ? ""
+      : sensor
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${fmtNum(sensor.stable_percent)} % · ${deviceStatus(sensor).label}</span></div>` +
+          `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
+        : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
+          (canLink ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
+          `</div>`;
+  box.innerHTML =
+    `<div class="inspector-card"><span class="kind-chip">${KIND_LABEL[asset.kind]}</span><h2>${esc(asset.name)}</h2>` +
+    `<p class="inspector-path">${esc(assetPathLabel(assetId))}</p>` +
+    (asset.access === "path" ? '<p class="path-note">Este nível aparece só como caminho de navegação até os ramos concedidos à sua conta.</p>' : "") +
+    `<dl class="detail-fields">${asset.tag ? `<dt>TAG / código</dt><dd>${esc(asset.tag)}</dd>` : ""}${asset.position ? `<dt>Posição</dt><dd>${esc(asset.position)}</dd>` : ""}</dl>` +
+    sensorBlock +
+    `<div class="inspector-actions">` +
+    childKinds.map((kind) => `<button class="primary compact" data-act="add" data-kind="${kind}">${icon("plus")}${KIND_LABEL[kind]}</button>`).join("") +
+    (editable ? `<button class="secondary compact" data-act="edit">Editar</button>` : "") +
+    (asset.kind === "company" ? `<button class="secondary compact" data-act="gateways">Gateways da empresa</button>` : "") +
+    (hasCap("delete_records") ? `<button class="text-button danger-text" data-act="delete">Excluir…</button>` : "") +
+    `</div>` +
+    (childKinds.length ? `<p class="form-help">Próximo nível: ${childKinds.map((kind) => KIND_LABEL[kind]).join(" ou ")}.</p>` : "") +
+    `</div>`;
+  renderIcons();
+}
+$id("assetInspector").onclick = async (event) => {
+  const button = event.target.closest("[data-act]");
+  if (!button) return;
+  const act = button.dataset.act;
+  const asset = assetIndex.get(state.assetId);
+  if (act === "sensor-detail") return openDrawer(button.dataset.sensor, "detail", button);
+  if (act === "sensor-history") {
+    state.sensorId = button.dataset.sensor;
+    return showPage("telemetry");
+  }
+  if (!asset) return;
+  if (act === "add") return openAssetForm({ parentId: asset.id, kind: button.dataset.kind });
+  if (act === "edit") return openAssetForm({ editId: asset.id });
+  if (act === "link") return openLinkDialog(asset.id);
+  if (act === "gateways") return showPage("gateways");
+  if (act === "delete") return withBusy(button, () => deleteAsset(asset));
+};
+
+// ----- Formulário de ativo -----
+const assetFormState = { editId: null, parentId: null };
+function openAssetForm({ parentId = null, kind = null, editId = null }) {
+  const editing = editId ? assetIndex.get(editId) : null;
+  const parent = editing ? assetIndex.get(editing.parent_id) : assetIndex.get(parentId);
+  const kinds = editing ? [editing.kind] : allowedChildKinds(parent || null);
+  if (!kinds.length) return showMessage("Sua conta não pode criar níveis aqui.", "error");
+  Object.assign(assetFormState, { editId: editing?.id || null, parentId: editing ? editing.parent_id : parentId });
+  fillSelect($id("assetKind"), kinds.map((value) => ({ value, label: KIND_LABEL[value] })), null, kind && kinds.includes(kind) ? kind : kinds[0]);
+  $id("assetKindRow").hidden = kinds.length < 2;
+  $id("assetContext").textContent = parent ? "Dentro de: " + assetPathLabel(parent.id) : "Raiz da estrutura";
+  $id("assetName").value = editing?.name || "";
+  $id("assetTag").value = editing?.tag || "";
+  $id("assetPosition").value = editing?.position || "";
+  for (const id of ["corpEmail", "corpResponsible", "corpPhone"]) $id(id).value = "";
+  $id("assetFormMessage").textContent = "";
+  syncAssetForm();
+  $id("assetDialog").showModal();
+  $id("assetName").focus();
+}
+function syncAssetForm() {
+  const kind = $id("assetKind").value;
+  const editing = !!assetFormState.editId;
+  $id("assetDialogTitle").textContent = (editing ? "Editar " : "Novo nível: ") + KIND_LABEL[kind];
+  $id("assetTagRow").hidden = kind === "corporation" || kind === "point";
+  $id("assetPositionRow").hidden = kind !== "point";
+  $id("corpFields").hidden = kind !== "corporation";
+  $id("corpFields").querySelector(".form-help").textContent = editing
+    ? "Para atualizar o contato, preencha e-mail e responsável. Em branco, só o nome é alterado."
+    : "Contato e responsável podem ser preenchidos depois: a corporação pode nascer como rascunho.";
+}
+$id("assetKind").onchange = syncAssetForm;
+$id("assetForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const message = $id("assetFormMessage");
+  const kind = $id("assetKind").value;
+  const name = $id("assetName").value.trim();
+  if (!name) return void (message.textContent = "Informe o nome.");
+  const email = $id("corpEmail").value.trim();
+  if (kind === "corporation" && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return void (message.textContent = "E-mail de contato inválido.");
+  message.textContent = "Salvando…";
+  const button = event.submitter;
+  button.disabled = true;
+  try {
+    const { editId, parentId } = assetFormState;
+    const withContact = kind === "corporation" && (!editId || email || $id("corpResponsible").value.trim());
+    const saved = withContact
+      ? await callRpc("gaxeta_save_corporation", {
+          p_id: editId,
+          p_name: name,
+          p_contact_email: email || null,
+          p_responsible_name: $id("corpResponsible").value.trim() || null,
+          p_phone: $id("corpPhone").value.trim() || null,
+          p_slug: null,
+        })
+      : await callRpc("gaxeta_save_asset", {
+          p_id: editId,
+          p_parent_id: parentId || null,
+          p_kind: kind,
+          p_name: name,
+          p_tag: kind === "corporation" || kind === "point" ? "" : $id("assetTag").value.trim(),
+          p_position: kind === "point" ? $id("assetPosition").value.trim() : "",
+          p_sensor_id: null,
+          p_sensor_label: null,
+        });
+    // Relê o ramo no servidor: o que aparece na árvore é o que ficou gravado.
+    await loadKids(parentId || null, { force: true });
+    await ensureAssets([saved.id]);
+    if (parentId) tree.open.add(parentId);
+    $id("assetDialog").close();
+    await revealAsset(saved.id);
+    state.assetId = saved.id;
+    renderTree();
+    if (state.page === "assets") await renderInspector();
+    renderIcons();
+    const next = allowedChildKinds(assetIndex.get(saved.id)).map((value) => KIND_LABEL[value]);
+    showMessage(`${KIND_LABEL[kind]} “${saved.name}” ${editId ? "atualizado" : "gravado"}.${!editId && next.length ? " Próximo nível: " + next.join(" ou ") + "." : ""}`, "success");
+  } catch (error) {
+    message.textContent = errorText(error);
+  } finally {
+    button.disabled = false;
+  }
+};
+
+// ----- Exclusão definitiva (nível 1), sempre com as dependências à vista -----
+async function deleteAsset(asset) {
+  const deps = await callRpc("gaxeta_asset_dependencies", { p_id: asset.id });
+  const lines = [
+    ["children", "níveis diretamente abaixo"],
+    ["linked_sensors", "sensores vinculados"],
+    ["gateways", "gateways"],
+    ["link_history", "registros de instalação (histórico de vínculos)"],
+    ["users", "usuários vinculados à corporação"],
+  ]
+    .filter(([key]) => deps[key] > 0)
+    .map(([key, label]) => `<li><b>${deps[key]}</b> ${label}</li>`);
+  if (lines.length) {
+    await askConfirm({
+      title: "Não é possível excluir",
+      html: `<p><b>${esc(asset.name)}</b> possui dependências:</p><ul>${lines.join("")}</ul><p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados.</p>`,
+      allowOk: false,
+    });
+    return;
+  }
+  const grants = deps.access_grants > 0 ? `<p>${deps.access_grants} concessão(ões) de acesso apontam para este nível e serão removidas.</p>` : "";
+  if (!(await askConfirm({ title: "Excluir " + KIND_LABEL[asset.kind].toLowerCase(), html: `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}<p>A exclusão fica registrada na auditoria.</p>`, okLabel: "Excluir" }))) return;
+  await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
+  forgetAsset(asset.id);
+  tree.kids.delete(kidsKey(asset.id));
+  await loadKids(asset.parent_id || null, { force: true });
+  state.assetId = asset.parent_id || "";
+  renderTree();
+  await renderInspector();
+  renderIcons();
+  showMessage(`${KIND_LABEL[asset.kind]} “${asset.name}” excluído.`, "success");
+}
+
+// ----- Vínculo do sensor ao spot (operação atômica no servidor) -----
+const linkState = { pointId: null, run: 0 };
+function openLinkDialog(pointId) {
+  linkState.pointId = pointId;
+  $id("linkContext").textContent = "Spot: " + assetPathLabel(pointId);
+  $id("linkSearch").value = "";
+  $id("linkMessage").textContent = "";
+  $id("linkUnlinked").checked = hasCap("association_queue");
+  $id("linkUnlinked").closest("label").hidden = !hasCap("association_queue");
+  $id("linkDialog").showModal();
+  searchLinkable();
+}
+async function searchLinkable() {
+  const run = ++linkState.run;
+  const box = $id("linkResults");
+  box.innerHTML = '<p class="form-help">Buscando…</p>';
+  try {
+    const result = await callRpc("gaxeta_devices_page", { p_asset_id: null, p_search: $id("linkSearch").value.trim() || null, p_unlinked: $id("linkUnlinked").checked, p_limit: 20, p_offset: 0 });
+    if (run !== linkState.run) return;
+    mergeDevices(result.items);
+    await ensureAssets(result.items.map((device) => device.measurement_point_id));
+    box.innerHTML =
+      result.items
+        .map(
+          (device) =>
+            `<div class="pick-row"><div><strong>${esc(deviceLabel(device))}</strong><small>${esc(device.sensor_id)} · ${device.measurement_point_id ? "em " + esc(assetPathLabel(device.measurement_point_id)) : "sem vínculo"} · ${deviceStatus(device).label}</small></div>` +
+            `<button class="primary compact" data-link="${esc(device.sensor_id)}">${device.measurement_point_id ? "Mover para cá" : "Vincular"}</button></div>`,
+        )
+        .join("") +
+        (result.total > result.items.length ? `<p class="form-help">Mostrando 20 de ${result.total}. Refine a busca.</p>` : "") ||
+      `<p class="form-help">${hasCap("association_queue") ? "Nenhum sensor encontrado. O sensor aparece aqui depois da primeira transmissão." : "Nenhum sensor do seu escopo encontrado. A primeira associação de um sensor novo é feita por um administrador."}</p>`;
+  } catch (error) {
+    box.innerHTML = "";
+    $id("linkMessage").textContent = errorText(error);
+  }
+}
+$id("linkSearch").oninput = debounce(searchLinkable, 350);
+$id("linkUnlinked").onchange = searchLinkable;
+$id("linkResults").onclick = async (event) => {
+  const button = event.target.closest("[data-link]");
+  if (!button) return;
+  button.disabled = true;
+  $id("linkMessage").textContent = "Vinculando…";
+  try {
+    const saved = await callRpc("gaxeta_link_sensor", { p_sensor_id: button.dataset.link, p_point_id: linkState.pointId, p_reason: "vínculo pela interface" });
+    mergeDevices([saved]);
+    $id("linkDialog").close();
+    renderTree();
+    await renderInspector();
+    showMessage(`Sensor ${deviceLabel(saved)} vinculado a ${assetPathLabel(linkState.pointId)}.`, "success");
+  } catch (error) {
+    $id("linkMessage").textContent = errorText(error);
+    button.disabled = false;
+  }
+};
+
+// ---- 70-telemetry.js ----
+// =============================================================================
+// Telemetria. O cálculo, o gráfico, o zoom e os CSV vêm do pacote publicado, sem
+// mudança de comportamento. A escolha do sensor passou a buscar no servidor.
+// =============================================================================
+const telemetry = { matchIds: null, searchRun: 0 };
+function renderHistorySelect() {
+  const known = telemetry.matchIds ? telemetry.matchIds.map(findDevice).filter(Boolean) : [...state.devices];
+  const current = currentDevice();
+  if (current && !known.includes(current)) known.unshift(current);
+  known.sort((left, right) => deviceLabel(left).localeCompare(deviceLabel(right), "pt-BR"));
+  fillSelect(
+    $id("historySensor"),
+    known.slice(0, 100).map((device) => ({ value: device.sensor_id, label: deviceLabel(device) + " — " + (assetPathLabel(device.measurement_point_id) || "Sem vínculo") })),
+    known.length ? null : "Nenhum sensor",
+    state.sensorId,
+  );
+  $id("historyLocation").textContent = current ? assetPathLabel(current.measurement_point_id) || "Sensor sem vínculo com spot" : "";
+}
+async function searchHistorySensors() {
+  const run = ++telemetry.searchRun;
+  const query = $id("historySearch").value.trim();
+  const result = await callRpc("gaxeta_devices_page", { p_asset_id: null, p_search: query || null, p_unlinked: false, p_limit: 50, p_offset: 0 });
+  if (run !== telemetry.searchRun) return;
+  mergeDevices(result.items);
+  await ensureAssets(result.items.map((device) => device.measurement_point_id));
+  telemetry.matchIds = query ? result.items.map((device) => device.sensor_id) : null;
+  renderHistorySelect();
+}
+$id("historySearch").oninput = debounce(() => searchHistorySensors().catch((error) => showMessage(errorText(error), "error")), 350);
+async function openTelemetry() {
+  if (state.sensorId && !currentDevice()) await refreshKnownDevices();
+  if (!currentDevice()) {
+    await searchHistorySensors();
+    if (!currentDevice()) state.sensorId = state.devices[0]?.sensor_id || "";
+  }
+  await ensureAssets([currentDevice()?.measurement_point_id]);
+  renderHistorySelect();
+  renderHistory();
+  await loadHistory();
+}
+
+// ----- Herdado do pacote publicado -----
+function toLocalInput(t) {
+  return new Date(t.getTime() - t.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+}
+async function loadHistory() {
+  const t = ++state.historyRequest,
+    e = state.sensorId;
+  if (!e) {
+    ((state.history = []), (state.stats = {}), renderHistory());
+    return;
+  }
+  state.custom || (state.range = presetRange(state.period, new Date(Date.now() + state.clockOffset)));
+  const r = {
+      ...state.range,
+    },
+    s = await unwrap(
+      sb.rpc("gaxeta_history", {
+        p_sensor_id: e,
+        p_from: r.from.toISOString(),
+        p_to: r.to.toISOString(),
+      }),
+    );
+  t !== state.historyRequest ||
+    e !== state.sensorId ||
+    !state.authorized ||
+    ((state.history = s.history || []),
+    (state.movements = s.movements || []),
+    (state.seed = s.seed || null),
+    (state.movementsTruncated = !!s.movements_truncated),
+    (state.stats = s.stats || {}),
+    (state.historyRange = r),
+    (state.bucketSeconds = s.bucket_seconds),
+    $id("customRange").contains(document.activeElement) ||
+      (($id("fromTime").value = toLocalInput(r.from)), ($id("toTime").value = toLocalInput(r.to))),
+    renderHistory());
+}
+function renderHistory() {
+  const t = state.history,
+    e = currentDevice(),
+    r = state.historyRange || state.range;
+  (($id("historyTitle").textContent = e ? deviceLabel(e) : "Deslocamento da gaxeta"),
+    ($id("historyCurrent").textContent = `${fmtNum(e?.stable_percent)} %`));
+  const s = adjustmentInfo(e?.stable_percent);
+  (($id("historyHealth").className = "health-banner health-" + s.key),
+    ($id("historyHealth").textContent = s.label + " · " + s.action),
+    ($id("historyRaw").textContent =
+      "Leitura bruta atual: " + fmtNum(e?.last_percent) + "% · referência desde " + fmtDateTime(e?.stable_since)),
+    ($id("historyMin").textContent = `${fmtNum(state.stats.min)} %`),
+    ($id("historyMax").textContent = `${fmtNum(state.stats.max)} %`),
+    ($id("historyCount").textContent = fmtNum(state.stats.count || 0, 0)),
+    ($id("chartEmpty").hidden = t.length > 0),
+    ($id("chartFrom").textContent = fmtDateTime(r.from)),
+    ($id("chartTo").textContent = fmtDateTime(r.to)),
+    ($id("aggregationNote").textContent = state.movementsTruncated
+      ? "Muitos movimentos neste intervalo. Reduza o período para exibir o gráfico completo."
+      : "Linha: variação ≥ 5 p.p. · faixa bruta: mín./máx. · médias de " + fmtNum(state.bucketSeconds || 1, 0) + " s"),
+    ($id("exportCsv").disabled = !t.length),
+    ($id("exportMovements").disabled = !state.movements.length || state.movementsTruncated),
+    ($id("movementCount").textContent = state.movementsTruncated
+      ? "Mais de 5.000 registros — reduza o período"
+      : state.movements.filter((o) => o.previous_percent != null).length + " mudanças no período"),
+    ($id("movementRows").innerHTML =
+      state.movements
+        .slice(-30)
+        .reverse()
+        .map((o) => {
+          const l = adjustmentInfo(o.stable_percent);
+          return `<tr><td>${fmtDateTime(o.received_at)}</td><td>${o.previous_percent == null ? "Referência inicial" : fmtNum(o.previous_percent) + " %"}</td><td>${fmtNum(o.stable_percent)} %</td><td>${o.previous_percent == null ? "—" : fmtNum(o.stable_percent - o.previous_percent) + " p.p."}</td><td><span class="adjustment-badge health-${l.key}">${l.label}</span></td></tr>`;
+        })
+        .join("") ||
+      '<tr><td colspan="5">Nenhuma mudança de 5 pontos neste período. A referência anterior é mantida enquanto chegam novas leituras.</td></tr>'));
+  const n = (o, l) => {
+      const c = Math.max(0, Math.min(1e3, ((new Date(o.received_at) - r.from) / (r.to - r.from)) * 1e3)),
+        h = 280 - Math.max(0, Math.min(100, Number(o[l]))) * 2.8;
+      return `${c.toFixed(2)} ${h.toFixed(2)}`;
+    },
+    i = state.movementsTruncated
+      ? ""
+      : buildStablePath(state.movements, state.seed, r.from, r.to, state.stats.last_received_at || t.at(-1)?.received_at),
+    a = t.length
+      ? t.map((o, l) => `${l ? "L" : "M"}${n(o, "min_percent")}`).join(" ") +
+        [...t]
+          .reverse()
+          .map((o) => `L${n(o, "max_percent")}`)
+          .join(" ") +
+        " Z"
+      : "";
+  (($id("historyChart").innerHTML = t.length
+    ? `<path class="chart-band" d="${$id("showRawBand").checked ? a : ""}"/><path class="chart-line" d="${i}"/>${t.length === 1 && i ? `<circle cx="${n(t[0], "travel_percent").split(" ")[0]}" cy="${n(t[0], "stable_percent").split(" ")[1]}" r="4" fill="#174f6a"/>` : ""}`
+    : ""),
+    $id("historyChart").setAttribute(
+      "aria-label",
+      `${t.length} intervalos. ${fmtNum(state.stats.count || 0, 0)} leituras. Mínimo ${fmtNum(state.stats.min)}%, máximo ${fmtNum(state.stats.max)}%. Arraste para ampliar.`,
+    ),
+    ($id("historyRows").innerHTML =
+      t
+        .slice(-30)
+        .reverse()
+        .map(
+          (o) =>
+            `<tr><td>${fmtDateTime(o.received_at)}</td><td>${fmtNum(o.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(o.travel_percent)}%</small></td><td>${fmtNum(o.min_percent)} / ${fmtNum(o.max_percent)} %</td><td>${fmtNum(o.position_mm, 2)} mm</td><td>${fmtNum(o.voltage_v, 3)} V</td><td>${fmtNum(o.samples, 0)}</td></tr>`,
+        )
+        .join("") || '<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>'));
+}
+document.querySelectorAll("[data-range]").forEach(
+  (t) =>
+    (t.onclick = () => {
+      ((state.period = t.dataset.range),
+        (state.custom = !1),
+        document.querySelectorAll("[data-range]").forEach((e) => e.classList.toggle("selected", e === t)),
+        loadHistory().catch((e) => showMessage(errorText(e))));
+    }),
+);
+$id("customRange").onsubmit = (t) => {
+  t.preventDefault();
+  try {
+    ((state.range = validateRange($id("fromTime").value, $id("toTime").value)),
+      (state.custom = !0),
+      document.querySelectorAll("[data-range]").forEach((e) => e.classList.remove("selected")),
+      loadHistory().catch((e) => showMessage(errorText(e))));
+  } catch (e) {
+    showMessage(errorText(e));
+  }
+};
+$id("resetZoom").onclick = () => {
+  ((state.custom = !1), loadHistory().catch((t) => showMessage(errorText(t))));
+};
+$id("historySensor").onchange = () => {
+  ((state.sensorId = $id("historySensor").value),
+    state.historyRequest++,
+    (state.history = []),
+    (state.stats = {}),
+    renderAll(),
+    renderHistory(),
+    loadHistory().catch((t) => showMessage(errorText(t))));
+};
+let chartDragStart = null;
+const chartFraction = (t) =>
+  Math.max(
+    0,
+    Math.min(
+      1,
+      (t.clientX - $id("historyChart").getBoundingClientRect().left) / $id("historyChart").getBoundingClientRect().width,
+    ),
+  );
+$id("historyChart").onpointerdown = (t) => {
+  state.history.length && ((chartDragStart = chartFraction(t)), $id("historyChart").setPointerCapture(t.pointerId));
+};
+$id("historyChart").onpointermove = (t) => {
+  const e = chartFraction(t),
+    r = state.historyRange || state.range;
+  if (chartDragStart !== null) {
+    let i = $id("historyChart").querySelector(".chart-selection");
+    (i ||
+      ((i = document.createElementNS("http://www.w3.org/2000/svg", "rect")),
+      i.setAttribute("class", "chart-selection"),
+      i.setAttribute("height", "280"),
+      $id("historyChart").append(i)),
+      i.setAttribute("x", Math.min(e, chartDragStart) * 1e3),
+      i.setAttribute("width", Math.abs(e - chartDragStart) * 1e3));
+    return;
+  }
+  const s = r.from.getTime() + e * (r.to - r.from),
+    n = state.history.reduce(
+      (i, a) => (!i || Math.abs(new Date(a.received_at) - s) < Math.abs(new Date(i.received_at) - s) ? a : i),
+      null,
+    );
+  n &&
+    (($id("chartTooltip").hidden = !1),
+    ($id("chartTooltip").textContent = `${fmtDateTime(n.received_at)}
+Estabilizado ${fmtNum(n.stable_percent)}% · média bruta ${fmtNum(n.travel_percent)}% · mín. ${fmtNum(n.min_percent)}% · máx. ${fmtNum(n.max_percent)}%
+${fmtNum(n.samples, 0)} leituras`));
+};
+$id("historyChart").onpointerleave = () => {
+  $id("chartTooltip").hidden = !0;
+};
+$id("historyChart").onpointercancel = () => {
+  ((chartDragStart = null), $id("historyChart").querySelector(".chart-selection")?.remove());
+};
+$id("historyChart").onpointerup = (t) => {
+  if (chartDragStart === null) return;
+  const e = chartFraction(t),
+    r = chartDragStart;
+  if (((chartDragStart = null), $id("historyChart").querySelector(".chart-selection")?.remove(), Math.abs(e - r) < 0.01)) return;
+  const s = state.historyRange || state.range,
+    n = s.to - s.from;
+  try {
+    ((state.range = validateRange(
+      new Date(s.from.getTime() + Math.min(r, e) * n),
+      new Date(s.from.getTime() + Math.max(r, e) * n),
+    )),
+      (state.custom = !0),
+      loadHistory().catch((i) => showMessage(errorText(i))));
+  } catch (i) {
+    showMessage(errorText(i));
+  }
+};
+$id("exportCsv").onclick = async () => {
+  const e = [
+    [
+      "horario",
+      "percentual_estabilizado",
+      "media_percentual",
+      "min_percentual",
+      "max_percentual",
+      "posicao_estimada_mm",
+      "tensao_estimada_v",
+      "leituras",
+    ],
+    ...state.history.map((r) => [
+      r.received_at,
+      r.stable_percent,
+      r.travel_percent,
+      r.min_percent,
+      r.max_percent,
+      r.position_mm,
+      r.voltage_v,
+      r.samples,
+    ]),
+  ].map((r) => r.map(csvCell).join(";")).join(`\r
+`);
+  try {
+    await exportCsvFile(e, `gaxeta-${state.sensorId}-intervalos.csv`);
+  } catch (r) {
+    showMessage(errorText(r));
+  }
+};
+$id("exportMovements").onclick = async () => {
+  if (state.movementsTruncated) {
+    showMessage("Reduza o período para exportar todas as mudanças.");
+    return;
+  }
+  const t = [
+    ["horario", "percentual_anterior", "percentual_estabilizado", "variacao_pontos", "regra"],
+    ...state.movements.map((e) => [
+      e.received_at,
+      e.previous_percent,
+      e.stable_percent,
+      e.previous_percent == null ? "" : Number(e.stable_percent) - Number(e.previous_percent),
+      e.rule_version,
+    ]),
+  ].map((e) => e.map(csvCell).join(";")).join(`\r
+`);
+  try {
+    await exportCsvFile(t, `gaxeta-${state.sensorId}-mudancas.csv`);
+  } catch (e) {
+    showMessage(errorText(e));
+  }
+};
+$id("showRawBand").onchange = renderHistory;
+$id("historyEdit").onclick = () => {
+  state.sensorId && openSensorEditor(state.sensorId);
+};
+
+// ---- 75-gateways.js ----
+// =============================================================================
+// Gateways: cadastro e edição reais, sempre sob uma empresa (gaxeta_save_gateway).
+// "Cadastrado" não significa "transmitindo": o transporte por gateway ainda não
+// está ativo e nenhum estado de transmissão é mostrado sem evidência.
+// =============================================================================
+const gatewayView = { search: "", offset: 0, total: 0, rows: [], counts: {}, editId: null, request: 0 };
+const GATEWAY_PAGE = 24;
+async function loadGateways() {
+  const run = ++gatewayView.request;
+  let query = sb.from("gaxeta_gateways").select("*", { count: "exact" }).order("name").range(gatewayView.offset, gatewayView.offset + GATEWAY_PAGE - 1);
+  if (gatewayView.search) {
+    const term = gatewayView.search.replace(/[%,()]/g, " ");
+    query = query.or(`name.ilike.%${term}%,identifier.ilike.%${term}%`);
+  }
+  const { data, error, count } = await query;
+  if (error) throw error;
+  if (run !== gatewayView.request) return;
+  gatewayView.rows = data;
+  gatewayView.total = count ?? data.length;
+  await ensureAssets(data.map((row) => row.company_id));
+  gatewayView.counts = {};
+  if (data.length) {
+    const linked = await unwrap(sb.from("gaxeta_devices").select("gateway_id").in("gateway_id", data.map((row) => row.id)));
+    for (const row of linked) gatewayView.counts[row.gateway_id] = (gatewayView.counts[row.gateway_id] || 0) + 1;
+  }
+  if (run !== gatewayView.request) return;
+  renderGateways();
+}
+function renderGateways() {
+  const canManage = hasCap("manage_gateways");
+  $id("gatewayGrid").innerHTML =
+    gatewayView.rows
+      .map(
+        (row) =>
+          `<article class="gateway-card">${icon("router")}<div class="gateway-main"><h3>${esc(row.name)}</h3><code>${esc(row.identifier)}</code>` +
+          `<p>${esc(assetPathLabel(row.company_id) || "Empresa fora do seu escopo")}</p>` +
+          `<p><span class="state-chip">Cadastrado</span> ${gatewayView.counts[row.id] || 0} sensor(es) associados</p></div>` +
+          (canManage
+            ? `<div class="row-actions"><button class="secondary compact" data-gateway-edit="${row.id}">Editar</button>${hasCap("delete_records") ? `<button class="text-button danger-text" data-gateway-delete="${row.id}">Excluir</button>` : ""}</div>`
+            : "") +
+          `</article>`,
+      )
+      .join("") ||
+    `<div class="empty-state"><h3>Nenhum gateway ${gatewayView.search ? "encontrado" : "cadastrado"}</h3><p>Os sensores seguem transmitindo direto por Wi-Fi. O gateway é opcional e fica sob a empresa.</p></div>`;
+  const first = gatewayView.total ? gatewayView.offset + 1 : 0;
+  const last = Math.min(gatewayView.offset + GATEWAY_PAGE, gatewayView.total);
+  $id("gatewayPager").innerHTML =
+    gatewayView.total > GATEWAY_PAGE
+      ? `<button class="secondary compact" data-gw-move="-1"${gatewayView.offset ? "" : " disabled"}>Anterior</button><span>${first}–${last} de ${gatewayView.total}</span><button class="secondary compact" data-gw-move="1"${last < gatewayView.total ? "" : " disabled"}>Próxima</button>`
+      : "";
+  renderIcons();
+}
+async function openGatewayForm(editId = null) {
+  const row = editId ? gatewayView.rows.find((item) => item.id === editId) : null;
+  gatewayView.editId = row?.id || null;
+  $id("gatewayDialogTitle").textContent = row ? "Editar gateway" : "Cadastrar gateway";
+  $id("gatewayName").value = row?.name || "";
+  $id("gatewayIdentifier").value = row?.identifier || "";
+  $id("gatewayMessage").textContent = "";
+  // Empresa: a do gateway em edição, ou a do ramo selecionado na árvore.
+  const seed = row?.company_id || state.assetId;
+  await ensureAssets([seed]);
+  const values = { corporation: "", company: "" };
+  for (const asset of assetPath(seed, state.assets)) if (asset.kind in values) values[asset.kind] = asset.id;
+  const levels = ["corporation", "company"];
+  await refillPicker("gw-pick-", 0, values, levels);
+  $id("gw-pick-corporation").onchange = () =>
+    withBusy(null, async () => {
+      values.corporation = $id("gw-pick-corporation").value;
+      values.company = "";
+      await refillPicker("gw-pick-", 1, values, levels);
+    });
+  $id("gatewayDialog").showModal();
+}
+$id("gatewayForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const message = $id("gatewayMessage");
+  const company = $id("gw-pick-company").value;
+  const name = $id("gatewayName").value.trim();
+  const identifier = $id("gatewayIdentifier").value.trim();
+  if (!company) return void (message.textContent = "Selecione a empresa.");
+  if (!name || !identifier) return void (message.textContent = "Informe nome e identificação.");
+  message.textContent = "Salvando…";
+  event.submitter.disabled = true;
+  try {
+    const saved = await callRpc("gaxeta_save_gateway", { p_id: gatewayView.editId, p_company_id: company, p_name: name, p_identifier: identifier });
+    $id("gatewayDialog").close();
+    await loadGateways();
+    showMessage(`Gateway “${saved.name}” ${gatewayView.editId ? "atualizado" : "cadastrado"} em ${assetPathLabel(saved.company_id)}.`, "success");
+  } catch (error) {
+    message.textContent = errorText(error);
+  } finally {
+    event.submitter.disabled = false;
+  }
+};
+$id("gatewayGrid").onclick = async (event) => {
+  const edit = event.target.closest("[data-gateway-edit]");
+  const remove = event.target.closest("[data-gateway-delete]");
+  if (edit) return withBusy(edit, () => openGatewayForm(edit.dataset.gatewayEdit));
+  if (!remove) return;
+  const row = gatewayView.rows.find((item) => item.id === remove.dataset.gatewayDelete);
+  if (!row) return;
+  if (!(await askConfirm({ title: "Excluir gateway", html: `<p>Excluir definitivamente o gateway <b>${esc(row.name)}</b> (${esc(row.identifier)})? Gateways com sensores associados não são excluídos.</p>`, okLabel: "Excluir" }))) return;
+  await withBusy(remove, async () => {
+    await callRpc("gaxeta_delete_gateway", { p_id: row.id });
+    await loadGateways();
+    showMessage(`Gateway “${row.name}” excluído.`, "success");
+  });
+};
+$id("gatewayPager").onclick = (event) => {
+  const move = event.target.closest("[data-gw-move]");
+  if (!move) return;
+  gatewayView.offset = Math.max(0, gatewayView.offset + Number(move.dataset.gwMove) * GATEWAY_PAGE);
+  loadGateways().catch((error) => showMessage(errorText(error), "error"));
+};
+$id("gatewaySearch").oninput = debounce(() => {
+  gatewayView.search = $id("gatewaySearch").value.trim();
+  gatewayView.offset = 0;
+  loadGateways().catch((error) => showMessage(errorText(error), "error"));
+}, 350);
+
+// ---- 80-users.js ----
+// =============================================================================
+// Usuários (ADM 1 e 2): listagem paginada, cadastro em três etapas com escopo por
+// ramo, ajustes de acesso, nível e status, convites e auditoria. Toda decisão é
+// do servidor (RPCs gaxeta_admin_*); a interface só organiza o fluxo.
+// =============================================================================
+const usersView = { search: "", role: "", status: "", corp: "", offset: 0, total: 0, items: [], request: 0 };
+const USERS_PAGE = 25;
+const STATUS_LABEL = {
+  active: "Ativo",
+  disabled: "Desativado",
+  invite_pending: "Convite pendente (não enviado)",
+  invite_sent: "Convite enviado",
+  invite_failed: "Falha no envio",
+  invite_expired: "Convite expirado",
+};
+async function loadUsers() {
+  const run = ++usersView.request;
+  if ($id("userCorpFilter").options.length < 2) {
+    const roots = await loadKids(null);
+    fillSelect($id("userCorpFilter"), roots.ids.map((id) => ({ value: id, label: assetName(id) })), "Todas as corporações", usersView.corp);
+  }
+  const result = await callRpc("gaxeta_admin_users", {
+    p_search: usersView.search || null,
+    p_role: usersView.role || null,
+    p_status: usersView.status || null,
+    p_corporation_id: usersView.corp || null,
+    p_company_id: null,
+    p_limit: USERS_PAGE,
+    p_offset: usersView.offset,
+  });
+  if (run !== usersView.request) return;
+  usersView.items = result.items;
+  usersView.total = result.total;
+  renderUsers();
+  if ($id("auditPanel").open) loadAudit().catch(() => {});
+}
+function renderUsers() {
+  const mine = myRole();
+  $id("userRows").innerHTML =
+    usersView.items
+      .map((item) => {
+        const isInvite = item.kind === "invite";
+        const isGlobal = item.role !== "corp";
+        const allowed = mine === "adm1" || !isGlobal; // ADM 2 não altera contas com papel global
+        const self = item.id === state.userId;
+        const actions = [];
+        if (allowed && isInvite) actions.push(`<button data-user-act="resend">Reenviar convite</button>`, `<button data-user-act="revoke">Revogar convite</button>`);
+        if (allowed && !isInvite) {
+          if (!isGlobal) actions.push(`<button data-user-act="access">Editar acesso</button>`);
+          if (mine === "adm1" && !self) actions.push(`<button data-user-act="role">Alterar nível</button>`);
+          if (!self) actions.push(`<button data-user-act="${item.status === "active" ? "disable" : "enable"}">${item.status === "active" ? "Desativar" : "Reativar"}</button>`);
+          if (mine === "adm1" && !self) actions.push(`<button data-user-act="delete" class="danger-text">Excluir cadastro</button>`);
+        }
+        return (
+          `<tr data-user="${esc(item.id)}" data-kind="${item.kind}"><td data-label="Nome"><strong>${esc(item.display_name || "—")}</strong></td><td data-label="E-mail">${esc(item.email)}</td>` +
+          `<td data-label="Nível">${ROLE_LABEL[item.role] || esc(item.role)}${item.role === "corp" && item.can_write ? " · edita" : ""}</td>` +
+          `<td data-label="Corporação">${esc(item.corporation_name || (isGlobal ? "Todas" : "—"))}</td>` +
+          `<td data-label="Status"><span class="state-chip status-${item.status}">${STATUS_LABEL[item.status] || esc(item.status)}</span>${item.last_error ? `<small class="cell-note">${esc(item.last_error)}</small>` : ""}</td>` +
+          `<td class="col-actions">${actions.length ? `<details class="row-menu"><summary>Ações</summary><div class="menu-list">${actions.join("")}</div></details>` : self ? "<small>sua conta</small>" : ""}</td></tr>`
+        );
+      })
+      .join("") || `<tr><td colspan="6">Nenhum usuário encontrado com estes filtros.</td></tr>`;
+  const first = usersView.total ? usersView.offset + 1 : 0;
+  const last = Math.min(usersView.offset + USERS_PAGE, usersView.total);
+  $id("userPager").innerHTML =
+    `<span>${first}–${last} de ${usersView.total}</span>` +
+    (usersView.total > USERS_PAGE
+      ? `<button class="secondary compact" data-user-move="-1"${usersView.offset ? "" : " disabled"}>Anterior</button><button class="secondary compact" data-user-move="1"${last < usersView.total ? "" : " disabled"}>Próxima</button>`
+      : "");
+}
+const reloadUsers = () => loadUsers().catch((error) => showMessage(errorText(error), "error"));
+$id("userSearch").oninput = debounce(() => {
+  usersView.search = $id("userSearch").value.trim();
+  usersView.offset = 0;
+  reloadUsers();
+}, 350);
+for (const [id, key] of [["userRoleFilter", "role"], ["userStatusFilter", "status"], ["userCorpFilter", "corp"]])
+  $id(id).onchange = () => {
+    usersView[key] = $id(id).value;
+    usersView.offset = 0;
+    reloadUsers();
+  };
+$id("userPager").onclick = (event) => {
+  const move = event.target.closest("[data-user-move]");
+  if (!move) return;
+  usersView.offset = Math.max(0, usersView.offset + Number(move.dataset.userMove) * USERS_PAGE);
+  reloadUsers();
+};
+
+// ----- Envio do convite pelo serviço no servidor (a chave administrativa nunca vem ao navegador) -----
+async function sendInvite(inviteId, email) {
+  try {
+    const { data } = await sb.auth.getSession();
+    const response = await fetchWithTimeout(`${CONFIG.supabaseUrl}/functions/v1/${CONFIG.inviteFunction}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: CONFIG.publishableKey, Authorization: `Bearer ${data.session?.access_token || ""}` },
+      body: JSON.stringify({ invite_id: inviteId, email }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (response.ok && body.ok) return { ok: true, message: body.message || "Convite enviado." };
+    return { ok: false, message: body.message || (response.status === 404 ? "O serviço de envio (gaxeta-invite) não está implantado." : `Falha no envio (${response.status}).`) };
+  } catch (error) {
+    // Função ausente responde sem cabeçalhos CORS e chega aqui como falha de rede.
+    return { ok: false, message: "O serviço de envio (gaxeta-invite) não respondeu. Confira se a função está implantada e a conexão." };
+  }
+}
+
+// ----- Ações por usuário -----
+$id("userRows").onclick = async (event) => {
+  const button = event.target.closest("[data-user-act]");
+  if (!button) return;
+  const row = button.closest("tr");
+  const item = usersView.items.find((entry) => entry.id === row.dataset.user && entry.kind === row.dataset.kind);
+  if (!item) return;
+  button.closest("details").open = false;
+  const act = button.dataset.userAct;
+  const who = `<b>${esc(item.display_name || item.email)}</b> (${esc(item.email)})`;
+  await withBusy(button, async () => {
+    if (act === "access") return openUserWizard({ userId: item.id });
+    if (act === "resend") {
+      await callRpc("gaxeta_admin_resend_invite", { p_invite_id: item.id });
+      const sent = await sendInvite(item.id, item.email);
+      showMessage(sent.ok ? `Convite reenviado para ${item.email}.` : `Convite mantido como pendente. ${sent.message}`, sent.ok ? "success" : "error");
+    } else if (act === "revoke") {
+      if (!(await askConfirm({ title: "Revogar convite", html: `<p>Revogar o convite de ${who}? O link recebido deixa de dar acesso.</p>`, okLabel: "Revogar" }))) return;
+      await callRpc("gaxeta_admin_revoke_invite", { p_invite_id: item.id });
+      showMessage("Convite revogado.", "success");
+    } else if (act === "disable" || act === "enable") {
+      const disabling = act === "disable";
+      if (!(await askConfirm({ title: disabling ? "Desativar usuário" : "Reativar usuário", html: `<p>${disabling ? "Desativar" : "Reativar"} ${who}?${disabling ? " O acesso é cortado no servidor imediatamente, mesmo com sessão aberta." : ""}</p>`, okLabel: disabling ? "Desativar" : "Reativar", danger: disabling }))) return;
+      await callRpc("gaxeta_admin_set_status", { p_user_id: item.id, p_status: disabling ? "disabled" : "active" });
+      showMessage(disabling ? "Usuário desativado." : "Usuário reativado.", "success");
+    } else if (act === "role") {
+      const options = ["adm1", "adm2", "adm3"].map((role) => `<option value="${role}"${role === item.role ? " selected" : ""}>${ROLE_LABEL[role]}</option>`).join("");
+      if (!(await askConfirm({ title: "Alterar nível", html: `<p>Nível global de ${who}:</p><label>Nível<select id="roleChoice">${options}</select></label><p class="form-help">Ao receber nível global, o usuário deixa o vínculo com a corporação e as concessões por ramo.</p>`, okLabel: "Aplicar", danger: false }))) return;
+      await callRpc("gaxeta_admin_set_role", { p_user_id: item.id, p_global_role: $id("roleChoice").value });
+      showMessage("Nível atualizado.", "success");
+    } else if (act === "delete") {
+      if (!(await askConfirm({ title: "Excluir cadastro", html: `<p>Excluir o cadastro de acesso de ${who}? As concessões são removidas e a ação fica na auditoria.</p>`, okLabel: "Excluir" }))) return;
+      await callRpc("gaxeta_admin_delete_user", { p_user_id: item.id });
+      showMessage("Cadastro de acesso excluído. A identidade de login permanece no Auth, sem acesso, até ser removida no painel do Supabase.", "success");
+    }
+    await loadUsers();
+  });
+};
+
+// ----- Cadastro e edição de acesso em três etapas -----
+const wizard = { step: 1, userId: null, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} };
+const KIND_PLURAL = { company: "empresa(s)", area: "área(s)", subarea: "subárea(s)", equipment: "TAG(s)", point: "spot(s)" };
+async function openUserWizard({ userId = null } = {}) {
+  Object.assign(wizard, { step: 1, userId, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} });
+  const roots = await loadKids(null);
+  const roles = [["corp", ROLE_LABEL.corp]];
+  if (hasCap("manage_global_roles")) roles.push(["adm3", ROLE_LABEL.adm3], ["adm2", ROLE_LABEL.adm2], ["adm1", ROLE_LABEL.adm1]);
+  fillSelect($id("newUserRole"), roles.map(([value, label]) => ({ value, label })), null, "corp");
+  fillSelect($id("newUserCorp"), roots.ids.map((id) => ({ value: id, label: assetName(id) })), "Selecione a corporação", "");
+  $id("userForm").reset();
+  $id("newUserRole").value = "corp";
+  $id("userFormMessage").textContent = "";
+  if (userId) {
+    const detail = await callRpc("gaxeta_admin_user_detail", { p_user_id: userId });
+    $id("newUserName").value = detail.display_name;
+    $id("newUserEmail").value = detail.email;
+    $id("newUserCorp").value = detail.corporation_id || "";
+    $id("newUserWrite").checked = !!detail.can_write;
+    for (const grant of detail.grants) {
+      wizard.grants.set(grant.asset_id, grant.mode);
+      wizard.names.set(grant.asset_id, { name: grant.name, kind: grant.kind, path: (grant.path || []).join(" / ") });
+    }
+  }
+  for (const id of ["newUserName", "newUserEmail", "newUserRole", "newUserCorp"]) $id(id).disabled = !!userId;
+  $id("userDialogTitle").textContent = userId ? "Editar acesso" : "Novo usuário";
+  syncWizard();
+  $id("userDialog").showModal();
+}
+function wizardData() {
+  const role = $id("newUserRole").value;
+  return { name: $id("newUserName").value.trim(), email: $id("newUserEmail").value.trim().toLowerCase(), role, corp: role === "corp" ? $id("newUserCorp").value : "", canWrite: role === "corp" && $id("newUserWrite").checked };
+}
+function syncWizard() {
+  const data = wizardData();
+  $id("newUserCorpRow").hidden = $id("newUserWriteRow").hidden = data.role !== "corp";
+  for (const step of [1, 2, 3]) $id("userStep" + step).hidden = wizard.step !== step;
+  document.querySelectorAll("#userSteps li").forEach((item) => {
+    const number = Number(item.dataset.step);
+    item.className = number === wizard.step ? "current" : number < wizard.step ? "done" : "";
+    item.hidden = number === 2 && data.role !== "corp";
+  });
+  $id("userBack").hidden = wizard.step === 1;
+  $id("userNext").textContent = wizard.step < 3 ? "Avançar" : wizard.userId ? "Salvar acesso" : "Cadastrar e enviar convite";
+}
+$id("newUserRole").onchange = syncWizard;
+const grantList = () => [...wizard.grants].map(([asset_id, mode]) => ({ asset_id, mode }));
+// Lê do servidor o efeito das concessões em um nível (prévia do acesso efetivo).
+async function loadGrantLevel(parentId) {
+  const result = await callRpc("gaxeta_admin_preview_access", { p_corporation_id: wizard.corp, p_grants: grantList(), p_parent_id: parentId || null });
+  wizard.kids.set(kidsKey(parentId), result.items);
+  for (const item of result.items) wizard.names.set(item.id, { ...wizard.names.get(item.id), name: item.name, kind: item.kind });
+  if (!parentId) {
+    wizard.totals = result.totals || {};
+    wizard.grants = new Map(result.normalized_grants.map((grant) => [grant.asset_id, grant.mode]));
+  }
+}
+async function refreshGrantTree() {
+  await loadGrantLevel(null);
+  await Promise.all([...wizard.open].map((id) => loadGrantLevel(id)));
+  renderGrantTree();
+}
+function grantBranch(parentId) {
+  const items = wizard.kids.get(kidsKey(parentId)) || [];
+  return (
+    "<ul>" +
+    items
+      .map((item) => {
+        const explicit = wizard.grants.get(item.id) || "";
+        const open = wizard.open.has(item.id);
+        const stateLabel = { full: "Com acesso", path: "Só caminho", none: "Sem acesso" }[item.state];
+        return (
+          `<li><div class="grant-row state-${item.state}"><button type="button" class="tree-toggle" data-grant-toggle="${item.id}"${item.has_children ? "" : " disabled"} aria-label="${open ? "Recolher" : "Selecionar dentro de"} ${esc(item.name)}">${item.has_children ? (open ? "▾" : "▸") : ""}</button>` +
+          `<span class="grant-name"><small>${KIND_LABEL[item.kind]}</small>${esc(item.tag ? item.name + " · " + item.tag : item.name)}</span><span class="grant-state">${stateLabel}</span>` +
+          `<span class="segmented" role="group" aria-label="Concessão para ${esc(item.name)}">` +
+          `<button type="button" data-grant="${item.id}" data-mode="all" aria-pressed="${explicit === "all"}">Todos</button>` +
+          `<button type="button" data-grant="${item.id}" data-mode="none" aria-pressed="${explicit === "none"}">Nenhum</button>` +
+          `<button type="button" data-grant="${item.id}" data-mode="" aria-pressed="${!explicit}" title="Segue o nível acima; abra o ramo para selecionar itens">Herdar</button></span></div>` +
+          (open ? grantBranch(item.id) : "") +
+          "</li>"
+        );
+      })
+      .join("") +
+    "</ul>"
+  );
+}
+function grantSummary() {
+  const parts = Object.entries(wizard.totals).filter(([kind]) => KIND_PLURAL[kind]).map(([kind, count]) => `${count} ${KIND_PLURAL[kind]}`);
+  return parts.length ? "Acesso efetivo hoje: " + parts.join(", ") + ". Ramos com “Todos” incluem itens futuros." : "Sem acesso efetivo: nenhuma concessão válida.";
+}
+function renderGrantTree() {
+  $id("grantTree").innerHTML = grantBranch(null);
+  $id("grantTotals").textContent = grantSummary();
+}
+$id("grantTree").onclick = async (event) => {
+  const toggle = event.target.closest("[data-grant-toggle]");
+  const grant = event.target.closest("[data-grant]");
+  try {
+    if (toggle) {
+      const id = toggle.dataset.grantToggle;
+      if (wizard.open.has(id)) wizard.open.delete(id);
+      else {
+        wizard.open.add(id);
+        await loadGrantLevel(id);
+      }
+      renderGrantTree();
+    } else if (grant) {
+      grant.dataset.mode ? wizard.grants.set(grant.dataset.grant, grant.dataset.mode) : wizard.grants.delete(grant.dataset.grant);
+      await refreshGrantTree();
+    }
+  } catch (error) {
+    $id("userFormMessage").textContent = errorText(error);
+  }
+};
+function renderUserReview() {
+  const data = wizardData();
+  const grants = [...wizard.grants].map(([id, mode]) => {
+    const known = wizard.names.get(id) || {};
+    return `<li><b>${mode === "all" ? "Todos" : "Nenhum"}</b> em ${esc((KIND_LABEL[known.kind] || "") + " " + (known.name || id))}</li>`;
+  });
+  $id("userReview").innerHTML =
+    `<dl class="detail-fields"><dt>Nome</dt><dd>${esc(data.name)}</dd><dt>Destinatário</dt><dd>${esc(data.email)}</dd><dt>Nível</dt><dd>${ROLE_LABEL[data.role]}</dd>` +
+    (data.role === "corp"
+      ? `<dt>Corporação</dt><dd>${esc(assetName(data.corp))}</dd><dt>Edição operacional</dt><dd>${data.canWrite ? "Sim: cria áreas, subáreas, TAGs e spots e vincula sensores nos ramos concedidos" : "Não: somente consulta"}</dd></dl>` +
+        `<h3>Concessões</h3>${grants.length ? `<ul>${grants.join("")}</ul>` : "<p>Nenhuma concessão: o usuário entra, mas não vê nenhum ramo.</p>"}<p class="grant-totals">${grantSummary()}</p>`
+      : `<dt>Alcance</dt><dd>${data.role === "adm3" ? "Consulta e análise em todas as corporações, sem escrita" : "Global, conforme o nível"}</dd></dl>`) +
+    (wizard.userId ? "" : `<p class="form-help">O cadastro é gravado antes do envio. Se o e-mail falhar, o convite fica pendente e pode ser reenviado. Se o e-mail já tiver uma conta verificada, ela é vinculada sem novo convite e sem troca de senha.</p>`);
+}
+$id("userBack").onclick = () => {
+  wizard.step = wizard.step === 3 && wizardData().role !== "corp" ? 1 : wizard.step - 1;
+  $id("userFormMessage").textContent = "";
+  syncWizard();
+};
+$id("userForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const message = $id("userFormMessage");
+  const data = wizardData();
+  message.textContent = "";
+  const button = $id("userNext");
+  button.disabled = true;
+  try {
+    if (wizard.step === 1) {
+      if (data.name.length < 1) return void (message.textContent = "Informe o nome.");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return void (message.textContent = "Informe um e-mail válido.");
+      if (data.role === "corp" && !data.corp) return void (message.textContent = "Selecione a corporação.");
+      if (data.role === "corp") {
+        if (wizard.corp !== data.corp && !wizard.userId) wizard.grants = new Map();
+        wizard.corp = data.corp;
+        wizard.kids = new Map();
+        wizard.open = new Set();
+        await refreshGrantTree();
+        wizard.step = 2;
+      } else {
+        renderUserReview();
+        wizard.step = 3;
+      }
+    } else if (wizard.step === 2) {
+      await loadGrantLevel(null);
+      renderUserReview();
+      wizard.step = 3;
+    } else if (wizard.userId) {
+      await callRpc("gaxeta_admin_set_access", { p_user_id: wizard.userId, p_can_write: data.canWrite, p_grants: grantList() });
+      $id("userDialog").close();
+      showMessage(`Acesso de ${data.email} atualizado. Vale no servidor a partir de agora.`, "success");
+      await loadUsers();
+    } else {
+      const result = await callRpc("gaxeta_admin_invite_user", {
+        p_email: data.email,
+        p_display_name: data.name,
+        p_global_role: data.role === "corp" ? null : data.role,
+        p_corporation_id: data.role === "corp" ? data.corp : null,
+        p_can_write: data.canWrite,
+        p_grants: data.role === "corp" ? grantList() : [],
+      });
+      $id("userDialog").close();
+      if (result.kind === "linked") showMessage(`${data.email} já tinha conta verificada: acesso vinculado e ativo, sem novo convite.`, "success");
+      else {
+        const sent = await sendInvite(result.invite_id, data.email);
+        showMessage(sent.ok ? `Cadastro gravado e convite enviado para ${data.email}.` : `Cadastro gravado; o convite ficou pendente. ${sent.message} Use Ações → Reenviar convite.`, sent.ok ? "success" : "error");
+      }
+      await loadUsers();
+    }
+    syncWizard();
+  } catch (error) {
+    message.textContent = errorText(error);
+  } finally {
+    button.disabled = false;
+  }
+};
+
+// ----- Auditoria -----
+async function loadAudit() {
+  const rows = await callRpc("gaxeta_admin_audit", { p_limit: 50, p_offset: 0, p_action_prefix: null, p_target_id: null, p_corporation_id: null });
+  $id("auditRows").innerHTML =
+    rows
+      .map((row) => `<tr><td>${fmtDateTime(row.at)}</td><td>${esc(row.actor_email || "sistema")}</td><td>${esc(row.action)}</td><td>${esc(row.target_type)} ${esc(String(row.target_id || "").slice(0, 18))}</td><td><code>${esc(JSON.stringify(row.details || {}).slice(0, 160))}</code></td></tr>`)
+      .join("") || '<tr><td colspan="5">Nenhum registro.</td></tr>';
+}
+$id("auditPanel").addEventListener("toggle", () => {
+  if ($id("auditPanel").open) loadAudit().catch((error) => showMessage(errorText(error), "error"));
+});
+
+// ---- 85-auth.js ----
+// =============================================================================
+// Entrada, convite e recuperação.
+//  * Nada entra sozinho: sem sessão, só o envio do formulário (Entrar/Enter);
+//    com sessão guardada, "Continuar" ou "Trocar conta".
+//  * Convite e recuperação chegam por acesso.html. O painel só abre depois de a
+//    senha ser definida e, no convite, de o servidor ativar o vínculo pré-cadastrado.
+//  * Tokens do link nunca são gravados, exibidos ou propagados; a URL é limpa.
+// =============================================================================
+function readEntryIntent() {
+  const hash = new URLSearchParams(ENTRY_URL.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(ENTRY_URL.search);
+  const pick = (key) => hash.get(key) || query.get(key);
+  return {
+    type: pick("type"),
+    tokenHash: query.get("token_hash"),
+    hasTokens: !!hash.get("access_token"),
+    error: pick("error_code") || pick("error"),
+  };
+}
+const auth = { entered: false, intent: readEntryIntent(), flow: null, pendingLogin: false, verifiedSession: null };
+const isCallback = () => !!(auth.intent.type || auth.intent.tokenHash || auth.intent.error);
+function cleanUrl() {
+  history.replaceState(null, "", location.pathname.replace(new RegExp(CONFIG.callbackPage.replace(".", "\\.") + "$"), ""));
+  auth.intent = { type: null, tokenHash: null, hasTokens: false, error: null };
+}
+function showAuthView(viewId, message = "", kind = "") {
+  $id("application").hidden = true;
+  $id("auth").hidden = false;
+  document.querySelectorAll(".auth-view").forEach((view) => (view.hidden = view.id !== viewId));
+  $id("authMessage").textContent = message;
+  $id("authMessage").className = "auth-message " + kind;
+}
+function authErrorText(error) {
+  const message = error?.message || "";
+  if (/Invalid login credentials/i.test(message)) return "E-mail ou senha incorretos.";
+  if (/Email not confirmed/i.test(message)) return "Este e-mail ainda não foi confirmado. Use o link do convite ou peça um novo.";
+  if (/different from the old/i.test(message)) return "A nova senha precisa ser diferente da anterior.";
+  if (/weak|at least|characters/i.test(message)) return "Senha recusada pela política de segurança: use pelo menos 10 caracteres, com letras e números.";
+  if (/expired|invalid|not found/i.test(message)) return "Link vencido ou já utilizado. Solicite um novo.";
+  if (/rate limit|too many/i.test(message)) return "Muitas tentativas. Aguarde alguns minutos e tente de novo.";
+  return errorText(error);
+}
+function passwordProblem(password, confirmation) {
+  if (password.length < 10) return "A senha precisa de pelo menos 10 caracteres.";
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return "A senha precisa ter letras e números.";
+  if (password !== confirmation) return "As senhas não coincidem.";
+  return "";
+}
+function showPasswordView(session, flow) {
+  auth.flow = flow;
+  auth.verifiedSession = session;
+  $id("passwordForm").reset();
+  $id("passwordTitle").textContent = flow === "invite" ? "Criar sua senha" : "Definir nova senha";
+  $id("passwordEmail").textContent = session.user.email; // e-mail verificado pelo Supabase, sem edição
+  $id("passwordSubmit").textContent = flow === "invite" ? "Salvar senha e entrar" : "Salvar nova senha";
+  showAuthView("passwordForm");
+  $id("setPassword").focus();
+}
+function showExpiredLink() {
+  const wasInvite = auth.intent.type === "invite";
+  cleanUrl();
+  // Mantém o aviso na tela: eventos seguintes do SDK não o trocam por "Continuar".
+  auth.flow = "notice";
+  if (wasInvite) showAuthView("loginForm", "Convite vencido ou já utilizado. Peça ao responsável um novo envio.", "error");
+  else showAuthView("forgotForm", "Link vencido ou já utilizado. Informe o e-mail para receber um novo.", "error");
+}
+
+// ----- Entrada no painel (sempre depois de uma ação explícita) -----
+async function enterApp(session) {
+  showAuthView("authLoading", "Carregando seu acesso…");
+  const run = ++state.authRequest;
+  try {
+    let context = await callRpc("gaxeta_my_context");
+    if (!context.role && context.has_pending_invite) {
+      try {
+        await callRpc("gaxeta_activate_invite");
+        context = await callRpc("gaxeta_my_context");
+      } catch (error) {
+        if (/senha/i.test(error?.message || "")) return showPasswordView(session, "invite");
+        throw error;
+      }
+    }
+    if (run !== state.authRequest) return;
+    if (!context.role) {
+      $id("continueEmail").textContent = session.user.email;
+      return showAuthView("authContinue", "Esta conta ainda não tem acesso autorizado. Fale com o responsável pela operação ou troque de conta.", "error");
+    }
+    Object.assign(state, { ctx: context, userId: session.user.id, authorized: true, lastContextCheck: Date.now() });
+    auth.entered = true;
+    auth.flow = null;
+    $id("auth").hidden = true;
+    $id("application").hidden = false;
+    $id("userEmail").textContent = session.user.email;
+    $id("userBadge").textContent = (context.display_name || session.user.email || "?").trim().slice(0, 2).toUpperCase();
+    $id("password").value = "";
+    applyPermissions();
+    setConnection(true);
+    showMessage("");
+    if (session.user.user_metadata?.must_change_password) openAccountDialog(true);
+    showPage(PAGE_TITLES[location.hash.slice(1)] ? location.hash.slice(1) : "sensors");
+    clearTimeout(state.timer);
+    state.timer = setTimeout(refreshData, CONFIG.pollMs);
+  } catch (error) {
+    showAuthView("loginForm", authErrorText(error), "error");
+  }
+}
+async function leaveApp(message = "") {
+  await bleDisconnect().catch(() => {});
+  clearSessionData();
+  auth.entered = false;
+  auth.flow = null;
+  await sb.auth.signOut({ scope: "local" }).catch(() => {});
+  showAuthView("loginForm", message, message ? "error" : "");
+}
+
+$id("loginForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const email = $id("email").value.trim();
+  const password = $id("password").value;
+  if (!email || !password) return showAuthView("loginForm", "Informe e-mail e senha.", "error");
+  const button = event.submitter || $id("loginForm").querySelector("button.primary");
+  button.disabled = true;
+  auth.pendingLogin = true;
+  $id("authMessage").textContent = "Entrando…";
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return showAuthView("loginForm", authErrorText(error), "error");
+    await enterApp(data.session);
+  } catch (error) {
+    showAuthView("loginForm", authErrorText(error), "error");
+  } finally {
+    auth.pendingLogin = false;
+    button.disabled = false;
+  }
+};
+$id("continueSession").onclick = (event) =>
+  withBusy(event.currentTarget, async () => {
+    const { data } = await sb.auth.getSession();
+    if (!data.session) return showAuthView("loginForm", "A sessão guardada expirou. Entre novamente.");
+    await enterApp(data.session);
+  });
+$id("switchAccount").onclick = async () => {
+  await sb.auth.signOut({ scope: "local" }).catch(() => {});
+  $id("loginForm").reset();
+  showAuthView("loginForm");
+};
+$id("showForgot").onclick = () => {
+  $id("forgotEmail").value = $id("email").value.trim();
+  showAuthView("forgotForm");
+};
+$id("backToLogin").onclick = () => showAuthView("loginForm");
+$id("forgotForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const email = $id("forgotEmail").value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return showAuthView("forgotForm", "Informe um e-mail válido.", "error");
+  event.submitter.disabled = true;
+  try {
+    // Resposta neutra: a tela não revela se o e-mail tem cadastro.
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: CONFIG.publicBaseUrl + CONFIG.callbackPage });
+    if (error && /fetch|network/i.test(error.message)) throw error;
+    showAuthView("loginForm", "Se houver uma conta para este e-mail, um link para definir a senha chegará em instantes. Confira também a caixa de spam.", "ok");
+  } catch (error) {
+    showAuthView("forgotForm", authErrorText(error), "error");
+  } finally {
+    event.submitter.disabled = false;
+  }
+};
+// Link com token_hash: a validação só acontece neste clique, para que verificadores
+// automáticos de e-mail não consumam o link.
+$id("verifyLink").onclick = (event) =>
+  withBusy(event.currentTarget, async () => {
+    const { tokenHash, type } = auth.intent;
+    const { data, error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: type || "recovery" });
+    if (error || !data.session) return showExpiredLink();
+    cleanUrl();
+    showPasswordView(data.session, type === "recovery" ? "recovery" : "invite");
+  });
+$id("passwordForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const password = $id("setPassword").value;
+  const problem = passwordProblem(password, $id("setPasswordConfirm").value);
+  if (problem) return void (($id("authMessage").textContent = problem), ($id("authMessage").className = "auth-message error"));
+  const button = $id("passwordSubmit");
+  button.disabled = true;
+  $id("authMessage").textContent = "Salvando…";
+  try {
+    const { data, error } = await sb.auth.updateUser({ password, data: { must_change_password: false } });
+    if (error) throw error;
+    cleanUrl();
+    const session = (await sb.auth.getSession()).data.session || auth.verifiedSession;
+    const flow = auth.flow;
+    if (flow === "invite") return await enterApp({ ...session, user: data.user || session.user });
+    // Recuperação: ativa um convite ainda pendente desta identidade, encerra a sessão e volta ao login.
+    const context = await callRpc("gaxeta_my_context").catch(() => null);
+    if (context && !context.role && context.has_pending_invite) await callRpc("gaxeta_activate_invite").catch(() => {});
+    await sb.auth.signOut({ scope: "local" }).catch(() => {});
+    auth.flow = null;
+    $id("loginForm").reset();
+    showAuthView("loginForm", "Senha atualizada. Entre com a nova senha.", "ok");
+  } catch (error) {
+    $id("authMessage").textContent = authErrorText(error);
+    $id("authMessage").className = "auth-message error";
+  } finally {
+    button.disabled = false;
+  }
+};
+
+// ----- Eventos do SDK: decidem só qual tela de entrada mostrar; nunca abrem o painel -----
+function onAuthEvent(event, session) {
+  if (event === "SIGNED_OUT") {
+    if (auth.entered) leaveApp("Sua sessão foi encerrada.");
+    return;
+  }
+  if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED" || event === "MFA_CHALLENGE_VERIFIED") return;
+  if (auth.entered || auth.pendingLogin || auth.flow) return;
+  if (event === "PASSWORD_RECOVERY" && session) return showPasswordView(session, "recovery");
+  if (auth.intent.error) return showExpiredLink();
+  if (auth.intent.tokenHash) {
+    $id("verifyTitle").textContent = auth.intent.type === "recovery" ? "Recuperar senha" : "Aceitar convite";
+    return showAuthView("authVerify");
+  }
+  if (session && auth.intent.hasTokens && auth.intent.type) return showPasswordView(session, auth.intent.type === "recovery" ? "recovery" : "invite");
+  if (isCallback() && !session) return showExpiredLink();
+  if (session) {
+    $id("continueEmail").textContent = session.user.email;
+    return showAuthView("authContinue");
+  }
+  showAuthView("loginForm");
+}
+
+// ----- Minha senha (dentro do painel) -----
+let mustChangePassword = false;
+function openAccountDialog(forced = false) {
+  mustChangePassword = forced;
+  $id("closeAccount").hidden = forced;
+  $id("accountMessage").textContent = "";
+  $id("accountForm").reset();
+  $id("userMenu").open = false;
+  $id("accountDialog").showModal();
+}
+$id("account").onclick = () => openAccountDialog(false);
+$id("closeAccount").onclick = () => mustChangePassword || $id("accountDialog").close();
+$id("accountDialog").addEventListener("cancel", (event) => mustChangePassword && event.preventDefault());
+$id("accountForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const password = $id("newPassword").value;
+  const problem = passwordProblem(password, $id("confirmPassword").value);
+  if (problem) return void ($id("accountMessage").textContent = problem);
+  event.submitter.disabled = true;
+  try {
+    const { error } = await sb.auth.updateUser({ password, data: { must_change_password: false } });
+    if (error) throw error;
+    mustChangePassword = false;
+    $id("accountDialog").close();
+    showMessage("Sua senha foi atualizada.", "success");
+  } catch (error) {
+    $id("accountMessage").textContent = authErrorText(error);
+  } finally {
+    event.submitter.disabled = false;
+  }
+};
+$id("logout").onclick = async () => {
+  auth.entered = false;
+  await bleDisconnect().catch(() => {});
+  clearSessionData();
+  await sb.auth.signOut().catch(() => {});
+  $id("loginForm").reset();
+  showAuthView("loginForm");
+};
+
+// ---- 90-ble-ui.js ----
+// Diálogo de Bluetooth (herdado do pacote publicado, com o vínculo passando pelo fluxo autorizado).
+function openBleDialog() {
+  $id("bleDialog").showModal();
+}
+function onBleReading(t, e) {
+  ((state.bleReading = t),
+    (state.bleDevice = e),
+    ($id("bleLive").hidden = !1),
+    ($id("bleName").textContent = t.device || e?.name || "Sensor"),
+    ($id("bleIdentity").textContent = t.sensor_id || "Firmware sem identificação; atualize para configurar."),
+    ($id("blePercent").textContent = `${fmtNum(t.travel_percent)} %`),
+    ($id("bleVoltage").textContent = `${fmtNum(t.voltage_v, 3)} V`),
+    ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
+}
+function setBleStatus(t) {
+  (($id("bleStatus").textContent = t),
+    ($id("disconnectBle").disabled = !bleCurrent()),
+    ($id("identifyBle").disabled = !bleCurrent()),
+    ($id("linkBle").disabled = !bleCurrent()));
+}
+$id("openBle").onclick = openBleDialog;
+$id("scanBle").onclick = async (t) => {
+  await withBusy(t.currentTarget, async () => {
+    const e = new Map();
+    ($id("bleDevices").replaceChildren(),
+      await bleScan((r) => {
+        (e.set(r.deviceId, r),
+          ($id("bleDevices").innerHTML = [...e.values()]
+            .map(
+              (s) =>
+                `<button class="ble-device" data-ble="${esc(s.deviceId)}"><span><strong>${esc(s.name || s.localName || "Sensor Gaxeta")}</strong><small>${esc(s.deviceId)} ${s.rssi == null ? "" : `· ${s.rssi} dBm`}</small></span>Conectar →</button>`,
+            )
+            .join("")));
+      }, setBleStatus));
+  });
+};
+$id("bleDevices").onclick = async (t) => {
+  const e = t.target.closest("[data-ble]");
+  if (e)
+    try {
+      await bleConnect(
+        {
+          deviceId: e.dataset.ble,
+          name: e.querySelector("strong").textContent,
+        },
+        onBleReading,
+        setBleStatus,
+      );
+    } catch (r) {
+      setBleStatus(errorText(r));
+    }
+};
+$id("disconnectBle").onclick = () => bleDisconnect();
+$id("bleDialog").addEventListener("close", () => bleStopScan());
+$id("identifyBle").onclick = async (t) => {
+  await withBusy(t.currentTarget, async () => {
+    (await bleIdentify(), setBleStatus("Comando enviado. Observe o LED do sensor por 10 segundos."));
+  });
+};
+// O sensor detectado por Bluetooth só identifica o equipamento e abre o fluxo
+// autorizado da plataforma; o vínculo ao spot é decidido no servidor.
+$id("linkBle").onclick = async () => {
+  const sensorId = state.bleReading?.sensor_id;
+  if (!sensorId) return setBleStatus("Atualize o firmware para identificar o sensor por ID.");
+  try {
+    const result = await callRpc("gaxeta_devices_status", { p_sensor_ids: [sensorId] });
+    if (!result.devices.length)
+      return setBleStatus("Sensor identificado, mas ainda não disponível para a sua conta. Ele aparece após a primeira transmissão; a primeira associação é feita por um administrador.");
+    mergeDevices(result.devices);
+    $id("bleDialog").close();
+    showPage("sensors");
+    openDrawer(sensorId, canEditDevice(result.devices[0]) ? "edit" : "detail");
+  } catch (error) {
+    setBleStatus(errorText(error));
+  }
+};
+
+// ---- 95-boot.js ----
+// =============================================================================
+// Inicialização: liga a navegação e os eventos globais. O painel só abre por
+// enterApp(), chamado a partir de uma ação explícita de quem está usando.
+// =============================================================================
+document.querySelectorAll("[data-glyph]").forEach((slot) => (slot.innerHTML = glyph(slot.dataset.glyph)));
+document.querySelectorAll("[data-page]").forEach((button) => (button.onclick = () => showPage(button.dataset.page)));
+document.querySelectorAll("[data-close]").forEach((button) => (button.onclick = () => $id(button.dataset.close).close()));
+$id("refresh").onclick = () => refreshData(true);
+$id("pageActions").onclick = (event) => {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  if (action === "find-sensor") openBleDialog();
+  if (action === "new-corporation") openAssetForm({ parentId: null });
+  if (action === "new-gateway") openGatewayForm().catch((error) => showMessage(errorText(error), "error"));
+  if (action === "new-user") openUserWizard().catch((error) => showMessage(errorText(error), "error"));
+};
+document.addEventListener("click", (event) => {
+  // Fecha menus abertos ao clicar fora deles.
+  document.querySelectorAll("details.user-menu[open], details.row-menu[open]").forEach((menu) => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshData();
+});
+window.addEventListener("hashchange", () => {
+  const page = location.hash.slice(1);
+  if (state.authorized && PAGE_TITLES[page] && state.page !== page) showPage(page);
+});
+window.addEventListener(
+  "resize",
+  debounce(() => {
+    if (!state.authorized) return;
+    renderPageActions();
+    renderTree();
+    renderIcons();
+  }, 200),
+);
+// Fora do fluxo síncrono do SDK, para não bloquear a renovação do token.
+sb.auth.onAuthStateChange((event, session) => setTimeout(() => onAuthEvent(event, session), 0));
+renderIcons();
+
+// ---- 99-exports.js ----
+export{Zt as E,ir as W,Va as b,hs as h,bo as m,Eo as t,_o as w};
