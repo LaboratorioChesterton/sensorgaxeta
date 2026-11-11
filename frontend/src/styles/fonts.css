@@ -1,0 +1,55 @@
+/* Fontes Barlow e Barlow Condensed (arquivos em static/fonts). */
+@font-face {
+  font-family: Barlow;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src:
+    url(./barlow-latin-400-normal-qiz4-Cze.woff2) format("woff2"),
+    url(./barlow-latin-400-normal-fsAxiSwU.woff) format("woff");
+}
+@font-face {
+  font-family: Barlow;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src:
+    url(./barlow-latin-500-normal-BPAOfeC8.woff2) format("woff2"),
+    url(./barlow-latin-500-normal-C1h8hMer.woff) format("woff");
+}
+@font-face {
+  font-family: Barlow;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src:
+    url(./barlow-latin-600-normal-DILqtrty.woff2) format("woff2"),
+    url(./barlow-latin-600-normal-CNwfPWQD.woff) format("woff");
+}
+@font-face {
+  font-family: Barlow;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src:
+    url(./barlow-latin-700-normal-A9pxMQ4z.woff2) format("woff2"),
+    url(./barlow-latin-700-normal-__SGTsZ1.woff) format("woff");
+}
+@font-face {
+  font-family: Barlow Condensed;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src:
+    url(./barlow-condensed-latin-500-normal-BgYH2mbd.woff2) format("woff2"),
+    url(./barlow-condensed-latin-500-normal-HIEiP5Ov.woff) format("woff");
+}
+@font-face {
+  font-family: Barlow Condensed;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src:
+    url(./barlow-condensed-latin-600-normal-DepVgxBB.woff2) format("woff2"),
+    url(./barlow-condensed-latin-600-normal-BFJEwTuo.woff) format("woff");
+}

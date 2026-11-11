@@ -1,0 +1,11 @@
+{
+  "name": "gaxeta-gestao-de-ativos",
+  "private": true,
+  "type": "module",
+  "description": "Frontend web (GitHub Pages e bundle do app Android) da plataforma Gaxeta Gestão de Ativos.",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:min": "node build.mjs --minify",
+    "preview": "node build.mjs && npx --yes http-server dist -p 4173 -c-1"
+  }
+}

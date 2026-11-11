@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#003451">
+<title>Manual de operação | Gaxeta Gestão de Ativos</title>
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  body { background: #eef2f5; }
+  .manual-top { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .manual-top img.logo { height: 26px; } .manual-top img.icon { width: 28px; height: 28px; border-radius: 7px; }
+  .manual-top a.back { margin-left: auto; text-decoration: none; }
+  @media (max-width: 760px) { .manual-top strong { display: none; } .manual-top img.logo { height: 22px; } .manual { padding: 10px; } .manual h1 { font-size: 24px; } }
+  .manual { max-width: 860px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+  .manual section { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; }
+  .manual h1 { font-size: 28px; } .manual h2 { font-size: 20px; }
+  .manual p, .manual li { font-size: 15px; line-height: 1.5; }
+  .manual ol, .manual ul { padding-left: 22px; display: grid; gap: 4px; } .manual ol { list-style: decimal; } .manual ul { list-style: disc; }
+  .manual nav { display: flex; flex-wrap: wrap; gap: 6px; } .manual nav a { padding: 4px 10px; border-radius: 99px; background: #eef3f6; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--navy); }
+  .manual table { font-size: 14px; } .manual .table-wrap { border: 1px solid var(--line-soft); border-radius: 6px; }
+  .tree-sample { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: #f4f7f9; border-radius: 6px; padding: 10px; white-space: pre; overflow-x: auto; }
+  .signature { color: var(--muted); font-size: 13px; letter-spacing: .06em; text-align: center; padding: 6px 0 20px; }
+</style>
+</head>
+<body>
+<header class="manual-top">
+  <img class="logo" src="./chesterton-logo.jpg" alt="Chesterton"><img class="icon" src="./icon.svg" alt="">
+  <strong>Gaxeta Gestão de Ativos</strong>
+  <a class="back secondary compact" href="./">← Plataforma</a>
+</header>
+<main class="manual">
+  <section>
+    <h1>Manual de operação</h1>
+    <p>Como entrar, montar a árvore de ativos, vincular sensores, consultar a telemetria e administrar usuários.</p>
+    <nav aria-label="Seções">
+      <a href="#entrar">Entrar</a><a href="#convite">Convite</a><a href="#senha">Recuperar senha</a><a href="#arvore">Árvore de ativos</a><a href="#vinculo">Vincular sensor</a><a href="#sensores">Sensores</a><a href="#telemetria">Telemetria e CSV</a><a href="#gateways">Gateways</a><a href="#usuarios">Usuários</a><a href="#android">Android</a>
+    </nav>
+  </section>
+
+  <section id="entrar">
+    <h2>1. Entrar</h2>
+    <ol>
+      <li>Abra a plataforma e informe e-mail e senha.</li>
+      <li>Toque em <b>Entrar</b>. Preencher os campos, mesmo com preenchimento automático, não inicia a sessão.</li>
+      <li>Se o aparelho já tiver uma sessão guardada, a tela mostra a conta e pede <b>Continuar</b> ou <b>Trocar conta</b>.</li>
+    </ol>
+    <p>O acesso é individual. O que cada conta vê e pode alterar é decidido no servidor, pelo nível e pelos ramos concedidos.</p>
+  </section>
+
+  <section id="convite">
+    <h2>2. Convite</h2>
+    <ol>
+      <li>O administrador cadastra nome, e-mail, corporação e ramos. Você recebe um e-mail com um link.</li>
+      <li>Abra o link (pode ser em outro aparelho). A página mostra o e-mail verificado, que não pode ser alterado.</li>
+      <li>Crie a senha: no mínimo 10 caracteres, com letras e números, digitada duas vezes.</li>
+      <li>Ao salvar, o acesso pré-cadastrado vale imediatamente, sem segunda aprovação.</li>
+    </ol>
+    <p>Link vencido ou já usado: peça ao administrador um novo envio (Usuários → Ações → Reenviar convite).</p>
+  </section>
+
+  <section id="senha">
+    <h2>3. Recuperar senha</h2>
+    <ol>
+      <li>Na tela de entrada, toque em <b>Esqueci minha senha</b> e informe o e-mail.</li>
+      <li>A resposta é sempre a mesma, exista ou não a conta. Se existir, o link chega por e-mail.</li>
+      <li>Abra o link, defina a nova senha duas vezes e entre de novo com ela.</li>
+    </ol>
+    <p>Dentro da plataforma, o menu da conta (canto superior direito) tem <b>Minha senha</b>.</p>
+  </section>
+
+  <section id="arvore">
+    <h2>4. Árvore de ativos</h2>
+    <div class="tree-sample">Corporação
+└─ Empresa
+   ├─ Área
+   │  ├─ TAG (equipamento)
+   │  │  └─ Spot → sensor
+   │  └─ Subárea (opcional)
+   │     └─ TAG (equipamento)
+   │        └─ Spot → sensor
+   └─ Gateway (cadastrado na empresa)</div>
+    <ul>
+      <li>Em <b>Ativos</b>, selecione um nível e use os botões do painel, ou o <b>+</b> ao lado do nome, para criar o próximo nível.</li>
+      <li>Na área, escolha <b>TAG</b> (direto na área) ou <b>Subárea</b>. A subárea é opcional.</li>
+      <li>Cada TAG aceita vários spots. Cada spot recebe um sensor por vez.</li>
+      <li>A busca encontra ativos por nome ou TAG e abre o ramo correspondente. Ramos grandes são carregados aos poucos (<b>Carregar mais</b>).</li>
+      <li>Cada gravação mostra uma confirmação. O que aparece na árvore é o que está gravado no servidor.</li>
+      <li>Exclusão é definitiva e só do nível 1. Itens com níveis abaixo, sensores, gateways ou histórico de instalação não são excluídos.</li>
+      <li>Corporações e empresas são criadas no computador. No celular ficam a consulta e as operações de campo.</li>
+    </ul>
+  </section>
+
+  <section id="vinculo">
+    <h2>5. Vincular sensor ao spot</h2>
+    <ol>
+      <li>O sensor aparece na plataforma depois da primeira transmissão. Sem vínculo, fica na <b>fila de associação</b>, visível aos administradores.</li>
+      <li>Em <b>Ativos</b>, selecione o spot e toque em <b>Vincular sensor</b>. Busque por nome, ID ou MAC.</li>
+      <li>Ou, em <b>Sensores</b>, toque em <b>Editar</b> no cartão e escolha corporação, empresa, área, subárea (se houver), TAG e spot.</li>
+      <li>Para devolver o sensor à fila, um administrador usa <b>Desvincular do spot</b>. As leituras continuam chegando e o histórico é preservado.</li>
+    </ol>
+    <p>Usuários de corporação com edição movem sensores entre spots dos seus ramos. A primeira associação de um sensor novo é feita por um administrador.</p>
+  </section>
+
+  <section id="sensores">
+    <h2>6. Sensores</h2>
+    <ul>
+      <li>Cada cartão mostra nome, caminho, ajuste estabilizado, condição, conexão e horário da última leitura. Bruto e tensão aparecem em segundo plano.</li>
+      <li>Selecione um ramo na árvore para filtrar. <b>Todos</b> remove o filtro. O botão <b>Árvore</b> recolhe ou abre a árvore.</li>
+      <li><b>Detalhes</b> e <b>Editar</b> abrem o painel lateral. Ele só abre por essas ações e não é alterado pela atualização automática.</li>
+    </ul>
+    <div class="table-wrap"><table><thead><tr><th>Ajuste estabilizado</th><th>Condição</th><th>Ação</th></tr></thead><tbody>
+      <tr><td>70 % ou mais</td><td>Alto ajuste</td><td>Sem necessidade de intervenção</td></tr>
+      <tr><td>45 % a menos de 70 %</td><td>Médio ajuste</td><td>Sem necessidade de intervenção</td></tr>
+      <tr><td>Acima de 20 % e abaixo de 45 %</td><td>Baixo ajuste</td><td>Planejar intervenção</td></tr>
+      <tr><td>20 % ou menos</td><td>Sem ajuste</td><td>Substituir a gaxeta</td></tr>
+    </tbody></table></div>
+    <p>O ajuste estabilizado só muda quando a leitura varia 5 pontos percentuais ou mais em relação à referência.</p>
+  </section>
+
+  <section id="telemetria">
+    <h2>7. Telemetria e CSV</h2>
+    <ul>
+      <li>Escolha o sensor pela busca (nome, ID ou MAC) e o período: 5 min, 1 hora, 6 horas, 1 dia, 7 dias, 1 mês, 3 meses ou um intervalo manual.</li>
+      <li>Arraste sobre o gráfico para ampliar um trecho. <b>Voltar ao período</b> desfaz a ampliação.</li>
+      <li><b>Mostrar variação bruta</b> exibe a faixa entre mínimo e máximo de cada intervalo.</li>
+      <li><b>Exportar CSV</b> baixa os intervalos do período exibido. <b>CSV de mudanças</b> baixa as mudanças de 5 pontos ou mais.</li>
+      <li>Os horários aparecem no fuso do aparelho. Os arquivos CSV trazem o horário em UTC.</li>
+      <li>“Leituras no período” conta as leituras brutas. O gráfico agrupa em até 600 intervalos. Acima de 5.000 mudanças, reduza o período.</li>
+      <li>Usuários de corporação veem o histórico do período em que o sensor esteve num spot dos seus ramos.</li>
+    </ul>
+  </section>
+
+  <section id="gateways">
+    <h2>8. Gateways</h2>
+    <ul>
+      <li>O gateway é cadastrado sob uma empresa, com nome e serial/identificação única.</li>
+      <li><b>Cadastrado</b> não significa transmitindo: hoje os sensores enviam direto por Wi-Fi.</li>
+      <li>A associação de um sensor a um gateway é opcional e exige a mesma empresa.</li>
+    </ul>
+  </section>
+
+  <section id="usuarios">
+    <h2>9. Usuários e níveis</h2>
+    <div class="table-wrap"><table><thead><tr><th>Nível</th><th>O que faz</th></tr></thead><tbody>
+      <tr><td>ADM nível 1</td><td>Visão global. Cria corporações e usuários, define níveis globais e é o único que exclui.</td></tr>
+      <tr><td>ADM nível 2</td><td>Visão global. Cadastra e convida usuários de corporação, ajusta escopos, administra a árvore e os gateways. Não exclui nem altera níveis globais.</td></tr>
+      <tr><td>ADM nível 3</td><td>Consulta e análise em todas as corporações. Sem escrita.</td></tr>
+      <tr><td>Usuário de corporação</td><td>Vê os ramos concedidos. Com edição habilitada, cria áreas, subáreas, TAGs e spots e vincula sensores nesses ramos.</td></tr>
+    </tbody></table></div>
+    <ol>
+      <li><b>Novo usuário</b>, etapa <b>Dados</b>: nome, e-mail, nível e corporação.</li>
+      <li>Etapa <b>Acesso</b>: em cada ramo, <b>Todos</b> (inclui o que for criado depois), <b>Nenhum</b>, ou abra o ramo para selecionar itens. A coluna de estado mostra “Com acesso”, “Só caminho” ou “Sem acesso”.</li>
+      <li>Etapa <b>Revisão e envio</b>: confira o destinatário e o acesso efetivo e confirme.</li>
+    </ol>
+    <p>Em <b>Ações</b>: editar acesso, alterar nível, desativar ou reativar, excluir cadastro, reenviar ou revogar convite. A desativação vale no servidor de imediato. A auditoria lista as últimas alterações.</p>
+  </section>
+
+  <section id="android">
+    <h2>10. Aplicativo Android</h2>
+    <ul>
+      <li>O aplicativo é instalado por arquivo APK entregue pela equipe, sem loja de aplicativos.</li>
+      <li>As telas são as mesmas da versão web para celular: navegação na barra inferior e árvore por um botão.</li>
+      <li><b>Bluetooth</b> localiza e identifica sensores próximos. O vínculo ao spot continua sendo feito na plataforma, conforme a permissão da conta.</li>
+      <li>Sem Bluetooth, use a busca por nome, ID ou MAC.</li>
+      <li>Links de convite e de recuperação abrem no navegador e funcionam normalmente; depois, entre no aplicativo com a nova senha.</li>
+      <li>CSV: no Android, o arquivo é aberto pela folha de compartilhamento do sistema.</li>
+    </ul>
+  </section>
+  <p class="signature">Precisão num ponto, visão do conjunto</p>
+</main>
+</body>
+</html>
