@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Suíte funcional completa, do zero: baseline + fixture legada + migrações 01–06 + testes.
+# Suíte funcional completa, do zero: baseline + fixture legada + migrações 01–07 + testes.
 # Uso: PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh   (~1 min)
 set -uo pipefail
 export PGHOST="${PGHOST:-/tmp}" PGPORT="${PGPORT:-54329}" PGUSER="${PGUSER:-postgres}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; DB=gaxeta_dev
 "$ROOT/dev/rebuild.sh" $DB
-for f in 20_pos_migracao 30_tenants 40_matriz_acesso 60_consultas_novas; do
+for f in 20_pos_migracao 30_tenants 40_matriz_acesso 60_consultas_novas 70_ficha_spots; do
   psql -q -At -v ON_ERROR_STOP=1 -d $DB -f "$ROOT/tests/$f.sql" > /tmp/suite_$f.log 2>&1 || { echo "ERRO em $f:"; grep -n "ERROR" -A3 /tmp/suite_$f.log | head -8; }
 done
 "$ROOT/tests/50_concorrencia.sh" $DB > /tmp/suite_50.log 2>&1

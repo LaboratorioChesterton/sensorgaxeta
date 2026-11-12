@@ -1221,6 +1221,33 @@ const KIND_CHILDREN = {
   point: [],
 };
 const KIND_ICON = { corporation: "building-2", company: "factory", area: "folder", subarea: "folder", equipment: "cog", point: "map-pin" };
+
+// Spot: o nome é uma de três opções (o servidor valida a mesma lista).
+const SPOT_NAMES = ["LOA", "LA", "UNICO"];
+const spotCanonical = (name) => {
+  const key = String(name ?? "").replace(/\s+/g, "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return SPOT_NAMES.includes(key) ? key : null;
+};
+
+// Tipos de equipamento. A lista vem do servidor (gaxeta_equipment_types); esta cópia
+// é o catálogo inicial e só vale enquanto a leitura não chega.
+const equipCatalog = new Map([
+  ["bomba_centrifuga", "Bomba centrífuga"], ["bomba_biapoiada", "Bomba biapoiada"], ["agitador", "Agitador"],
+  ["misturador", "Misturador"], ["refinador", "Refinador"], ["digestor", "Digestor"], ["depurador", "Depurador"],
+  ["vaso_pressao", "Vaso de pressão"], ["bomba_magnetica", "Bomba magnética"], ["bomba_hermetica", "Bomba hermética"],
+  ["bomba_vacuo", "Bomba de vácuo"], ["compressor", "Compressor"], ["bomba_alta_pressao", "Bomba de alta pressão"],
+  ["bomba_baixa_pressao", "Bomba de baixa pressão"],
+]);
+const TYPE_UNKNOWN = "Tipo não informado";
+// Ficha técnica do TAG: [chave no servidor, rótulo, formato]. "count" = inteiro não negativo; "long" = texto livre.
+const EQUIP_GROUPS = [
+  { title: "Processo", fields: [["fluid", "Produto / fluido"], ["fluid_temperature", "Temperatura do fluido"], ["density", "Densidade"], ["characteristics", "Características", "long"]] },
+  {
+    title: "Equipamento e montagem",
+    fields: [["manufacturer", "Fabricante"], ["model", "Modelo"], ["shaft_size", "Tamanho do eixo"], ["sleeve_size", "Tamanho da luva"], ["stud_size", "Tamanho do prisioneiro"], ["stud_diameter", "Diâmetro do prisioneiro"], ["gland_bolt_count", "Parafusos do preme-gaxeta (qtd.)", "count"]],
+  },
+  { title: "Gaxeta", fields: [["ring_count", "Quantidade de anéis", "count"], ["packing_type", "Tipo"], ["packing_model", "Modelo"], ["assembly_rule", "Regra de montagem", "long"]] },
+];
 const ROLE_LABEL = { adm1: "ADM nível 1", adm2: "ADM nível 2", adm3: "ADM nível 3", corp: "Usuário de corporação" };
 
 const fmtNum = (value, digits = 1) =>
@@ -1231,7 +1258,11 @@ const fmtDateTime = (value) => (value ? new Date(value).toLocaleString("pt-BR", 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const $id = (id) => document.getElementById(id);
+// Plataforma: só o runtime nativo do Capacitor conta como aplicativo. Uma janela
+// estreita de navegador (inclusive Chrome ou Safari no celular) continua sendo web.
 const isNativeApp = () => Z.isNativePlatform();
+// Bluetooth existe apenas no aplicativo nativo com o plugin disponível.
+const bleAvailable = () => isNativeApp() && Z.isPluginAvailable("BluetoothLe");
 const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
 
 // Ícones Lucide incluídos no vendor (nomes minificados à direita).
@@ -1255,7 +1286,14 @@ const GLYPHS = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   shield: '<path d="M12 3.5l7 2.5v5.5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6l7-2.5z"/>',
+  "chevron-down": '<path d="M6 9.5l6 6 6-6"/>',
+  "chevron-right": '<path d="M9.5 6l6 6-6 6"/>',
+  back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
+  subfolder: '<path d="M3.5 6.5h6l2 2h9v10h-17z"/><path d="M8 13.5h8"/>',
+  list: '<path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/>',
 };
+// Ícone do nível: os do pacote, mais um próprio para distinguir subárea de área.
+const kindIcon = (kind) => (kind === "subarea" ? glyph("subfolder") : icon(KIND_ICON[kind]));
 const glyph = (name) =>
   `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
 
@@ -1360,23 +1398,7 @@ function adjustmentInfo(t) {
             action: "Substituir a gaxeta",
           };
 }
-function buildStablePath(t, e, r, s, n) {
-  const i = +new Date(r),
-    a = +new Date(s),
-    o = Math.min(a, +new Date(n));
-  if (!(a > i) || !(o >= i)) return "";
-  const l = (f) => Math.max(0, Math.min(1e3, ((f - i) / (a - i)) * 1e3)).toFixed(2),
-    c = (f) => (280 - Math.max(0, Math.min(100, Number(f))) * 2.8).toFixed(2);
-  let h = e?.stable_percent,
-    p = h == null ? "" : `M0 ${c(h)}`;
-  for (const f of t) {
-    const g = +new Date(f.received_at);
-    g < i ||
-      g > o ||
-      ((p += h == null ? `M${l(g)} ${c(f.stable_percent)}` : ` H${l(g)} V${c(f.stable_percent)}`), (h = f.stable_percent));
-  }
-  return h == null ? "" : p + ` H${l(o)}`;
-}
+// A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.
 async function exportCsvFile(t, e) {
   if (Z.isNativePlatform()) {
     const n = await FilesystemPlugin.writeFile({
@@ -1547,17 +1569,10 @@ const state = {
   sensorId: "",
   assetId: "",
   page: "sensors",
-  history: [],
-  movements: [],
-  seed: null,
-  stats: {},
-  period: 36e5,
-  range: presetRange(36e5),
-  custom: false,
+  manualReturn: "sensors", // tela de origem do Manual aberto dentro da aplicação
   authorized: false,
   loading: false,
   timer: null,
-  historyRequest: 0,
   authRequest: 0,
   bleReading: null,
   bleDevice: null,
@@ -1568,17 +1583,45 @@ const state = {
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
 };
 const assetIndex = new Map();
+// Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
+const equipTypeIndex = new Map();
+let equipTypesMissing = false; // a tabela da ficha ainda não existe no banco (migração não aplicada)
 
 const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset);
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
+// O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
+const equipTag = (asset) => asset?.tag || asset?.name || "—";
+const assetLabel = (asset) =>
+  !asset ? "—" : asset.kind === "equipment" ? equipTag(asset) : asset.tag && asset.tag !== asset.name ? `${asset.name} · ${asset.tag}` : asset.name;
 const assetName = (id) => assetIndex.get(id)?.name || "—";
-const assetPathLabel = (id) =>
-  assetPath(id, state.assets)
-    .map((asset) => (asset.tag ? `${asset.name} · ${asset.tag}` : asset.name))
-    .join(" / ");
+const assetPathLabel = (id) => assetPath(id, state.assets).map(assetLabel).join(" / ");
+const equipTypeLabel = (id) => equipCatalog.get(equipTypeIndex.get(id)) || "";
 const deviceLabel = (device) =>
   device.desired_label || device.applied_label || (device.label === "Sensor de gaxeta" ? device.sensor_id : device.label) || device.sensor_id;
+
+// Identidade de um sensor para leitura rápida: TAG · tipo na frente, sensor e spot como contexto.
+// O caminho completo continua disponível (dica do título e painel de Detalhes).
+function deviceIdentity(device) {
+  const chain = device ? assetPath(device.measurement_point_id, state.assets) : [];
+  const pick = (kind) => chain.find((asset) => asset.kind === kind);
+  const equip = pick("equipment");
+  const point = pick("point");
+  const sensor = device ? deviceLabel(device) : "";
+  if (!equip || !point) return { linked: false, sensor, tag: "", type: "", spot: "", title: sensor || "Sensor", context: "", path: "" };
+  const tag = equipTag(equip);
+  const type = equipTypeLabel(equip.id);
+  return {
+    linked: true,
+    sensor,
+    tag,
+    type,
+    spot: point.name,
+    title: `${tag} · ${type || TYPE_UNKNOWN}`,
+    context: [pick("company")?.name, pick("area")?.name].filter(Boolean).join(" / "),
+    path: chain.map(assetLabel).join(" / "),
+  };
+}
 
 const myRole = () => state.ctx?.role || null;
 const hasCap = (name) => !!state.ctx?.capabilities?.[name];
@@ -1594,10 +1637,12 @@ function showMessage(text, kind = "info") {
   box.hidden = !text;
   if (text && kind !== "error") messageTimer = setTimeout(() => (box.hidden = true), 7000);
 }
+// Falha de transporte (sem rede, tempo esgotado no aparelho): só ela muda o indicador de conexão.
+const isNetworkError = (error) =>
+  error?.name === "AbortError" || /Failed to fetch|NetworkError|Load failed|network request failed/i.test(error?.message || String(error || ""));
 function errorText(error) {
   const message = error?.message || String(error || "");
-  if (error?.name === "AbortError" || /Failed to fetch|NetworkError|Load failed/i.test(message))
-    return "Não foi possível conectar. Verifique sua conexão e tente de novo.";
+  if (isNetworkError(error)) return "Não foi possível conectar. Verifique sua conexão e tente de novo.";
   if (error?.code === "42501") return "Sua conta não tem permissão para esta operação.";
   if (error?.code === "23505") {
     if (/gateway|identifier/i.test(message + (error.details || ""))) return "Já existe um gateway com esta identificação.";
@@ -1657,7 +1702,8 @@ function forgetAsset(id) {
   assetIndex.delete(id);
   state.assets = [...assetIndex.values()];
 }
-// Garante no cache os ativos indicados e seus ancestrais (duas consultas no máximo).
+// Garante no cache os ativos indicados e seus ancestrais (duas consultas no máximo) e,
+// para os TAGs envolvidos, o tipo de equipamento (uma consulta, só para os ainda não lidos).
 async function ensureAssets(ids) {
   const fetchRows = async (wanted) => {
     const rows = [];
@@ -1670,11 +1716,36 @@ async function ensureAssets(ids) {
     rememberAssets(rows);
     return rows;
   };
-  const missing = [...new Set(ids.filter((id) => id && !assetIndex.get(id)?.path))];
-  if (!missing.length) return;
-  const rows = await fetchRows(missing);
-  const ancestors = [...new Set(rows.flatMap((row) => row.path || []))].filter((id) => !assetIndex.has(id));
-  if (ancestors.length) await fetchRows(ancestors);
+  const wantedIds = [...new Set(ids.filter(Boolean))];
+  const missing = wantedIds.filter((id) => !assetIndex.get(id)?.path);
+  if (missing.length) {
+    const rows = await fetchRows(missing);
+    const ancestors = [...new Set(rows.flatMap((row) => row.path || []))].filter((id) => !assetIndex.has(id));
+    if (ancestors.length) await fetchRows(ancestors);
+  }
+  await ensureEquipTypes(
+    wantedIds.flatMap((id) => assetIndex.get(id)?.path || []).filter((id) => assetIndex.get(id)?.kind === "equipment"),
+  );
+}
+async function ensureEquipTypes(ids) {
+  const wanted = [...new Set(ids)].filter((id) => id && !equipTypeIndex.has(id));
+  if (!wanted.length || equipTypesMissing) return;
+  try {
+    const rows = [];
+    for (let i = 0; i < wanted.length; i += 80)
+      rows.push(...(await unwrap(sb.from("gaxeta_equipment_details").select("asset_id,equipment_type").in("asset_id", wanted.slice(i, i + 80)))));
+    for (const id of wanted) equipTypeIndex.set(id, null);
+    for (const row of rows) equipTypeIndex.set(row.asset_id, row.equipment_type || null);
+  } catch (error) {
+    // O tipo é complemento da tela: sem ele, o TAG aparece com "Tipo não informado".
+    if (error?.code === "42P01" || error?.code === "PGRST205") equipTypesMissing = true;
+  }
+}
+async function loadEquipCatalog() {
+  const rows = await unwrap(sb.from("gaxeta_equipment_types").select("key,label").order("sort_order"));
+  if (!rows.length) return;
+  equipCatalog.clear();
+  for (const row of rows) equipCatalog.set(row.key, row.label);
 }
 function mergeDevices(rows) {
   const byId = new Map(state.devices.map((device) => [device.sensor_id, device]));
@@ -1696,9 +1767,7 @@ async function refreshKnownDevices() {
     // O sensor saiu do escopo de quem está logado (vínculo ou acesso alterado).
     state.devices = state.devices.filter((device) => device.sensor_id !== state.sensorId);
     state.sensorId = "";
-    state.history = [];
-    state.movements = [];
-    state.stats = {};
+    resetTelemetryData();
   }
 }
 
@@ -1723,20 +1792,29 @@ async function checkContext() {
 }
 
 // ----- Navegação -----
-const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários" };
+const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários", manual: "Manual de operação" };
 function renderPageActions() {
   const actions = [];
-  if (state.page === "sensors") actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
-  if (state.page === "assets" && hasCap("manage_corporations") && !isNarrow() && !isNativeApp())
+  // Bluetooth: só no aplicativo nativo e só por toque. Na web, a busca da lista encontra por nome, TAG, ID ou MAC.
+  if (state.page === "sensors" && bleAvailable())
+    actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
+  // A estrutura de ativos é administrada na web (qualquer largura de janela).
+  if (state.page === "assets" && hasCap("manage_corporations") && !isNativeApp())
     actions.push('<button class="primary compact" data-action="new-corporation">' + icon("plus") + "Nova corporação</button>");
   if (state.page === "gateways" && hasCap("manage_gateways"))
     actions.push('<button class="primary compact" data-action="new-gateway">' + icon("plus") + "Cadastrar gateway</button>");
   if (state.page === "users" && hasCap("manage_users"))
     actions.push('<button class="primary compact" data-action="new-user">' + icon("plus") + "Novo usuário</button>");
+  if (state.page === "manual")
+    actions.push(`<button class="secondary compact" data-action="manual-back">${glyph("back")}Voltar para ${esc(PAGE_TITLES[state.manualReturn] || "Sensores")}</button>`);
   $id("pageActions").innerHTML = actions.join("");
 }
 function showPage(page) {
   if (!PAGE_TITLES[page] || (page === "users" && !hasCap("manage_users"))) page = "sensors";
+  // O Manual abre dentro da aplicação: guarda a tela de origem para o Voltar (sessão e seleção intactas).
+  if (page === "manual" && state.page !== "manual") state.manualReturn = state.page;
+  // Bluetooth nunca fica aberto de uma tela para outra, nem abre sozinho.
+  closeBleDialog();
   state.page = page;
   if (location.hash.slice(1) !== page) history.replaceState(null, "", "#" + page);
   document.body.dataset.page = page;
@@ -1746,6 +1824,7 @@ function showPage(page) {
   $id("telemetryPage").hidden = page !== "telemetry";
   $id("gatewayPage").hidden = page !== "gateways";
   $id("usersPage").hidden = page !== "users";
+  $id("manualPage").hidden = page !== "manual";
   $id("summary").hidden = page !== "sensors";
   $id("pageTitle").textContent = PAGE_TITLES[page];
   $id("userMenu").open = false;
@@ -1761,6 +1840,7 @@ function showPage(page) {
   if (page === "telemetry") openTelemetry().catch(fail);
   if (page === "gateways") loadGateways().catch(fail);
   if (page === "users") loadUsers().catch(fail);
+  if (page === "manual") openManual().catch(fail);
   if (page === "sensors" || page === "assets") ensureTreeRoot().catch(fail);
   renderIcons();
 }
@@ -1785,8 +1865,11 @@ async function refreshData(manual = false) {
     if (session !== state.authRequest) return;
     if (state.page === "sensors") await loadSensors({ quiet: true });
     else if (state.page === "telemetry") {
+      // Leitura atual: leve, a cada ciclo. Histórico: consulta separada, no ritmo do período
+      // exibido, sem competir com um pedido feito por quem está usando (ver 70-telemetry).
       await refreshKnownDevices();
-      await loadHistory();
+      renderTelemetryLive();
+      refreshHistoryIfDue();
     }
     if (state.drawer.open) {
       if (state.page !== "telemetry") await refreshKnownDevices();
@@ -1797,20 +1880,14 @@ async function refreshData(manual = false) {
   } catch (error) {
     if (error?.code === "42501") await checkContext().catch(() => {});
     else {
-      setConnection(false);
-      if (manual) showMessage(errorText(error), "error");
+      // Só falha de transporte vira "Sem conexão"; erro de consulta é mostrado onde aconteceu.
+      if (isNetworkError(error)) setConnection(false);
+      if (manual || !isNetworkError(error)) showMessage(errorText(error), "error");
     }
   } finally {
     state.loading = false;
     if (state.authorized) state.timer = setTimeout(refreshData, state.refreshPending ? 0 : CONFIG.pollMs);
   }
-}
-function renderAll() {
-  if (state.page === "sensors") renderSensorGrid();
-  renderTree();
-  updateDrawerLive();
-  renderHistorySelect();
-  renderIcons();
 }
 const openSensorEditor = (sensorId) => openDrawer(sensorId, "detail");
 
@@ -1819,8 +1896,10 @@ function clearSessionData() {
   clearTimeout(state.timer);
   state.authorized = false;
   state.authRequest++;
-  state.historyRequest++;
-  Object.assign(state, { devices: [], assets: [], sensorId: "", assetId: "", history: [], movements: [], seed: null, stats: {}, ctx: null, userId: null });
+  Object.assign(state, { devices: [], assets: [], sensorId: "", assetId: "", ctx: null, userId: null, manualReturn: "sensors" });
+  resetTelemetryData();
+  Object.assign(telem, { matchIds: null, listed: false, period: 36e5, custom: false, range: presetRange(36e5) });
+  equipTypeIndex.clear();
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
   assetIndex.clear();
   resetTree();
@@ -1862,18 +1941,23 @@ async function ensureTreeRoot() {
   renderTree();
   renderIcons();
 }
+// Próxima criação por nível selecionado (a mesma regra vale no gatilho do servidor):
+//   raiz → Corporação · Corporação → Empresa · Empresa → Área · Área → TAG ou Subárea ·
+//   Subárea → TAG · TAG → Spot · Spot → vínculo de sensor existente.
+// A estrutura é administrada na web: no aplicativo nativo a árvore serve para navegar e
+// escolher o destino, sem criar nem editar níveis (o vínculo sensor → spot continua lá).
 function allowedChildKinds(asset) {
+  if (isNativeApp()) return [];
   const kinds = asset ? KIND_CHILDREN[asset.kind] || [] : ["corporation"];
   const role = myRole();
   return kinds.filter((kind) => {
     if (kind === "corporation") return role === "adm1";
-    // Corporações e empresas são criadas no desktop (o servidor valida de qualquer forma).
-    if (kind === "company" && (isNarrow() || isNativeApp())) return false;
     if (role === "adm1" || role === "adm2") return true;
     return role === "corp" && state.ctx.can_write && kind !== "company" && asset.access === "full";
   });
 }
 function canEditAsset(asset) {
+  if (isNativeApp()) return false;
   const role = myRole();
   if (role === "adm1") return true;
   if (role === "adm2") return asset.kind !== "corporation";
@@ -1888,15 +1972,17 @@ function treeBranch(parentId) {
     if (!asset) continue;
     const open = tree.open.has(id);
     const selected = state.assetId === id;
-    const label = asset.tag ? `${asset.name} · ${asset.tag}` : asset.name;
+    const label = assetLabel(asset);
     const sensor = asset.kind === "point" ? state.devices.find((device) => device.measurement_point_id === id) : null;
+    const addKinds = allowedChildKinds(asset).map((kind) => KIND_LABEL[kind]).join(" ou ");
     html +=
-      `<li role="treeitem" aria-selected="${selected}"${asset.has_children ? ` aria-expanded="${open}"` : ""}>` +
+      `<li role="treeitem" class="kind-${asset.kind}" aria-selected="${selected}"${asset.has_children ? ` aria-expanded="${open}"` : ""}>` +
       `<div class="tree-row${selected ? " selected" : ""}${asset.access === "path" ? " path-only" : ""}">` +
-      `<button class="tree-toggle" data-toggle="${id}" aria-label="${open ? "Recolher" : "Expandir"} ${esc(asset.name)}"${asset.has_children ? "" : " disabled"}>${asset.has_children ? (open ? "▾" : "▸") : ""}</button>` +
-      `<button class="tree-node" data-asset="${id}" title="${esc(KIND_LABEL[asset.kind] + ": " + label)}">${icon(KIND_ICON[asset.kind])}<span><small>${KIND_LABEL[asset.kind]}</small>${esc(label)}</span></button>` +
-      (allowedChildKinds(asset).length
-        ? `<button class="tree-action" data-add-child="${id}" aria-label="Adicionar abaixo de ${esc(asset.name)}" title="Adicionar abaixo">+</button>`
+      // Expandir e selecionar são ações separadas: a seta abre o ramo, o nome seleciona.
+      `<button class="tree-toggle" data-toggle="${id}" aria-label="${open ? "Recolher" : "Expandir"} ${esc(label)}"${asset.has_children ? "" : " disabled"}>${asset.has_children ? glyph(open ? "chevron-down" : "chevron-right") : ""}</button>` +
+      `<button class="tree-node" data-asset="${id}" title="${esc(KIND_LABEL[asset.kind] + ": " + label)}">${kindIcon(asset.kind)}<span><small>${KIND_LABEL[asset.kind]}</small>${esc(label)}</span></button>` +
+      (addKinds
+        ? `<button class="tree-action" data-add-child="${id}" aria-label="Adicionar ${esc(addKinds)} em ${esc(label)}" title="Adicionar ${esc(addKinds)}">+</button>`
         : "") +
       "</div>" +
       (sensor
@@ -1920,7 +2006,7 @@ function renderTree() {
     box.innerHTML =
       myRole() === "adm1"
         ? '<div class="tree-empty"><strong>Nenhuma corporação cadastrada.</strong><p>Comece pela corporação; depois empresa, área, TAG e spot. A subárea é opcional.</p>' +
-          (isNarrow() || isNativeApp() ? "<p>A criação de corporações é feita no computador.</p>" : '<button class="secondary compact" data-add-child="">Criar corporação</button>') +
+          (isNativeApp() ? "<p>A estrutura de ativos é criada na versão web.</p>" : '<button class="secondary compact" data-add-child="">Criar corporação</button>') +
           "</div>"
         : '<div class="tree-empty"><strong>Nenhum ativo disponível.</strong><p>Sua conta ainda não tem ramos concedidos, ou a estrutura não foi cadastrada.</p></div>';
     return;
@@ -1961,10 +2047,9 @@ $id("tree").onclick = async (event) => {
   const pick = (name) => event.target.closest(`[data-${name}]`);
   try {
     if (pick("tree-sensor")) {
-      state.sensorId = pick("tree-sensor").dataset.treeSensor;
-      showPage("telemetry");
+      openHistoryFor(pick("tree-sensor").dataset.treeSensor);
     } else if (pick("add-child")) {
-      openAssetForm({ parentId: pick("add-child").dataset.addChild || null });
+      await openAssetForm({ parentId: pick("add-child").dataset.addChild || null });
     } else if (pick("more")) {
       await loadKids(pick("more").dataset.more || null, { more: true });
       renderTree();
@@ -1987,9 +2072,13 @@ $id("tree").onclick = async (event) => {
   }
 };
 $id("clearAsset").onclick = () => selectAsset("").catch((error) => showMessage(errorText(error), "error"));
+// Recolhe e reabre a árvore sem tocar em seleção, ramos abertos, busca ou filtro da lista.
 $id("toggleTree").onclick = () => {
-  if (isNarrow()) setTreeDrawer(!document.body.classList.contains("tree-open"));
-  else {
+  if (isNarrow()) {
+    const open = !document.body.classList.contains("tree-open");
+    setTreeDrawer(open);
+    $id("toggleTree").setAttribute("aria-expanded", String(open));
+  } else {
     const collapsed = document.body.classList.toggle("tree-collapsed");
     $id("toggleTree").setAttribute("aria-expanded", String(!collapsed));
   }
@@ -2013,7 +2102,7 @@ $id("treeSearch").oninput = debounce(async () => {
       ? rows
           .map(
             (row) =>
-              `<button data-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(row.tag ? row.name + " · " + row.tag : row.name)}</strong><span>${esc((row.path_names || []).slice(0, -1).join(" / "))}</span></button>`,
+              `<button data-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(assetLabel(row))}</strong><span>${esc((row.path_names || []).slice(0, -1).join(" / "))}</span></button>`,
           )
           .join("")
       : '<p class="tree-empty">Nenhum ativo encontrado.</p>';
@@ -2103,11 +2192,13 @@ function renderSensorGrid() {
         const status = deviceStatus(device);
         const health = adjustmentInfo(device.stable_percent);
         const scale = Math.max(0, Math.min(100, Number(device.stable_percent) || 0));
-        const path = assetPathLabel(device.measurement_point_id);
+        // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
+        const identity = deviceIdentity(device);
+        const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
         return (
           `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
-          `<p class="card-path${path ? "" : " unlinked"}">${esc(path || "Sem vínculo · fila de associação")}</p>` +
+          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
           `<div class="card-main"><div class="card-value">${fmtNum(device.stable_percent)}<small>%</small></div>` +
           `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small>${health.action}</small></div></div>` +
           `<div class="mini-scale"><i style="width:${scale}%"></i></div>` +
@@ -2144,12 +2235,8 @@ $id("sensorGrid").onclick = (event) => {
   const button = event.target.closest("[data-act]");
   const sensorId = event.target.closest("[data-card]")?.dataset.card;
   if (!button || !sensorId) return;
-  if (button.dataset.act === "history") {
-    state.sensorId = sensorId;
-    state.history = [];
-    state.stats = {};
-    showPage("telemetry");
-  } else openDrawer(sensorId, button.dataset.act, button);
+  if (button.dataset.act === "history") openHistoryFor(sensorId);
+  else openDrawer(sensorId, button.dataset.act, button);
 };
 $id("sensorPager").onclick = (event) => {
   const move = event.target.closest("[data-page-move]");
@@ -2174,7 +2261,7 @@ const PICK_PLACEHOLDER = {
   corporation: "Selecione a corporação",
   company: "Selecione a empresa",
   area: "Selecione a área",
-  subarea: "TAG direto na área (sem subárea)",
+  subarea: "Sem subárea · TAGs da área",
   equipment: "Selecione o TAG",
   point: "Selecione o spot",
 };
@@ -2201,13 +2288,27 @@ async function refillPicker(prefix, fromIndex, values, levels = PICK_LEVELS) {
     }
     fillSelect(
       select,
-      options.map((asset) => ({ value: asset.id, label: asset.tag ? `${asset.name} · ${asset.tag}` : asset.name })),
-      PICK_PLACEHOLDER[level],
+      options.map((asset) => ({ value: asset.id, label: assetLabel(asset) })),
+      // Área sem subáreas: a opção vazia continua sendo o caminho normal (TAG direto na área).
+      level === "subarea" && parent && !options.length ? "Sem subárea" : PICK_PLACEHOLDER[level],
       values[level] || "",
     );
     values[level] = select.value;
     select.disabled = level !== "corporation" && !parent;
   }
+}
+
+// Depois de salvar, vincular ou desvincular: a tela em uso relê o que depende do vínculo.
+async function afterSensorChange() {
+  if (state.page === "sensors") await loadSensors({ quiet: true });
+  else if (state.page === "assets") {
+    renderTree();
+    await renderInspector();
+  } else if (state.page === "telemetry") {
+    renderHistorySelect();
+    renderTelemetryLive();
+  }
+  renderIcons();
 }
 
 // ----- Painel lateral -----
@@ -2260,8 +2361,9 @@ async function renderDrawer() {
   const pane = $id("detailPane");
   const point = assetIndex.get(device.measurement_point_id);
   const path = assetPathLabel(device.measurement_point_id);
+  const identity = deviceIdentity(device);
   const head =
-    `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
+    `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
     `<div class="drawer-values"><div><span>Estabilizado</span><strong id="detailStable"></strong></div><div><span>Bruto</span><strong id="detailRaw"></strong></div><div><span>Tensão est.</span><strong id="detailVolt"></strong></div></div>` +
@@ -2310,7 +2412,7 @@ async function renderDrawer() {
           await ensureAssets([saved.measurement_point_id]);
           showMessage(`Sensor ${name} salvo${saved.measurement_point_id ? " em " + assetPathLabel(saved.measurement_point_id) : ", sem vínculo"}.`, "success");
           openDrawer(sensorId, "detail");
-          if (state.page === "sensors") await loadSensors({ quiet: true });
+          await afterSensorChange();
         } catch (error) {
           message.textContent = errorText(error);
         }
@@ -2324,7 +2426,7 @@ async function renderDrawer() {
           mergeDevices([saved]);
           showMessage("Sensor desvinculado. Ele está na fila de associação.", "success");
           openDrawer(sensorId, "detail");
-          if (state.page === "sensors") await loadSensors({ quiet: true });
+          await afterSensorChange();
         });
       };
   } else {
@@ -2334,6 +2436,7 @@ async function renderDrawer() {
       ["ID", device.sensor_id],
       ["MAC Wi-Fi", device.wifi_mac || "—"],
       ["MAC BLE", device.ble_mac || "—"],
+      ["TAG", identity.linked ? identity.title : "—"],
       ["Spot", point ? point.name + (point.position ? " · " + point.position : "") : "Sem vínculo"],
       ["Transporte", "Wi-Fi direto"],
       ["Gateway", gateway ? `${gateway.name} · cadastrado` : "Sem gateway"],
@@ -2346,14 +2449,14 @@ async function renderDrawer() {
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
       `</div><dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
-      (canEditDevice(device)
+      // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
+      (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
       `<small class="drawer-note">Posição e tensão são estimadas. Curso de referência: 50 mm.</small></div>`;
     $id("detailHistory").onclick = () => {
-      state.sensorId = sensorId;
       closeDrawer(false);
-      showPage("telemetry");
+      openHistoryFor(sensorId);
     };
     if ($id("detailEdit")) $id("detailEdit").onclick = () => openDrawer(sensorId, "edit");
     if ($id("applyBleName"))
@@ -2377,53 +2480,166 @@ async function renderDrawer() {
 
 // ---- 65-assets.js ----
 // =============================================================================
-// Ativos: inspetor do nível selecionado, formulários persistentes (RPCs com
+// Ativos: ficha do nível selecionado, formulários persistentes (RPCs com
 // autorização no servidor), exclusão com dependências e vínculo sensor–spot.
+//   * TAG: um campo obrigatório (o identificador do equipamento), tipo de
+//     equipamento e ficha técnica gravados numa operação (gaxeta_save_equipment).
+//   * Ao selecionar um TAG: TAG · tipo, contagem e lista de spots com sensor,
+//     condição e transmissão, lidos do banco numa chamada (gaxeta_equipment_overview).
+//   * Spot: nome por seleção (LOA, LA, UNICO); posição de montagem em texto livre.
 // =============================================================================
 const HIERARCHY_GUIDE =
   '<ol class="hierarchy-guide"><li>Corporação</li><li>Empresa</li><li>Área</li><li>Subárea <em>(opcional)</em></li><li>TAG (equipamento)</li><li>Spot → sensor</li></ol>' +
-  "<p>O TAG pode ficar direto na área ou dentro de uma subárea. O sensor é vinculado ao spot. O gateway é cadastrado na empresa.</p>";
+  '<div class="table-wrap rule-table"><table><thead><tr><th>Nível selecionado</th><th>Próxima criação</th></tr></thead><tbody>' +
+  "<tr><td>Corporação</td><td>Empresa</td></tr><tr><td>Empresa</td><td>Área</td></tr><tr><td>Área</td><td>TAG ou Subárea</td></tr>" +
+  "<tr><td>Subárea</td><td>TAG</td></tr><tr><td>TAG</td><td>Spot</td></tr><tr><td>Spot</td><td>Vínculo de um sensor existente</td></tr></tbody></table></div>" +
+  "<p>A área é obrigatória e a subárea é opcional: o TAG fica direto na área ou dentro de uma subárea, nunca sob a empresa. O gateway é cadastrado na empresa, pela tela Gateways.</p>";
+
+// A ficha e o resumo do TAG dependem da migração 07. Sem ela, a tela diz o que falta em vez de falhar calada.
+const isMissingFeature = (error) => error?.code === "PGRST202" || error?.code === "42883" || error?.code === "PGRST205" || error?.code === "42P01";
+const MISSING_FEATURE_TEXT = "Esta função depende da atualização do banco desta revisão (migração 07), que ainda não foi aplicada.";
+
+// "Corporação gravada", "TAG gravado": concordância com o nível.
+const kindDone = (kind, verb) => verb + (["corporation", "company", "area", "subarea"].includes(kind) ? "a" : "o");
+const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && access === "full");
+const healthBadge = (percent) => {
+  const health = adjustmentInfo(percent);
+  return `<span class="adjustment-badge health-${health.key}">${health.label}</span>`;
+};
+const connBadge = (device) => {
+  const status = deviceStatus(device);
+  return `<span class="conn"><i class="dot ${status.className}"></i>${status.label}</span>`;
+};
+
+function inspectorActions(asset, childKinds) {
+  return (
+    `<div class="inspector-actions">` +
+    childKinds.map((kind) => `<button class="primary compact" data-act="add" data-kind="${kind}">${icon("plus")}${KIND_LABEL[kind]}</button>`).join("") +
+    (canEditAsset(asset) ? `<button class="secondary compact" data-act="edit">Editar</button>` : "") +
+    (asset.kind === "company" ? `<button class="secondary compact" data-act="gateways">Gateways da empresa</button>` : "") +
+    (hasCap("delete_records") && !isNativeApp() ? `<button class="text-button danger-text" data-act="delete">Excluir…</button>` : "") +
+    `</div>`
+  );
+}
+// Caminho até o nível acima, em uma linha discreta (o nome do próprio nível já é o título).
+function parentPathLine(asset) {
+  const parents = assetPath(asset.parent_id, state.assets).map(assetLabel);
+  return parents.length ? `<p class="inspector-path" title="${esc(parents.join(" / "))}">${esc(parents.join(" / "))}</p>` : "";
+}
+
+function equipmentInspector(asset, overview, problem) {
+  const details = overview?.details || null;
+  const type = equipCatalog.get(details?.equipment_type) || details?.equipment_type_label || "";
+  const access = overview?.asset?.access || asset.access;
+  const spots = overview?.spots || [];
+  const tag = equipTag(asset);
+  const linkable = canLinkAt(access);
+  const spotRows = spots
+    .map((spot) => {
+      const sensor = spot.sensor;
+      return (
+        `<li class="spot-row${sensor ? "" : " empty"}">` +
+        `<button class="spot-name" data-act="open-spot" data-spot="${spot.id}" title="Abrir o spot na árvore">${icon("map-pin")}<b>${esc(spot.name)}</b>${spot.standard_name ? "" : '<em class="legacy-flag" title="Nome anterior à padronização (LOA, LA, UNICO)">nome anterior</em>'}</button>` +
+        `<span class="spot-position">${esc(spot.position || "Posição não informada")}</span>` +
+        (sensor
+          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b><span class="spot-reading">${fmtNum(sensor.stable_percent)} %</span>${healthBadge(sensor.stable_percent)}${connBadge(sensor)}</span>` +
+            `<span class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></span>`
+          : `<span class="spot-sensor none">Sem sensor vinculado</span>` +
+            `<span class="row-actions">${linkable ? `<button class="primary compact" data-act="spot-link" data-spot="${spot.id}">Vincular sensor</button>` : ""}</span>`) +
+        `</li>`
+      );
+    })
+    .join("");
+  const sheet = EQUIP_GROUPS.map(
+    (group) =>
+      `<section><h4>${group.title}</h4><dl class="detail-fields">` +
+      group.fields.map(([key, label]) => `<dt>${esc(label)}</dt><dd${details?.[key] == null ? ' class="absent"' : ""}>${details?.[key] == null ? "—" : esc(details[key])}</dd>`).join("") +
+      `</dl></section>`,
+  ).join("");
+  const childKinds = allowedChildKinds({ ...asset, access });
+  return (
+    `<div class="inspector-card equip-card">` +
+    `<header class="inspector-head"><div class="inspector-title"><span class="kind-chip">TAG</span>` +
+    `<h2>${esc(tag)} <span class="equip-type${type ? "" : " unknown"}">· ${esc(type || TYPE_UNKNOWN)}</span></h2>${parentPathLine(asset)}</div>` +
+    (overview ? `<div class="inspector-counts"><span><b>${overview.spot_count}</b> ${overview.spot_count === 1 ? "spot" : "spots"}</span><span><b>${overview.sensor_count}</b> ${overview.sensor_count === 1 ? "sensor vinculado" : "sensores vinculados"}</span></div>` : "") +
+    `</header>` +
+    (asset.tag && asset.name !== asset.tag ? `<p class="form-help">Nome cadastrado anteriormente: <b>${esc(asset.name)}</b>.</p>` : "") +
+    (access === "path" ? '<p class="path-note">Este TAG aparece só como caminho até os spots concedidos à sua conta. A ficha técnica e os demais spots não fazem parte do seu acesso.</p>' : "") +
+    (problem ? `<p class="path-note">${esc(problem)}</p>` : "") +
+    inspectorActions(asset, childKinds) +
+    (overview
+      ? `<section class="spot-section"><h3>Spots</h3>` +
+        (spotRows
+          ? `<ul class="spot-list">${spotRows}</ul>`
+          : `<p class="form-help">Nenhum spot neste TAG.${childKinds.includes("point") ? " Use <b>+ Spot</b> para criar o primeiro." : ""}</p>`) +
+        `</section>`
+      : "") +
+    (access === "path" || !overview ? "" : `<section class="equip-sheet"><h3>Ficha técnica</h3><div class="sheet-groups">${sheet}</div></section>`) +
+    `</div>`
+  );
+}
 
 async function renderInspector() {
   const box = $id("assetInspector");
   const assetId = state.assetId;
   const asset = assetIndex.get(assetId);
   if (!asset) {
-    box.innerHTML = `<div class="inspector-card"><h2>Estrutura de ativos</h2><p>Selecione um nível na árvore para ver detalhes, editar ou criar o próximo nível.</p>${HIERARCHY_GUIDE}</div>`;
+    box.innerHTML = `<div class="inspector-card"><h2>Estrutura de ativos</h2><p>Selecione um nível na árvore para ver os dados${isNativeApp() ? "" : ", editar ou criar o próximo nível"}.</p>${HIERARCHY_GUIDE}</div>`;
     return;
   }
   await ensureAssets([assetId]);
   let sensor = null;
+  let overview = null;
+  let problem = "";
   if (asset.kind === "point") {
     sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
     if (sensor) mergeDevices([sensor]);
+  } else if (asset.kind === "equipment") {
+    // Spots, sensores e ficha vêm do banco numa chamada: a contagem não depende do que a grade já carregou.
+    const startedAt = Date.now();
+    try {
+      overview = await callRpc("gaxeta_equipment_overview", { p_id: assetId });
+      setServerTime(overview.server_time, startedAt);
+      mergeDevices(overview.spots.map((spot) => spot.sensor).filter(Boolean));
+      rememberAssets(overview.spots.map((spot) => ({ id: spot.id, parent_id: assetId, kind: "point", name: spot.name, position: spot.position })));
+      equipTypeIndex.set(assetId, overview.details?.equipment_type || null);
+    } catch (error) {
+      problem = isMissingFeature(error) ? MISSING_FEATURE_TEXT : "Não foi possível carregar spots e ficha deste TAG: " + errorText(error);
+    }
   }
   if (state.assetId !== assetId || state.page !== "assets") return;
+  if (asset.kind === "equipment") {
+    box.innerHTML = equipmentInspector(asset, overview, problem);
+    renderTree();
+    renderIcons();
+    return;
+  }
   const childKinds = allowedChildKinds(asset);
-  const editable = canEditAsset(asset);
-  const canLink = asset.kind === "point" && (isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && asset.access === "full"));
   const sensorBlock =
     asset.kind !== "point"
       ? ""
       : sensor
-        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${fmtNum(sensor.stable_percent)} % · ${deviceStatus(sensor).label}</span></div>` +
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${fmtNum(sensor.stable_percent)} % ${healthBadge(sensor.stable_percent)} ${connBadge(sensor)}</span></div>` +
           `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
         : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
-          (canLink ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
+          (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
           `</div>`;
+  const fields = [];
+  if (asset.kind === "point") {
+    const equip = assetIndex.get(asset.parent_id);
+    if (equip) fields.push(["TAG", `${equipTag(equip)} · ${equipTypeLabel(equip.id) || TYPE_UNKNOWN}`]);
+    fields.push(["Posição de montagem", asset.position || "Não informada"]);
+  } else if (asset.tag && asset.tag !== asset.name) fields.push(["Código", asset.tag]);
   box.innerHTML =
-    `<div class="inspector-card"><span class="kind-chip">${KIND_LABEL[asset.kind]}</span><h2>${esc(asset.name)}</h2>` +
-    `<p class="inspector-path">${esc(assetPathLabel(assetId))}</p>` +
+    `<div class="inspector-card"><header class="inspector-head"><div class="inspector-title"><span class="kind-chip">${KIND_LABEL[asset.kind]}</span><h2>${esc(asset.name)}</h2>${parentPathLine(asset)}</div></header>` +
+    (asset.kind === "point" && !spotCanonical(asset.name)
+      ? '<p class="form-help">Nome anterior à padronização. Ele é mantido como está; ao trocar o nome, as opções são LOA, LA ou UNICO.</p>'
+      : "") +
     (asset.access === "path" ? '<p class="path-note">Este nível aparece só como caminho de navegação até os ramos concedidos à sua conta.</p>' : "") +
-    `<dl class="detail-fields">${asset.tag ? `<dt>TAG / código</dt><dd>${esc(asset.tag)}</dd>` : ""}${asset.position ? `<dt>Posição</dt><dd>${esc(asset.position)}</dd>` : ""}</dl>` +
+    (fields.length ? `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}</dl>` : "") +
     sensorBlock +
-    `<div class="inspector-actions">` +
-    childKinds.map((kind) => `<button class="primary compact" data-act="add" data-kind="${kind}">${icon("plus")}${KIND_LABEL[kind]}</button>`).join("") +
-    (editable ? `<button class="secondary compact" data-act="edit">Editar</button>` : "") +
-    (asset.kind === "company" ? `<button class="secondary compact" data-act="gateways">Gateways da empresa</button>` : "") +
-    (hasCap("delete_records") ? `<button class="text-button danger-text" data-act="delete">Excluir…</button>` : "") +
-    `</div>` +
-    (childKinds.length ? `<p class="form-help">Próximo nível: ${childKinds.map((kind) => KIND_LABEL[kind]).join(" ou ")}.</p>` : "") +
+    inspectorActions(asset, childKinds) +
+    (childKinds.length ? `<p class="form-help">Próxima criação: ${childKinds.map((kind) => KIND_LABEL[kind]).join(" ou ")}.</p>` : "") +
     `</div>`;
   renderIcons();
 }
@@ -2432,98 +2648,181 @@ $id("assetInspector").onclick = async (event) => {
   if (!button) return;
   const act = button.dataset.act;
   const asset = assetIndex.get(state.assetId);
+  const fail = (error) => showMessage(errorText(error), "error");
   if (act === "sensor-detail") return openDrawer(button.dataset.sensor, "detail", button);
-  if (act === "sensor-history") {
-    state.sensorId = button.dataset.sensor;
-    return showPage("telemetry");
+  if (act === "sensor-history") return openHistoryFor(button.dataset.sensor);
+  if (act === "spot-link") return openLinkDialog(button.dataset.spot);
+  if (act === "open-spot") {
+    tree.open.add(state.assetId);
+    return loadKids(state.assetId)
+      .then(() => selectAsset(button.dataset.spot))
+      .catch(fail);
   }
   if (!asset) return;
-  if (act === "add") return openAssetForm({ parentId: asset.id, kind: button.dataset.kind });
-  if (act === "edit") return openAssetForm({ editId: asset.id });
+  if (act === "add") return openAssetForm({ parentId: asset.id, kind: button.dataset.kind }).catch(fail);
+  if (act === "edit") return withBusy(button, () => openAssetForm({ editId: asset.id }));
   if (act === "link") return openLinkDialog(asset.id);
   if (act === "gateways") return showPage("gateways");
   if (act === "delete") return withBusy(button, () => deleteAsset(asset));
 };
 
 // ----- Formulário de ativo -----
-const assetFormState = { editId: null, parentId: null };
-function openAssetForm({ parentId = null, kind = null, editId = null }) {
+const assetFormState = { editId: null, parentId: null, hadType: false };
+function buildEquipFields() {
+  if ($id("equipGroups").childElementCount) return;
+  $id("equipGroups").innerHTML = EQUIP_GROUPS.map(
+    (group) =>
+      `<fieldset class="equip-group"><legend>${group.title}</legend>` +
+      group.fields
+        .map(([key, label, format]) =>
+          format === "long"
+            ? `<label class="span-all">${label}<textarea id="eq-${key}" rows="2" maxlength="1000"></textarea></label>`
+            : `<label>${label}<input id="eq-${key}" maxlength="${format === "count" ? 4 : 60}"${format === "count" ? ' inputmode="numeric" placeholder="Número inteiro"' : ""} autocomplete="off"></label>`,
+        )
+        .join("") +
+      `</fieldset>`,
+  ).join("");
+  // Fabricante, modelo, fluido, tipo e modelo de gaxeta aceitam textos mais longos.
+  for (const key of ["fluid", "manufacturer", "model", "packing_type", "packing_model"]) $id("eq-" + key).maxLength = 120;
+}
+async function openAssetForm({ parentId = null, kind = null, editId = null }) {
   const editing = editId ? assetIndex.get(editId) : null;
   const parent = editing ? assetIndex.get(editing.parent_id) : assetIndex.get(parentId);
   const kinds = editing ? [editing.kind] : allowedChildKinds(parent || null);
-  if (!kinds.length) return showMessage("Sua conta não pode criar níveis aqui.", "error");
-  Object.assign(assetFormState, { editId: editing?.id || null, parentId: editing ? editing.parent_id : parentId });
+  if (!kinds.length || (editing && !canEditAsset(editing))) return showMessage("Sua conta não pode criar ou editar níveis aqui.", "error");
+  buildEquipFields();
+  // Edição de TAG: a ficha gravada vem do servidor antes de abrir o formulário.
+  let details = null;
+  if (editing?.kind === "equipment") {
+    try {
+      details = (await callRpc("gaxeta_equipment_overview", { p_id: editing.id })).details;
+    } catch (error) {
+      return showMessage(isMissingFeature(error) ? MISSING_FEATURE_TEXT : errorText(error), "error");
+    }
+  }
+  Object.assign(assetFormState, { editId: editing?.id || null, parentId: editing ? editing.parent_id : parentId, hadType: !!details?.equipment_type });
   fillSelect($id("assetKind"), kinds.map((value) => ({ value, label: KIND_LABEL[value] })), null, kind && kinds.includes(kind) ? kind : kinds[0]);
   $id("assetKindRow").hidden = kinds.length < 2;
   $id("assetContext").textContent = parent ? "Dentro de: " + assetPathLabel(parent.id) : "Raiz da estrutura";
   $id("assetName").value = editing?.name || "";
-  $id("assetTag").value = editing?.tag || "";
+  $id("assetTag").value = editing ? (editing.kind === "equipment" ? equipTag(editing) : editing.tag || "") : "";
   $id("assetPosition").value = editing?.position || "";
+  // Spot: uma das três opções. Um nome anterior fora do padrão aparece como está e só muda se trocado.
+  const legacySpot = editing?.kind === "point" && !spotCanonical(editing.name) ? editing.name : "";
+  fillSelect(
+    $id("assetSpotName"),
+    [...(legacySpot ? [{ value: legacySpot, label: `${legacySpot} (nome anterior, manter)` }] : []), ...SPOT_NAMES.map((value) => ({ value, label: value }))],
+    editing ? null : "Selecione: LOA, LA ou UNICO",
+    editing?.kind === "point" ? legacySpot || spotCanonical(editing.name) : "",
+  );
+  fillSelect($id("equipType"), [...equipCatalog].map(([value, label]) => ({ value, label })), details?.equipment_type ? null : editing ? TYPE_UNKNOWN : "Selecione o tipo", details?.equipment_type || "");
+  for (const group of EQUIP_GROUPS) for (const [key] of group.fields) $id("eq-" + key).value = details?.[key] ?? "";
+  $id("assetLegacyName").hidden = !(editing?.kind === "equipment" && editing.tag && editing.name !== editing.tag);
+  $id("assetLegacyName").textContent = editing ? `Nome cadastrado anteriormente (mantido): ${editing.name}` : "";
   for (const id of ["corpEmail", "corpResponsible", "corpPhone"]) $id(id).value = "";
   $id("assetFormMessage").textContent = "";
   syncAssetForm();
   $id("assetDialog").showModal();
-  $id("assetName").focus();
+  ($id("assetKindRow").hidden ? [$id("assetTag"), $id("assetSpotName"), $id("assetName")].find((field) => !field.closest("label").hidden) : $id("assetKind")).focus();
 }
 function syncAssetForm() {
   const kind = $id("assetKind").value;
   const editing = !!assetFormState.editId;
+  const isEquip = kind === "equipment";
+  const isPoint = kind === "point";
   $id("assetDialogTitle").textContent = (editing ? "Editar " : "Novo nível: ") + KIND_LABEL[kind];
-  $id("assetTagRow").hidden = kind === "corporation" || kind === "point";
-  $id("assetPositionRow").hidden = kind !== "point";
+  $id("assetDialog").classList.toggle("wide-dialog", isEquip);
+  $id("assetNameRow").hidden = isEquip || isPoint;
+  $id("assetTagRow").hidden = kind === "corporation" || isPoint;
+  $id("assetTagLabel").textContent = isEquip ? "TAG (identificador do equipamento)" : "Código (opcional)";
+  $id("assetSpotRow").hidden = !isPoint;
+  $id("assetPositionRow").hidden = !isPoint;
+  $id("equipFields").hidden = !isEquip;
+  if (!isEquip) $id("assetLegacyName").hidden = true;
   $id("corpFields").hidden = kind !== "corporation";
   $id("corpFields").querySelector(".form-help").textContent = editing
     ? "Para atualizar o contato, preencha e-mail e responsável. Em branco, só o nome é alterado."
     : "Contato e responsável podem ser preenchidos depois: a corporação pode nascer como rascunho.";
 }
 $id("assetKind").onchange = syncAssetForm;
+// Lê a ficha do formulário. Campo vazio é ausência de informação; quantidade é inteiro não negativo.
+function readEquipDetails() {
+  const details = { equipment_type: $id("equipType").value || null };
+  for (const group of EQUIP_GROUPS)
+    for (const [key, label, format] of group.fields) {
+      const value = $id("eq-" + key).value.trim();
+      if (format === "count" && value && !/^\d{1,4}$/.test(value)) throw Error(`${label}: informe um número inteiro, sem sinal.`);
+      details[key] = value || null;
+    }
+  return details;
+}
 $id("assetForm").onsubmit = async (event) => {
   event.preventDefault();
   const message = $id("assetFormMessage");
   const kind = $id("assetKind").value;
-  const name = $id("assetName").value.trim();
+  const { editId, parentId } = assetFormState;
+  const tag = $id("assetTag").value.trim();
+  const name = kind === "equipment" ? tag : kind === "point" ? $id("assetSpotName").value : $id("assetName").value.trim();
+  if (kind === "equipment" && !tag) return void (message.textContent = "Informe o TAG do equipamento.");
+  if (kind === "point" && !name) return void (message.textContent = "Selecione o nome do spot: LOA, LA ou UNICO.");
   if (!name) return void (message.textContent = "Informe o nome.");
   const email = $id("corpEmail").value.trim();
   if (kind === "corporation" && email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return void (message.textContent = "E-mail de contato inválido.");
+  let details = null;
+  if (kind === "equipment") {
+    try {
+      details = readEquipDetails();
+    } catch (error) {
+      return void (message.textContent = error.message);
+    }
+    if (!details.equipment_type && (!editId || assetFormState.hadType)) return void (message.textContent = "Selecione o tipo de equipamento.");
+  }
   message.textContent = "Salvando…";
-  const button = event.submitter;
+  const button = event.submitter || $id("assetForm").querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    const { editId, parentId } = assetFormState;
     const withContact = kind === "corporation" && (!editId || email || $id("corpResponsible").value.trim());
-    const saved = withContact
-      ? await callRpc("gaxeta_save_corporation", {
-          p_id: editId,
-          p_name: name,
-          p_contact_email: email || null,
-          p_responsible_name: $id("corpResponsible").value.trim() || null,
-          p_phone: $id("corpPhone").value.trim() || null,
-          p_slug: null,
-        })
-      : await callRpc("gaxeta_save_asset", {
-          p_id: editId,
-          p_parent_id: parentId || null,
-          p_kind: kind,
-          p_name: name,
-          p_tag: kind === "corporation" || kind === "point" ? "" : $id("assetTag").value.trim(),
-          p_position: kind === "point" ? $id("assetPosition").value.trim() : "",
-          p_sensor_id: null,
-          p_sensor_label: null,
-        });
+    const saved =
+      kind === "equipment"
+        ? // TAG e ficha numa única transação: ou grava tudo, ou nada.
+          await callRpc("gaxeta_save_equipment", { p_id: editId, p_parent_id: parentId || null, p_tag: tag, p_details: details })
+        : withContact
+          ? await callRpc("gaxeta_save_corporation", {
+              p_id: editId,
+              p_name: name,
+              p_contact_email: email || null,
+              p_responsible_name: $id("corpResponsible").value.trim() || null,
+              p_phone: $id("corpPhone").value.trim() || null,
+              p_slug: null,
+            })
+          : await callRpc("gaxeta_save_asset", {
+              p_id: editId,
+              p_parent_id: parentId || null,
+              p_kind: kind,
+              p_name: name,
+              p_tag: kind === "corporation" || kind === "point" ? "" : tag,
+              p_position: kind === "point" ? $id("assetPosition").value.trim() : "",
+              p_sensor_id: null,
+              p_sensor_label: null,
+            });
+    if (kind === "equipment") equipTypeIndex.set(saved.id, saved.details?.equipment_type || null);
     // Relê o ramo no servidor: o que aparece na árvore é o que ficou gravado.
     await loadKids(parentId || null, { force: true });
     await ensureAssets([saved.id]);
     if (parentId) tree.open.add(parentId);
     $id("assetDialog").close();
     await revealAsset(saved.id);
-    state.assetId = saved.id;
+    // Um spot novo aparece dentro da ficha do TAG, que continua selecionado; os demais níveis passam a ser a seleção.
+    const stayOnEquip = kind === "point" && state.page === "assets" && state.assetId === parentId;
+    if (stayOnEquip) tree.open.add(parentId);
+    else state.assetId = saved.id;
     renderTree();
     if (state.page === "assets") await renderInspector();
     renderIcons();
     const next = allowedChildKinds(assetIndex.get(saved.id)).map((value) => KIND_LABEL[value]);
-    showMessage(`${KIND_LABEL[kind]} “${saved.name}” ${editId ? "atualizado" : "gravado"}.${!editId && next.length ? " Próximo nível: " + next.join(" ou ") + "." : ""}`, "success");
+    showMessage(`${KIND_LABEL[kind]} “${assetLabel(assetIndex.get(saved.id) || saved)}” ${kindDone(kind, editId ? "atualizad" : "gravad")}.${!editId && next.length ? " Próxima criação: " + next.join(" ou ") + "." : ""}`, "success");
   } catch (error) {
-    message.textContent = errorText(error);
+    message.textContent = isMissingFeature(error) ? MISSING_FEATURE_TEXT : errorText(error);
   } finally {
     button.disabled = false;
   }
@@ -2544,22 +2843,24 @@ async function deleteAsset(asset) {
   if (lines.length) {
     await askConfirm({
       title: "Não é possível excluir",
-      html: `<p><b>${esc(asset.name)}</b> possui dependências:</p><ul>${lines.join("")}</ul><p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados.</p>`,
+      html: `<p><b>${esc(assetLabel(asset))}</b> possui dependências:</p><ul>${lines.join("")}</ul><p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados.</p>`,
       allowOk: false,
     });
     return;
   }
   const grants = deps.access_grants > 0 ? `<p>${deps.access_grants} concessão(ões) de acesso apontam para este nível e serão removidas.</p>` : "";
-  if (!(await askConfirm({ title: "Excluir " + KIND_LABEL[asset.kind].toLowerCase(), html: `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}<p>A exclusão fica registrada na auditoria.</p>`, okLabel: "Excluir" }))) return;
+  const sheet = asset.kind === "equipment" ? "<p>A ficha técnica deste TAG é excluída junto.</p>" : "";
+  if (!(await askConfirm({ title: "Excluir " + KIND_LABEL[asset.kind].toLowerCase(), html: `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}${sheet}<p>A exclusão fica registrada na auditoria.</p>`, okLabel: "Excluir" }))) return;
   await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
   forgetAsset(asset.id);
+  equipTypeIndex.delete(asset.id);
   tree.kids.delete(kidsKey(asset.id));
   await loadKids(asset.parent_id || null, { force: true });
   state.assetId = asset.parent_id || "";
   renderTree();
   await renderInspector();
   renderIcons();
-  showMessage(`${KIND_LABEL[asset.kind]} “${asset.name}” excluído.`, "success");
+  showMessage(`${KIND_LABEL[asset.kind]} “${assetLabel(asset)}” ${kindDone(asset.kind, "excluíd")}.`, "success");
 }
 
 // ----- Vínculo do sensor ao spot (operação atômica no servidor) -----
@@ -2610,7 +2911,8 @@ $id("linkResults").onclick = async (event) => {
     mergeDevices([saved]);
     $id("linkDialog").close();
     renderTree();
-    await renderInspector();
+    // Relê o resumo do TAG (ou a ficha do spot) com o vínculo novo.
+    if (state.page === "assets") await renderInspector();
     showMessage(`Sensor ${deviceLabel(saved)} vinculado a ${assetPathLabel(linkState.pointId)}.`, "success");
   } catch (error) {
     $id("linkMessage").textContent = errorText(error);
@@ -2620,298 +2922,514 @@ $id("linkResults").onclick = async (event) => {
 
 // ---- 70-telemetry.js ----
 // =============================================================================
-// Telemetria. O cálculo, o gráfico, o zoom e os CSV vêm do pacote publicado, sem
-// mudança de comportamento. A escolha do sensor passou a buscar no servidor.
+// Telemetria.
+//   * Identidade primeiro: TAG · tipo de equipamento, depois sensor e spot.
+//   * Um único contexto (sensor + período) alimenta gráfico, métricas, mudanças e
+//     CSV: o que está em tela é sempre de `telem.loaded`.
+//   * Leitura atual (leve, a cada ciclo) separada da consulta de histórico (pesada,
+//     só quando o período pede). Uma solicitação por combinação; respostas e erros
+//     de pedidos substituídos são descartados e a requisição é cancelada.
+//   * Linha estabilizada em degraus, colorida pela condição de cada trecho.
+// O cálculo, os limites da consulta e o formato dos CSV não mudaram.
 // =============================================================================
-const telemetry = { matchIds: null, searchRun: 0 };
+const telem = {
+  matchIds: null, // resultado da busca do seletor (null = sem filtro)
+  listed: false, // o seletor já recebeu a lista de sensores da conta nesta sessão
+  searchRun: 0,
+  period: 36e5, // preset escolhido (ms, "month" ou "3months")
+  custom: false, // true = intervalo fixo (manual ou ampliado)
+  range: presetRange(36e5),
+  request: 0,
+  controller: null,
+  pending: null, // { key, label, auto }
+  loaded: null, // { sensorId, range, label, history, movements, seed, stats, truncated, bucketSeconds }
+  error: "",
+  zoomStack: [], // seleções anteriores, para "Voltar" restaurar inclusive um intervalo manual
+  lastLoadAt: 0,
+};
+const PERIOD_LABELS = { 300000: "5 min", 3600000: "1 hora", 21600000: "6 horas", 86400000: "1 dia", 604800000: "7 dias", month: "1 mês", "3months": "3 meses" };
+const selectionLabel = () => (telem.custom ? "intervalo personalizado" : PERIOD_LABELS[telem.period] || "período");
+const shortDateTime = (value) => new Date(value).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+function resetTelemetryData() {
+  telem.controller?.abort();
+  telem.request++;
+  Object.assign(telem, { controller: null, pending: null, loaded: null, error: "", zoomStack: [], lastLoadAt: 0 });
+}
+
+// ----- Seletor de sensor -----
+// Opção curta: "TAG · tipo · spot". Só quando duas opções coincidem entram, nesta ordem,
+// empresa/área, nome do sensor e identificador.
+function sensorOptions(devices) {
+  const entries = devices.map((device) => {
+    const identity = deviceIdentity(device);
+    return { device, identity, label: identity.linked ? [identity.tag, identity.type, identity.spot].filter(Boolean).join(" · ") : `${identity.sensor} · sem vínculo` };
+  });
+  for (const extra of [(entry) => entry.identity.context, (entry) => (entry.identity.linked ? "sensor " + entry.identity.sensor : ""), (entry) => entry.device.sensor_id]) {
+    const seen = new Map();
+    for (const entry of entries) seen.set(entry.label, (seen.get(entry.label) || 0) + 1);
+    for (const entry of entries) if (seen.get(entry.label) > 1 && extra(entry)) entry.label += " — " + extra(entry);
+  }
+  return entries.sort((left, right) => left.label.localeCompare(right.label, "pt-BR", { numeric: true }));
+}
 function renderHistorySelect() {
-  const known = telemetry.matchIds ? telemetry.matchIds.map(findDevice).filter(Boolean) : [...state.devices];
+  const known = telem.matchIds ? telem.matchIds.map(findDevice).filter(Boolean) : state.devices.filter((device) => device.origin !== "integration_test");
   const current = currentDevice();
   if (current && !known.includes(current)) known.unshift(current);
-  known.sort((left, right) => deviceLabel(left).localeCompare(deviceLabel(right), "pt-BR"));
   fillSelect(
     $id("historySensor"),
-    known.slice(0, 100).map((device) => ({ value: device.sensor_id, label: deviceLabel(device) + " — " + (assetPathLabel(device.measurement_point_id) || "Sem vínculo") })),
-    known.length ? null : "Nenhum sensor",
+    sensorOptions(known.slice(0, 100)).map((entry) => ({ value: entry.device.sensor_id, label: entry.label })),
+    known.length ? null : telem.matchIds ? "Nenhum sensor encontrado" : "Nenhum sensor",
     state.sensorId,
   );
-  $id("historyLocation").textContent = current ? assetPathLabel(current.measurement_point_id) || "Sensor sem vínculo com spot" : "";
 }
+// Busca no servidor por TAG, nome do sensor, ID ou MAC, dentro do que a conta pode ver.
 async function searchHistorySensors() {
-  const run = ++telemetry.searchRun;
+  const run = ++telem.searchRun;
   const query = $id("historySearch").value.trim();
   const result = await callRpc("gaxeta_devices_page", { p_asset_id: null, p_search: query || null, p_unlinked: false, p_limit: 50, p_offset: 0 });
-  if (run !== telemetry.searchRun) return;
+  if (run !== telem.searchRun) return;
   mergeDevices(result.items);
   await ensureAssets(result.items.map((device) => device.measurement_point_id));
-  telemetry.matchIds = query ? result.items.map((device) => device.sensor_id) : null;
+  if (run !== telem.searchRun) return;
+  telem.matchIds = query ? result.items.map((device) => device.sensor_id) : null;
+  if (!query) telem.listed = true;
   renderHistorySelect();
 }
 $id("historySearch").oninput = debounce(() => searchHistorySensors().catch((error) => showMessage(errorText(error), "error")), 350);
+
+// Histórico aberto a partir de Sensores, TAG ou Spot: o sensor exato escolhido fica selecionado.
+function openHistoryFor(sensorId) {
+  if (!sensorId) return;
+  if (state.sensorId !== sensorId) {
+    state.sensorId = sensorId;
+    resetTelemetryData();
+  }
+  telem.matchIds = null;
+  telem.searchRun++;
+  $id("historySearch").value = "";
+  if (state.page === "telemetry") openTelemetry().catch((error) => showMessage(errorText(error), "error"));
+  else showPage("telemetry");
+}
 async function openTelemetry() {
+  renderTelemetryLive();
+  renderHistory();
   if (state.sensorId && !currentDevice()) await refreshKnownDevices();
   if (!currentDevice()) {
     await searchHistorySensors();
-    if (!currentDevice()) state.sensorId = state.devices[0]?.sensor_id || "";
+    if (!currentDevice()) {
+      state.sensorId = state.devices.find((device) => device.origin !== "integration_test")?.sensor_id || "";
+      resetTelemetryData();
+    }
+  } else if (!telem.listed && !telem.matchIds) {
+    // Entrou direto com um sensor escolhido: preenche o seletor em segundo plano.
+    searchHistorySensors().catch(() => {});
   }
   await ensureAssets([currentDevice()?.measurement_point_id]);
+  if (state.page !== "telemetry") return;
   renderHistorySelect();
-  renderHistory();
+  renderTelemetryLive();
   await loadHistory();
 }
+$id("historySensor").onchange = () => {
+  state.sensorId = $id("historySensor").value;
+  // Troca de sensor: os dados do anterior saem da tela na hora, antes da resposta nova.
+  resetTelemetryData();
+  renderTelemetryLive();
+  renderHistory();
+  ensureAssets([currentDevice()?.measurement_point_id])
+    .then(() => {
+      renderHistorySelect();
+      renderTelemetryLive();
+    })
+    .catch(() => {});
+  loadHistory();
+};
 
-// ----- Herdado do pacote publicado -----
-function toLocalInput(t) {
-  return new Date(t.getTime() - t.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+// ----- Consulta do histórico -----
+function toLocalInput(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
 }
-async function loadHistory() {
-  const t = ++state.historyRequest,
-    e = state.sensorId;
-  if (!e) {
-    ((state.history = []), (state.stats = {}), renderHistory());
+function historyErrorText(error) {
+  if (isNetworkError(error)) return "Sem resposta do servidor. A leitura atual e o histórico serão tentados de novo.";
+  if (error?.code === "57014") return "A consulta deste período demorou demais. Reduza o período e tente de novo.";
+  if (error?.code === "42501") return "Sua conta não tem acesso ao histórico deste sensor.";
+  return "Não foi possível carregar o histórico: " + errorText(error);
+}
+// Uma solicitação por combinação de sensor e período. `auto` = atualização periódica de um preset.
+async function loadHistory({ auto = false } = {}) {
+  const sensorId = state.sensorId;
+  if (!sensorId) {
+    resetTelemetryData();
+    renderHistory();
     return;
   }
-  state.custom || (state.range = presetRange(state.period, new Date(Date.now() + state.clockOffset)));
-  const r = {
-      ...state.range,
-    },
-    s = await unwrap(
-      sb.rpc("gaxeta_history", {
-        p_sensor_id: e,
-        p_from: r.from.toISOString(),
-        p_to: r.to.toISOString(),
-      }),
-    );
-  t !== state.historyRequest ||
-    e !== state.sensorId ||
-    !state.authorized ||
-    ((state.history = s.history || []),
-    (state.movements = s.movements || []),
-    (state.seed = s.seed || null),
-    (state.movementsTruncated = !!s.movements_truncated),
-    (state.stats = s.stats || {}),
-    (state.historyRange = r),
-    (state.bucketSeconds = s.bucket_seconds),
-    $id("customRange").contains(document.activeElement) ||
-      (($id("fromTime").value = toLocalInput(r.from)), ($id("toTime").value = toLocalInput(r.to))),
-    renderHistory());
+  // A atualização automática nunca compete com um pedido de quem está usando.
+  if (auto && telem.pending) return;
+  // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
+  const range = telem.custom ? { from: telem.range.from, to: telem.range.to } : presetRange(telem.period, new Date(Date.now() + state.clockOffset));
+  const key = sensorId + "|" + (telem.custom ? range.from.toISOString() + "|" + range.to.toISOString() : "preset:" + telem.period);
+  if (!auto && telem.pending && !telem.pending.auto && telem.pending.key === key) return; // mesmo pedido já em andamento
+  telem.controller?.abort();
+  const controller = new AbortController();
+  const token = ++telem.request;
+  const label = selectionLabel();
+  Object.assign(telem, { controller, pending: { key, label, auto }, error: auto ? telem.error : "" });
+  renderHistoryState();
+  try {
+    // Fuso local só na tela: a consulta vai em ISO UTC, com os limites e a inclusividade da RPC.
+    const data = await unwrap(sb.rpc("gaxeta_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() }).abortSignal(controller.signal));
+    if (token !== telem.request || sensorId !== state.sensorId || !state.authorized) return;
+    telem.loaded = {
+      sensorId,
+      range,
+      label,
+      custom: telem.custom,
+      history: data.history || [],
+      movements: data.movements || [],
+      seed: data.seed || null,
+      stats: data.stats || {},
+      truncated: !!data.movements_truncated,
+      bucketSeconds: data.bucket_seconds,
+    };
+    telem.error = "";
+    telem.lastLoadAt = Date.now();
+  } catch (error) {
+    if (token !== telem.request) return; // pedido substituído: o erro dele não interessa mais
+    telem.error = historyErrorText(error);
+    telem.lastLoadAt = Date.now();
+    if (error?.code === "42501") checkContext().catch(() => {});
+    // Erro da consulta de histórico não é "sem conexão": só falha de transporte muda o indicador global.
+    if (isNetworkError(error)) setConnection(false);
+  } finally {
+    if (token === telem.request) {
+      telem.pending = null;
+      telem.controller = null;
+      renderHistory();
+    }
+  }
+}
+// Ritmo da atualização automática conforme a janela: períodos longos não são refeitos a cada ciclo.
+function autoIntervalMs() {
+  const span = typeof telem.period === "number" || /^\d+$/.test(telem.period) ? Number(telem.period) : Infinity;
+  if (span <= 3e5) return CONFIG.pollMs;
+  if (span <= 36e5) return 15e3;
+  if (span <= 216e5) return 6e4;
+  if (span <= 864e5) return 12e4;
+  if (span <= 6048e5) return 3e5;
+  return 6e5;
+}
+function refreshHistoryIfDue() {
+  if (state.page !== "telemetry" || !state.sensorId || telem.custom || telem.pending) return;
+  if (Date.now() - telem.lastLoadAt < autoIntervalMs()) return;
+  loadHistory({ auto: true });
+}
+
+// ----- Desenho -----
+// Linha estabilizada em degraus, um trecho por referência em vigor: começa na semente
+// autorizada (referência anterior ao período) ou na primeira mudança, troca de valor no
+// instante da mudança e termina na última leitura elegível, nunca além dela.
+// Cada patamar leva a cor da condição do valor que esteve em vigor ali. O degrau vertical
+// (o instante da mudança) é neutro: não representa um valor mantido.
+function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
+  const from = +new Date(fromValue);
+  const to = +new Date(toValue);
+  const end = Math.min(to, +new Date(lastValue));
+  const levels = [];
+  let risers = "";
+  if (!(to > from) || !(end >= from)) return { levels, risers };
+  const px = (time) => Math.max(0, Math.min(1e3, ((time - from) / (to - from)) * 1e3)).toFixed(2);
+  const py = (percent) => (280 - Math.max(0, Math.min(100, Number(percent))) * 2.8).toFixed(2);
+  let value = seed?.stable_percent ?? null;
+  let startX = value == null ? null : px(from);
+  const close = (endX) => {
+    // A condição é classificada com o valor gravado, sem arredondar.
+    if (value != null && endX !== startX) levels.push({ key: adjustmentInfo(value).key, d: `M${startX} ${py(value)}H${endX}` });
+  };
+  for (const move of movements) {
+    const time = +new Date(move.received_at);
+    if (time < from || time > end) continue;
+    const at = px(time);
+    close(at);
+    if (value != null) risers += `M${at} ${py(value)}V${py(move.stable_percent)}`;
+    value = move.stable_percent;
+    startX = at;
+  }
+  close(px(end));
+  return { levels, risers };
+}
+// Leitura atual do sensor selecionado (barata; roda a cada ciclo sem refazer o histórico).
+function renderTelemetryLive() {
+  const device = currentDevice();
+  const identity = deviceIdentity(device);
+  const health = adjustmentInfo(device?.stable_percent);
+  $id("historyTitle").textContent = device ? identity.title : "Telemetria";
+  $id("historyTitle").title = identity.path || "";
+  $id("historyContext").textContent = !device
+    ? "Nenhum sensor selecionado."
+    : identity.linked
+      ? `Sensor: ${identity.sensor} · Spot: ${identity.spot}`
+      : `Sensor sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
+  $id("historyContext").title = identity.path || "";
+  $id("historyCurrent").textContent = `${fmtNum(device?.stable_percent)} %`;
+  $id("historyHealthBox").className = "summary-main health-" + health.key;
+  $id("historyHealth").textContent = health.label;
+  $id("historyAction").textContent = health.action;
+  $id("historyRawNow").textContent = `${fmtNum(device?.last_percent)} %`;
+  $id("historySince").textContent = device?.stable_since ? "Referência desde " + fmtDateTime(device.stable_since) : "";
+  $id("historyEdit").disabled = !device;
+}
+// O que está em tela e o que está sendo carregado, sempre explícito.
+function renderHistoryState() {
+  const { loaded, pending, error } = telem;
+  const userLoading = !!pending && !pending.auto;
+  const shown = loaded ? `Em tela: ${loaded.label} · ${shortDateTime(loaded.range.from)} a ${shortDateTime(loaded.range.to)}` : "";
+  $id("historyShown").textContent = userLoading
+    ? (shown ? shown + " · " : "") + `carregando ${pending.label}…`
+    : error
+      ? (shown ? shown + " · " : "") + error
+      : shown;
+  $id("historyShown").classList.toggle("is-error", !userLoading && !!error);
+  document.querySelector(".chart-panel").classList.toggle("is-loading", userLoading);
+  // Enquanto outro intervalo carrega, os CSV ficam desabilitados: exportam sempre o que está em tela.
+  $id("exportCsv").disabled = userLoading || !loaded?.history.length;
+  $id("exportMovements").disabled = userLoading || !loaded?.movements.length || !!loaded?.truncated;
+  $id("resetZoom").hidden = !telem.zoomStack.length;
+  document.querySelectorAll("[data-range]").forEach((button) => button.classList.toggle("selected", !telem.custom && String(telem.period) === button.dataset.range));
+  $id("customToggle").classList.toggle("selected", telem.custom);
+  if (telem.custom) {
+    $id("customRange").hidden = false;
+    $id("customToggle").setAttribute("aria-expanded", "true");
+  }
+  const range = loaded?.range || (telem.custom ? telem.range : null);
+  if (range && !$id("customRange").contains(document.activeElement)) {
+    $id("fromTime").value = toLocalInput(range.from);
+    $id("toTime").value = toLocalInput(range.to);
+  }
 }
 function renderHistory() {
-  const t = state.history,
-    e = currentDevice(),
-    r = state.historyRange || state.range;
-  (($id("historyTitle").textContent = e ? deviceLabel(e) : "Deslocamento da gaxeta"),
-    ($id("historyCurrent").textContent = `${fmtNum(e?.stable_percent)} %`));
-  const s = adjustmentInfo(e?.stable_percent);
-  (($id("historyHealth").className = "health-banner health-" + s.key),
-    ($id("historyHealth").textContent = s.label + " · " + s.action),
-    ($id("historyRaw").textContent =
-      "Leitura bruta atual: " + fmtNum(e?.last_percent) + "% · referência desde " + fmtDateTime(e?.stable_since)),
-    ($id("historyMin").textContent = `${fmtNum(state.stats.min)} %`),
-    ($id("historyMax").textContent = `${fmtNum(state.stats.max)} %`),
-    ($id("historyCount").textContent = fmtNum(state.stats.count || 0, 0)),
-    ($id("chartEmpty").hidden = t.length > 0),
-    ($id("chartFrom").textContent = fmtDateTime(r.from)),
-    ($id("chartTo").textContent = fmtDateTime(r.to)),
-    ($id("aggregationNote").textContent = state.movementsTruncated
-      ? "Muitos movimentos neste intervalo. Reduza o período para exibir o gráfico completo."
-      : "Linha: variação ≥ 5 p.p. · faixa bruta: mín./máx. · médias de " + fmtNum(state.bucketSeconds || 1, 0) + " s"),
-    ($id("exportCsv").disabled = !t.length),
-    ($id("exportMovements").disabled = !state.movements.length || state.movementsTruncated),
-    ($id("movementCount").textContent = state.movementsTruncated
+  renderTelemetryLive();
+  renderHistoryState();
+  const loaded = telem.loaded;
+  const rows = loaded?.history || [];
+  const movements = loaded?.movements || [];
+  const stats = loaded?.stats || {};
+  const range = loaded?.range || null;
+  $id("historyMin").textContent = `${fmtNum(stats.min)} %`;
+  $id("historyMax").textContent = `${fmtNum(stats.max)} %`;
+  $id("historyCount").textContent = loaded ? fmtNum(stats.count || 0, 0) : "—";
+  $id("chartEmpty").hidden = rows.length > 0;
+  $id("chartEmpty").textContent = !state.sensorId
+    ? "Selecione um sensor."
+    : telem.pending && !loaded
+      ? "Carregando…"
+      : telem.error && !loaded
+        ? telem.error
+        : "Nenhuma leitura neste período.";
+  $id("chartFrom").textContent = range ? fmtDateTime(range.from) : "—";
+  $id("chartTo").textContent = range ? fmtDateTime(range.to) : "—";
+  $id("aggregationNote").textContent = !loaded
+    ? ""
+    : loaded.truncated
+      ? "Muitas mudanças neste intervalo. Reduza o período para exibir a linha completa."
+      : "Linha: mudanças de 5 p.p. ou mais · faixa bruta: mín./máx. · médias de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s";
+  $id("movementCount").textContent = !loaded
+    ? ""
+    : loaded.truncated
       ? "Mais de 5.000 registros — reduza o período"
-      : state.movements.filter((o) => o.previous_percent != null).length + " mudanças no período"),
-    ($id("movementRows").innerHTML =
-      state.movements
-        .slice(-30)
+      : movements.filter((move) => move.previous_percent != null).length + " mudanças no período";
+  $id("movementRows").innerHTML =
+    movements
+      .slice(-30)
+      .reverse()
+      .map((move) => {
+        const health = adjustmentInfo(move.stable_percent);
+        return `<tr><td>${fmtDateTime(move.received_at)}</td><td>${move.previous_percent == null ? "Referência inicial" : fmtNum(move.previous_percent) + " %"}</td><td>${fmtNum(move.stable_percent)} %</td><td>${move.previous_percent == null ? "—" : fmtNum(move.stable_percent - move.previous_percent) + " p.p."}</td><td><span class="adjustment-badge health-${health.key}">${health.label}</span></td></tr>`;
+      })
+      .join("") ||
+    `<tr><td colspan="5">${loaded ? "Nenhuma mudança de 5 pontos neste período. A referência anterior é mantida enquanto chegam novas leituras." : telem.error || "Aguardando o histórico…"}</td></tr>`;
+  const point = (row, field) => {
+    const x = Math.max(0, Math.min(1e3, ((new Date(row.received_at) - range.from) / (range.to - range.from)) * 1e3));
+    const y = 280 - Math.max(0, Math.min(100, Number(row[field]))) * 2.8;
+    return `${x.toFixed(2)} ${y.toFixed(2)}`;
+  };
+  // Trechos agrupados por condição: no máximo quatro traços, um por cor.
+  const byHealth = new Map();
+  let risers = "";
+  if (loaded && !loaded.truncated) {
+    const stable = buildStableSegments(movements, loaded.seed, range.from, range.to, stats.last_received_at || rows.at(-1)?.received_at);
+    risers = stable.risers;
+    for (const level of stable.levels) byHealth.set(level.key, (byHealth.get(level.key) || "") + level.d);
+  }
+  const band = rows.length
+    ? rows.map((row, index) => `${index ? "L" : "M"}${point(row, "min_percent")}`).join(" ") +
+      [...rows]
         .reverse()
-        .map((o) => {
-          const l = adjustmentInfo(o.stable_percent);
-          return `<tr><td>${fmtDateTime(o.received_at)}</td><td>${o.previous_percent == null ? "Referência inicial" : fmtNum(o.previous_percent) + " %"}</td><td>${fmtNum(o.stable_percent)} %</td><td>${o.previous_percent == null ? "—" : fmtNum(o.stable_percent - o.previous_percent) + " p.p."}</td><td><span class="adjustment-badge health-${l.key}">${l.label}</span></td></tr>`;
-        })
-        .join("") ||
-      '<tr><td colspan="5">Nenhuma mudança de 5 pontos neste período. A referência anterior é mantida enquanto chegam novas leituras.</td></tr>'));
-  const n = (o, l) => {
-      const c = Math.max(0, Math.min(1e3, ((new Date(o.received_at) - r.from) / (r.to - r.from)) * 1e3)),
-        h = 280 - Math.max(0, Math.min(100, Number(o[l]))) * 2.8;
-      return `${c.toFixed(2)} ${h.toFixed(2)}`;
-    },
-    i = state.movementsTruncated
-      ? ""
-      : buildStablePath(state.movements, state.seed, r.from, r.to, state.stats.last_received_at || t.at(-1)?.received_at),
-    a = t.length
-      ? t.map((o, l) => `${l ? "L" : "M"}${n(o, "min_percent")}`).join(" ") +
-        [...t]
-          .reverse()
-          .map((o) => `L${n(o, "max_percent")}`)
-          .join(" ") +
-        " Z"
-      : "";
-  (($id("historyChart").innerHTML = t.length
-    ? `<path class="chart-band" d="${$id("showRawBand").checked ? a : ""}"/><path class="chart-line" d="${i}"/>${t.length === 1 && i ? `<circle cx="${n(t[0], "travel_percent").split(" ")[0]}" cy="${n(t[0], "stable_percent").split(" ")[1]}" r="4" fill="#174f6a"/>` : ""}`
-    : ""),
-    $id("historyChart").setAttribute(
-      "aria-label",
-      `${t.length} intervalos. ${fmtNum(state.stats.count || 0, 0)} leituras. Mínimo ${fmtNum(state.stats.min)}%, máximo ${fmtNum(state.stats.max)}%. Arraste para ampliar.`,
-    ),
-    ($id("historyRows").innerHTML =
-      t
-        .slice(-30)
-        .reverse()
-        .map(
-          (o) =>
-            `<tr><td>${fmtDateTime(o.received_at)}</td><td>${fmtNum(o.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(o.travel_percent)}%</small></td><td>${fmtNum(o.min_percent)} / ${fmtNum(o.max_percent)} %</td><td>${fmtNum(o.position_mm, 2)} mm</td><td>${fmtNum(o.voltage_v, 3)} V</td><td>${fmtNum(o.samples, 0)}</td></tr>`,
-        )
-        .join("") || '<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>'));
+        .map((row) => `L${point(row, "max_percent")}`)
+        .join(" ") +
+      " Z"
+    : "";
+  $id("historyChart").innerHTML = rows.length
+    ? `<path class="chart-band" d="${$id("showRawBand").checked ? band : ""}"/>` +
+      `<path class="chart-riser" d="${risers}"/>` +
+      [...byHealth].map(([key, d]) => `<path class="chart-line health-${key}" d="${d}"/>`).join("") +
+      (rows.length === 1 && byHealth.size
+        ? `<circle class="chart-dot health-${adjustmentInfo(rows[0].stable_percent).key}" cx="${point(rows[0], "travel_percent").split(" ")[0]}" cy="${point(rows[0], "stable_percent").split(" ")[1]}" r="4"/>`
+        : "")
+    : "";
+  $id("historyChart").setAttribute(
+    "aria-label",
+    `${rows.length} intervalos. ${fmtNum(stats.count || 0, 0)} leituras. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Linha colorida pela condição do ajuste. Arraste para ampliar.`,
+  );
+  $id("historyRows").innerHTML =
+    rows
+      .slice(-30)
+      .reverse()
+      .map(
+        (row) =>
+          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(row.travel_percent)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
+      )
+      .join("") || '<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>';
 }
-document.querySelectorAll("[data-range]").forEach(
-  (t) =>
-    (t.onclick = () => {
-      ((state.period = t.dataset.range),
-        (state.custom = !1),
-        document.querySelectorAll("[data-range]").forEach((e) => e.classList.toggle("selected", e === t)),
-        loadHistory().catch((e) => showMessage(errorText(e))));
-    }),
-);
-$id("customRange").onsubmit = (t) => {
-  t.preventDefault();
+
+// ----- Período -----
+document.querySelectorAll("[data-range]").forEach((button) => {
+  button.onclick = () => {
+    // Preset: janela móvel. Sai de qualquer intervalo fixo e esquece ampliações anteriores.
+    Object.assign(telem, { period: /^\d+$/.test(button.dataset.range) ? Number(button.dataset.range) : button.dataset.range, custom: false, zoomStack: [] });
+    $id("customRange").hidden = true;
+    $id("customToggle").setAttribute("aria-expanded", "false");
+    loadHistory();
+  };
+});
+// "Personalizado" abre os campos De/Até. Com um intervalo fixo em uso, eles ficam à vista.
+$id("customToggle").onclick = () => {
+  const show = telem.custom || $id("customRange").hidden;
+  $id("customRange").hidden = !show;
+  $id("customToggle").setAttribute("aria-expanded", String(show));
+  if (show) $id("fromTime").focus();
+};
+$id("customRange").onsubmit = (event) => {
+  event.preventDefault();
   try {
-    ((state.range = validateRange($id("fromTime").value, $id("toTime").value)),
-      (state.custom = !0),
-      document.querySelectorAll("[data-range]").forEach((e) => e.classList.remove("selected")),
-      loadHistory().catch((e) => showMessage(errorText(e))));
-  } catch (e) {
-    showMessage(errorText(e));
+    // Intervalo manual: fica fixo depois de aplicado (a atualização periódica não o desloca).
+    const range = validateRange($id("fromTime").value, $id("toTime").value);
+    Object.assign(telem, { range, custom: true, zoomStack: [] });
+    $id("fromTime").blur();
+    $id("toTime").blur();
+    loadHistory();
+  } catch (error) {
+    showMessage(errorText(error), "error");
   }
 };
+// Voltar da ampliação restaura a seleção anterior, inclusive quando ela era um intervalo manual.
 $id("resetZoom").onclick = () => {
-  ((state.custom = !1), loadHistory().catch((t) => showMessage(errorText(t))));
+  const previous = telem.zoomStack.pop();
+  if (!previous) return;
+  Object.assign(telem, { custom: previous.custom, period: previous.period, range: previous.range });
+  if (!telem.custom) {
+    $id("customRange").hidden = true;
+    $id("customToggle").setAttribute("aria-expanded", "false");
+  }
+  loadHistory();
 };
-$id("historySensor").onchange = () => {
-  ((state.sensorId = $id("historySensor").value),
-    state.historyRequest++,
-    (state.history = []),
-    (state.stats = {}),
-    renderAll(),
-    renderHistory(),
-    loadHistory().catch((t) => showMessage(errorText(t))));
-};
+
+// ----- Ampliação por arraste e dica -----
 let chartDragStart = null;
-const chartFraction = (t) =>
-  Math.max(
-    0,
-    Math.min(
-      1,
-      (t.clientX - $id("historyChart").getBoundingClientRect().left) / $id("historyChart").getBoundingClientRect().width,
-    ),
-  );
-$id("historyChart").onpointerdown = (t) => {
-  state.history.length && ((chartDragStart = chartFraction(t)), $id("historyChart").setPointerCapture(t.pointerId));
+const chartFraction = (event) => {
+  const box = $id("historyChart").getBoundingClientRect();
+  return Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
 };
-$id("historyChart").onpointermove = (t) => {
-  const e = chartFraction(t),
-    r = state.historyRange || state.range;
+$id("historyChart").onpointerdown = (event) => {
+  if (!telem.loaded?.history.length || telem.pending?.auto === false) return;
+  chartDragStart = chartFraction(event);
+  $id("historyChart").setPointerCapture(event.pointerId);
+};
+$id("historyChart").onpointermove = (event) => {
+  const loaded = telem.loaded;
+  if (!loaded) return;
+  const fraction = chartFraction(event);
   if (chartDragStart !== null) {
-    let i = $id("historyChart").querySelector(".chart-selection");
-    (i ||
-      ((i = document.createElementNS("http://www.w3.org/2000/svg", "rect")),
-      i.setAttribute("class", "chart-selection"),
-      i.setAttribute("height", "280"),
-      $id("historyChart").append(i)),
-      i.setAttribute("x", Math.min(e, chartDragStart) * 1e3),
-      i.setAttribute("width", Math.abs(e - chartDragStart) * 1e3));
+    let selection = $id("historyChart").querySelector(".chart-selection");
+    if (!selection) {
+      selection = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      selection.setAttribute("class", "chart-selection");
+      selection.setAttribute("height", "280");
+      $id("historyChart").append(selection);
+    }
+    selection.setAttribute("x", Math.min(fraction, chartDragStart) * 1e3);
+    selection.setAttribute("width", Math.abs(fraction - chartDragStart) * 1e3);
     return;
   }
-  const s = r.from.getTime() + e * (r.to - r.from),
-    n = state.history.reduce(
-      (i, a) => (!i || Math.abs(new Date(a.received_at) - s) < Math.abs(new Date(i.received_at) - s) ? a : i),
-      null,
-    );
-  n &&
-    (($id("chartTooltip").hidden = !1),
-    ($id("chartTooltip").textContent = `${fmtDateTime(n.received_at)}
-Estabilizado ${fmtNum(n.stable_percent)}% · média bruta ${fmtNum(n.travel_percent)}% · mín. ${fmtNum(n.min_percent)}% · máx. ${fmtNum(n.max_percent)}%
-${fmtNum(n.samples, 0)} leituras`));
+  const at = loaded.range.from.getTime() + fraction * (loaded.range.to - loaded.range.from);
+  const nearest = loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
+  if (!nearest) return;
+  $id("chartTooltip").hidden = false;
+  $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
+Estabilizado ${fmtNum(nearest.stable_percent)}% (${adjustmentInfo(nearest.stable_percent).label}) · média bruta ${fmtNum(nearest.travel_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%
+${fmtNum(nearest.samples, 0)} leituras`;
 };
 $id("historyChart").onpointerleave = () => {
-  $id("chartTooltip").hidden = !0;
+  $id("chartTooltip").hidden = true;
 };
 $id("historyChart").onpointercancel = () => {
-  ((chartDragStart = null), $id("historyChart").querySelector(".chart-selection")?.remove());
+  chartDragStart = null;
+  $id("historyChart").querySelector(".chart-selection")?.remove();
 };
-$id("historyChart").onpointerup = (t) => {
+$id("historyChart").onpointerup = (event) => {
   if (chartDragStart === null) return;
-  const e = chartFraction(t),
-    r = chartDragStart;
-  if (((chartDragStart = null), $id("historyChart").querySelector(".chart-selection")?.remove(), Math.abs(e - r) < 0.01)) return;
-  const s = state.historyRange || state.range,
-    n = s.to - s.from;
+  const end = chartFraction(event);
+  const start = chartDragStart;
+  chartDragStart = null;
+  $id("historyChart").querySelector(".chart-selection")?.remove();
+  const loaded = telem.loaded;
+  if (!loaded || Math.abs(end - start) < 0.01) return;
+  const span = loaded.range.to - loaded.range.from;
   try {
-    ((state.range = validateRange(
-      new Date(s.from.getTime() + Math.min(r, e) * n),
-      new Date(s.from.getTime() + Math.max(r, e) * n),
-    )),
-      (state.custom = !0),
-      loadHistory().catch((i) => showMessage(errorText(i))));
-  } catch (i) {
-    showMessage(errorText(i));
+    const range = validateRange(new Date(loaded.range.from.getTime() + Math.min(start, end) * span), new Date(loaded.range.from.getTime() + Math.max(start, end) * span));
+    telem.zoomStack.push({ custom: telem.custom, period: telem.period, range: telem.range });
+    Object.assign(telem, { range, custom: true });
+    loadHistory();
+  } catch (error) {
+    showMessage(errorText(error), "error");
   }
 };
+
+// ----- CSV: sempre do contexto em tela (sensor e período carregados) -----
 $id("exportCsv").onclick = async () => {
-  const e = [
-    [
-      "horario",
-      "percentual_estabilizado",
-      "media_percentual",
-      "min_percentual",
-      "max_percentual",
-      "posicao_estimada_mm",
-      "tensao_estimada_v",
-      "leituras",
-    ],
-    ...state.history.map((r) => [
-      r.received_at,
-      r.stable_percent,
-      r.travel_percent,
-      r.min_percent,
-      r.max_percent,
-      r.position_mm,
-      r.voltage_v,
-      r.samples,
-    ]),
-  ].map((r) => r.map(csvCell).join(";")).join(`\r
-`);
+  const loaded = telem.loaded;
+  if (!loaded?.history.length) return;
+  const text = [
+    ["horario", "percentual_estabilizado", "media_percentual", "min_percentual", "max_percentual", "posicao_estimada_mm", "tensao_estimada_v", "leituras"],
+    ...loaded.history.map((row) => [row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent, row.position_mm, row.voltage_v, row.samples]),
+  ]
+    .map((row) => row.map(csvCell).join(";"))
+    .join("\r\n");
   try {
-    await exportCsvFile(e, `gaxeta-${state.sensorId}-intervalos.csv`);
-  } catch (r) {
-    showMessage(errorText(r));
+    await exportCsvFile(text, `gaxeta-${loaded.sensorId}-intervalos.csv`);
+  } catch (error) {
+    showMessage(errorText(error), "error");
   }
 };
 $id("exportMovements").onclick = async () => {
-  if (state.movementsTruncated) {
-    showMessage("Reduza o período para exportar todas as mudanças.");
-    return;
-  }
-  const t = [
+  const loaded = telem.loaded;
+  if (!loaded?.movements.length) return;
+  if (loaded.truncated) return showMessage("Reduza o período para exportar todas as mudanças.");
+  const text = [
     ["horario", "percentual_anterior", "percentual_estabilizado", "variacao_pontos", "regra"],
-    ...state.movements.map((e) => [
-      e.received_at,
-      e.previous_percent,
-      e.stable_percent,
-      e.previous_percent == null ? "" : Number(e.stable_percent) - Number(e.previous_percent),
-      e.rule_version,
-    ]),
-  ].map((e) => e.map(csvCell).join(";")).join(`\r
-`);
+    ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), move.rule_version]),
+  ]
+    .map((row) => row.map(csvCell).join(";"))
+    .join("\r\n");
   try {
-    await exportCsvFile(t, `gaxeta-${state.sensorId}-mudancas.csv`);
-  } catch (e) {
-    showMessage(errorText(e));
+    await exportCsvFile(text, `gaxeta-${loaded.sensorId}-mudancas.csv`);
+  } catch (error) {
+    showMessage(errorText(error), "error");
   }
 };
 $id("showRawBand").onchange = renderHistory;
 $id("historyEdit").onclick = () => {
-  state.sensorId && openSensorEditor(state.sensorId);
+  if (state.sensorId) openSensorEditor(state.sensorId);
 };
 
 // ---- 75-gateways.js ----
@@ -3183,11 +3701,42 @@ $id("userRows").onclick = async (event) => {
   });
 };
 
-// ----- Cadastro e edição de acesso em três etapas -----
-const wizard = { step: 1, userId: null, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} };
+// ----- Cadastro e edição de acesso em três etapas: dados → acesso → revisão -----
+// O escopo é gravado como concessões por ramo: "all" (inclui o ramo e o que for criado
+// nele), "none" (bloqueia) ou nenhuma regra (segue o nível acima). Vale a regra do
+// ancestral mais próximo; sem regra nenhuma, o acesso é negado. A prévia e a lista
+// normalizada vêm do servidor (gaxeta_admin_preview_access) e são a fonte de verdade
+// da revisão e da gravação.
+const wizard = {
+  step: 1,
+  userId: null,
+  corp: "",
+  mode: "", // "whole" | "select" | "none" | "" (ainda não escolhido)
+  grants: new Map(),
+  stash: null, // seleção por ramos guardada ao alternar para "Toda a corporação" ou "Sem acesso"
+  names: new Map(),
+  kids: new Map(),
+  open: new Set(),
+  totals: {},
+  root: null, // item da corporação na prévia (estado e se tem empresas)
+  run: 0,
+  searchRun: 0,
+  previewError: "",
+  hint: "",
+  flash: "",
+};
 const KIND_PLURAL = { company: "empresa(s)", area: "área(s)", subarea: "subárea(s)", equipment: "TAG(s)", point: "spot(s)" };
+const SCOPE_LABEL = { whole: "Toda a corporação", select: "Ramos selecionados", none: "Sem acesso" };
+// Qual das três escolhas corresponde a um conjunto de concessões.
+function scopeOf(grants, corp) {
+  const included = [...grants].filter(([, mode]) => mode === "all");
+  if (!included.length) return "none";
+  if (grants.size === 1 && grants.get(corp) === "all") return "whole";
+  return "select";
+}
 async function openUserWizard({ userId = null } = {}) {
-  Object.assign(wizard, { step: 1, userId, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} });
+  Object.assign(wizard, { step: 1, userId, corp: "", mode: "", grants: new Map(), stash: null, names: new Map(), kids: new Map(), open: new Set(), totals: {}, root: null, previewError: "", hint: "", flash: "" });
+  wizard.run++;
   const roots = await loadKids(null);
   const roles = [["corp", ROLE_LABEL.corp]];
   if (hasCap("manage_global_roles")) roles.push(["adm3", ROLE_LABEL.adm3], ["adm2", ROLE_LABEL.adm2], ["adm1", ROLE_LABEL.adm1]);
@@ -3202,10 +3751,12 @@ async function openUserWizard({ userId = null } = {}) {
     $id("newUserEmail").value = detail.email;
     $id("newUserCorp").value = detail.corporation_id || "";
     $id("newUserWrite").checked = !!detail.can_write;
+    // Concessões já gravadas: entram como estão e só mudam por ação de quem edita.
     for (const grant of detail.grants) {
       wizard.grants.set(grant.asset_id, grant.mode);
-      wizard.names.set(grant.asset_id, { name: grant.name, kind: grant.kind, path: (grant.path || []).join(" / ") });
+      wizard.names.set(grant.asset_id, { name: grant.tag && grant.kind === "equipment" ? grant.tag : grant.name, kind: grant.kind, path: (grant.path || []).join(" / ") });
     }
+    wizard.mode = scopeOf(wizard.grants, detail.corporation_id);
   }
   for (const id of ["newUserName", "newUserEmail", "newUserRole", "newUserCorp"]) $id(id).disabled = !!userId;
   $id("userDialogTitle").textContent = userId ? "Editar acesso" : "Novo usuário";
@@ -3230,20 +3781,44 @@ function syncWizard() {
 }
 $id("newUserRole").onchange = syncWizard;
 const grantList = () => [...wizard.grants].map(([asset_id, mode]) => ({ asset_id, mode }));
-// Lê do servidor o efeito das concessões em um nível (prévia do acesso efetivo).
-async function loadGrantLevel(parentId) {
-  const result = await callRpc("gaxeta_admin_preview_access", { p_corporation_id: wizard.corp, p_grants: grantList(), p_parent_id: parentId || null });
+
+// Lê do servidor o efeito das concessões em um nível. Devolve false se a resposta chegou
+// atrasada (outra alteração ou outra corporação já está em curso) e deve ser ignorada.
+async function loadGrantLevel(parentId, run) {
+  const corp = wizard.corp;
+  const result = await callRpc("gaxeta_admin_preview_access", { p_corporation_id: corp, p_grants: grantList(), p_parent_id: parentId || null });
+  if (run !== wizard.run || corp !== wizard.corp) return false;
   wizard.kids.set(kidsKey(parentId), result.items);
-  for (const item of result.items) wizard.names.set(item.id, { ...wizard.names.get(item.id), name: item.name, kind: item.kind });
+  for (const item of result.items) wizard.names.set(item.id, { ...wizard.names.get(item.id), name: item.kind === "equipment" && item.tag ? item.tag : item.name, kind: item.kind });
   if (!parentId) {
     wizard.totals = result.totals || {};
+    wizard.root = result.items[0] || null;
     wizard.grants = new Map(result.normalized_grants.map((grant) => [grant.asset_id, grant.mode]));
   }
+  return true;
 }
+// Relê a prévia: primeiro a raiz (que normaliza as concessões), depois os ramos abertos.
 async function refreshGrantTree() {
-  await loadGrantLevel(null);
-  await Promise.all([...wizard.open].map((id) => loadGrantLevel(id)));
-  renderGrantTree();
+  const run = ++wizard.run;
+  wizard.previewError = "";
+  try {
+    if (!(await loadGrantLevel(null, run))) return false;
+    const levels = await Promise.all([wizard.corp, ...wizard.open].map((id) => loadGrantLevel(id, run)));
+    if (levels.includes(false)) return false;
+  } catch (error) {
+    if (run !== wizard.run) return false;
+    // Falha de consulta não é "sem acesso": a tela diz que a prévia não carregou.
+    wizard.previewError = errorText(error);
+  }
+  renderGrantStep();
+  return !wizard.previewError;
+}
+function grantChip(item, explicit) {
+  if (explicit === "all") return ["Incluído", "included"];
+  if (explicit === "none") return [item.state === "path" ? "Bloqueado · exceção abaixo" : "Bloqueado", "blocked"];
+  if (item.state === "full") return ["Acesso herdado", "inherited"];
+  if (item.state === "path") return ["Só caminho", "path"];
+  return ["Sem acesso", "none"];
 }
 function grantBranch(parentId) {
   const items = wizard.kids.get(kidsKey(parentId)) || [];
@@ -3253,14 +3828,19 @@ function grantBranch(parentId) {
       .map((item) => {
         const explicit = wizard.grants.get(item.id) || "";
         const open = wizard.open.has(item.id);
-        const stateLabel = { full: "Com acesso", path: "Só caminho", none: "Sem acesso" }[item.state];
+        const label = item.kind === "equipment" && item.tag ? item.tag : item.tag && item.tag !== item.name ? `${item.name} · ${item.tag}` : item.name;
+        const [chip, chipClass] = grantChip(item, explicit);
+        const option = (mode, text) => `<button type="button" data-grant="${item.id}" data-mode="${mode}" aria-pressed="${explicit === mode}">${text}</button>`;
         return (
-          `<li><div class="grant-row state-${item.state}"><button type="button" class="tree-toggle" data-grant-toggle="${item.id}"${item.has_children ? "" : " disabled"} aria-label="${open ? "Recolher" : "Selecionar dentro de"} ${esc(item.name)}">${item.has_children ? (open ? "▾" : "▸") : ""}</button>` +
-          `<span class="grant-name"><small>${KIND_LABEL[item.kind]}</small>${esc(item.tag ? item.name + " · " + item.tag : item.name)}</span><span class="grant-state">${stateLabel}</span>` +
-          `<span class="segmented" role="group" aria-label="Concessão para ${esc(item.name)}">` +
-          `<button type="button" data-grant="${item.id}" data-mode="all" aria-pressed="${explicit === "all"}">Todos</button>` +
-          `<button type="button" data-grant="${item.id}" data-mode="none" aria-pressed="${explicit === "none"}">Nenhum</button>` +
-          `<button type="button" data-grant="${item.id}" data-mode="" aria-pressed="${!explicit}" title="Segue o nível acima; abra o ramo para selecionar itens">Herdar</button></span></div>` +
+          `<li><div class="grant-row${wizard.flash === item.id ? " flash" : ""}" data-grant-row="${item.id}">` +
+          `<button type="button" class="tree-toggle" data-grant-toggle="${item.id}"${item.has_children ? "" : " disabled"} aria-label="${open ? "Recolher" : "Abrir"} ${esc(label)}">${item.has_children ? glyph(open ? "chevron-down" : "chevron-right") : ""}</button>` +
+          `<span class="grant-name"><small>${KIND_LABEL[item.kind]}</small>${esc(label)}</span>` +
+          `<span class="grant-state chip-${chipClass}">${chip}</span>` +
+          `<details class="row-menu grant-menu"><summary aria-label="Regra de acesso para ${esc(label)}">Regra</summary><div class="menu-list">` +
+          option("all", "Incluir ramo") +
+          option("none", "Bloquear ramo") +
+          option("", "Usar regra do nível acima") +
+          `</div></details></div>` +
           (open ? grantBranch(item.id) : "") +
           "</li>"
         );
@@ -3269,45 +3849,174 @@ function grantBranch(parentId) {
     "</ul>"
   );
 }
+// Resumo fiel ao servidor: nunca diz "sem acesso" quando há concessão válida na raiz,
+// nem transforma uma falha de consulta em acesso negado.
 function grantSummary() {
-  const parts = Object.entries(wizard.totals).filter(([kind]) => KIND_PLURAL[kind]).map(([kind, count]) => `${count} ${KIND_PLURAL[kind]}`);
-  return parts.length ? "Acesso efetivo hoje: " + parts.join(", ") + ". Ramos com “Todos” incluem itens futuros." : "Sem acesso efetivo: nenhuma concessão válida.";
+  if (wizard.previewError) return `Não foi possível carregar a prévia do acesso (${wizard.previewError}). Nada foi alterado; tente de novo.`;
+  if (!wizard.root) return "";
+  const parts = Object.entries(KIND_PLURAL).filter(([kind]) => wizard.totals[kind] > 0).map(([kind, label]) => `${wizard.totals[kind]} ${label}`);
+  const blocked = [...wizard.grants].filter(([, mode]) => mode === "none").length;
+  if (wizard.root.state === "full") {
+    if (!wizard.root.has_children) return "Acesso concedido à corporação. Ainda não há empresas cadastradas. Novos ramos serão incluídos.";
+    return (
+      `Acesso concedido à corporação${blocked ? `, com ${blocked} ramo(s) bloqueado(s)` : ""}. ` +
+      `Acesso efetivo hoje: ${parts.join(", ") || "nenhum ramo liberado"}. Novos ramos${blocked ? " fora dos bloqueios" : ""} serão incluídos.`
+    );
+  }
+  if (parts.length) return `Acesso efetivo hoje: ${parts.join(", ")}. Cada ramo incluído recebe também o que for criado dentro dele.`;
+  return "Sem acesso: nenhum ramo incluído. A conta entra, mas não vê nenhum ativo.";
 }
-function renderGrantTree() {
-  $id("grantTree").innerHTML = grantBranch(null);
-  $id("grantTotals").textContent = grantSummary();
+function renderGrantStep() {
+  const data = wizardData();
+  $id("scopeLead").textContent = `Acesso de ${data.name || data.email} em ${assetName(wizard.corp)}.`;
+  document.querySelectorAll('[name="scopeMode"]').forEach((radio) => (radio.checked = radio.value === wizard.mode));
+  $id("scopeSelect").hidden = wizard.mode !== "select";
+  $id("scopeFuture").checked = wizard.grants.get(wizard.corp) === "all";
+  const companies = wizard.kids.get(wizard.corp);
+  // Três situações diferentes, três textos diferentes: falha, corporação vazia, lista.
+  $id("grantTree").innerHTML = wizard.previewError
+    ? `<p class="tree-empty is-error">Não foi possível carregar os ramos: ${esc(wizard.previewError)} <button type="button" class="text-button" data-grant-retry>Tentar de novo</button></p>`
+    : !companies
+      ? '<p class="tree-empty">Carregando…</p>'
+      : !companies.length
+        ? '<p class="tree-empty">Esta corporação ainda não tem empresas cadastradas. Com “Toda a corporação”, as que forem criadas entram automaticamente.</p>'
+        : grantBranch(wizard.corp);
+  const summary = wizard.mode ? grantSummary() : "Escolha o alcance do acesso.";
+  $id("grantTotals").textContent = (wizard.hint ? wizard.hint + " " : "") + summary;
+  $id("grantTotals").classList.toggle("is-error", !!wizard.previewError);
+  if (wizard.flash) {
+    $id("grantTree").querySelector(".flash")?.scrollIntoView({ block: "nearest" });
+    wizard.flash = "";
+  }
 }
+// As três escolhas do nível superior.
+document.querySelectorAll('[name="scopeMode"]').forEach((radio) => {
+  radio.onchange = () => {
+    if (!radio.checked) return;
+    // A seleção por ramos em andamento fica guardada: voltar a "Selecionar ramos" a restaura.
+    if (wizard.mode === "select") wizard.stash = new Map(wizard.grants);
+    wizard.mode = radio.value;
+    wizard.hint = "";
+    if (radio.value === "whole") wizard.grants = new Map([[wizard.corp, "all"]]);
+    else if (radio.value === "none") wizard.grants = new Map();
+    else if (wizard.stash) wizard.grants = new Map(wizard.stash);
+    refreshGrantTree().catch((error) => ($id("userFormMessage").textContent = errorText(error)));
+  };
+});
+$id("scopeFuture").onchange = () => {
+  $id("scopeFuture").checked ? wizard.grants.set(wizard.corp, "all") : wizard.grants.delete(wizard.corp);
+  wizard.hint = "";
+  refreshGrantTree().catch((error) => ($id("userFormMessage").textContent = errorText(error)));
+};
 $id("grantTree").onclick = async (event) => {
   const toggle = event.target.closest("[data-grant-toggle]");
   const grant = event.target.closest("[data-grant]");
   try {
+    if (event.target.closest("[data-grant-retry]")) return void (await refreshGrantTree());
     if (toggle) {
       const id = toggle.dataset.grantToggle;
       if (wizard.open.has(id)) wizard.open.delete(id);
       else {
         wizard.open.add(id);
-        await loadGrantLevel(id);
+        if (!(await loadGrantLevel(id, wizard.run))) return;
       }
-      renderGrantTree();
+      renderGrantStep();
     } else if (grant) {
-      grant.dataset.mode ? wizard.grants.set(grant.dataset.grant, grant.dataset.mode) : wizard.grants.delete(grant.dataset.grant);
-      await refreshGrantTree();
+      const id = grant.dataset.grant;
+      const mode = grant.dataset.mode;
+      mode ? wizard.grants.set(id, mode) : wizard.grants.delete(id);
+      wizard.hint = "";
+      if (!(await refreshGrantTree())) return;
+      // O servidor descarta regras sem efeito; a tela explica em vez de mostrar um estado que não foi gravado.
+      const name = wizard.names.get(id)?.name || "Este ramo";
+      if (mode === "none" && !wizard.grants.has(id)) wizard.hint = `“${name}” já está sem acesso: sem regra acima, só entram os ramos incluídos.`;
+      if (mode === "all" && !wizard.grants.has(id)) wizard.hint = `“${name}” já está incluído pela regra do nível acima.`;
+      if (wizard.hint) renderGrantStep();
     }
   } catch (error) {
     $id("userFormMessage").textContent = errorText(error);
   }
 };
+// O menu "Regra" abre sobre a lista, sem ser cortado pela área de rolagem.
+$id("grantTree").addEventListener(
+  "toggle",
+  (event) => {
+    const menu = event.target;
+    if (!menu.matches?.("details.grant-menu") || !menu.open) return;
+    $id("grantTree").querySelectorAll("details.grant-menu[open]").forEach((other) => other !== menu && (other.open = false));
+    const anchor = menu.querySelector("summary").getBoundingClientRect();
+    const list = menu.querySelector(".menu-list");
+    list.style.position = "fixed";
+    list.style.right = "auto";
+    list.style.left = Math.max(8, Math.min(anchor.right - 220, window.innerWidth - 228)) + "px";
+    list.style.top = (anchor.bottom + 110 > window.innerHeight ? anchor.top - 112 : anchor.bottom + 4) + "px";
+  },
+  true,
+);
+$id("grantTree").addEventListener("scroll", () => $id("grantTree").querySelectorAll("details.grant-menu[open]").forEach((menu) => (menu.open = false)));
+
+// Busca de ramos dentro da corporação escolhida (empresa, área, subárea ou TAG).
+$id("grantSearch").oninput = debounce(async () => {
+  const query = $id("grantSearch").value.trim();
+  const box = $id("grantResults");
+  const run = ++wizard.searchRun;
+  const corp = wizard.corp;
+  if (query.length < 2) return void (box.hidden = true);
+  try {
+    const rows = (await callRpc("gaxeta_assets_search", { p_query: query, p_limit: 100 })).filter((row) => row.corporation_id === corp && row.kind !== "corporation");
+    if (run !== wizard.searchRun || corp !== wizard.corp) return;
+    box.hidden = false;
+    box.innerHTML = rows.length
+      ? rows
+          .slice(0, 30)
+          .map((row) => `<button type="button" data-grant-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(assetLabel(row))}</strong><span>${esc((row.path_names || []).slice(1, -1).join(" / "))}</span></button>`)
+          .join("")
+      : `<p class="tree-empty">Nenhum ramo desta corporação corresponde a “${esc(query)}”.</p>`;
+  } catch (error) {
+    if (run !== wizard.searchRun) return;
+    box.hidden = false;
+    box.innerHTML = `<p class="tree-empty is-error">Não foi possível buscar agora: ${esc(errorText(error))}</p>`;
+  }
+}, 300);
+$id("grantResults").onclick = async (event) => {
+  const button = event.target.closest("[data-grant-result]");
+  if (!button) return;
+  try {
+    const id = button.dataset.grantResult;
+    await ensureAssets([id]);
+    // Abre os níveis acima do resultado (da empresa até o pai) e destaca a linha.
+    for (const ancestor of (assetIndex.get(id)?.path || []).slice(1, -1)) wizard.open.add(ancestor);
+    wizard.flash = id;
+    $id("grantResults").hidden = true;
+    $id("grantSearch").value = "";
+    await refreshGrantTree();
+  } catch (error) {
+    $id("userFormMessage").textContent = errorText(error);
+  }
+};
+
 function renderUserReview() {
   const data = wizardData();
-  const grants = [...wizard.grants].map(([id, mode]) => {
+  const describe = ([id]) => {
     const known = wizard.names.get(id) || {};
-    return `<li><b>${mode === "all" ? "Todos" : "Nenhum"}</b> em ${esc((KIND_LABEL[known.kind] || "") + " " + (known.name || id))}</li>`;
-  });
+    const path = assetPathLabel(id) || [known.path, known.name].filter(Boolean).join(" / ") || id;
+    return `<li><small>${KIND_LABEL[known.kind || assetIndex.get(id)?.kind] || ""}</small> ${esc(path)}</li>`;
+  };
+  const included = [...wizard.grants].filter(([, mode]) => mode === "all");
+  const blocked = [...wizard.grants].filter(([, mode]) => mode === "none");
+  const scope = scopeOf(wizard.grants, wizard.corp);
   $id("userReview").innerHTML =
     `<dl class="detail-fields"><dt>Nome</dt><dd>${esc(data.name)}</dd><dt>Destinatário</dt><dd>${esc(data.email)}</dd><dt>Nível</dt><dd>${ROLE_LABEL[data.role]}</dd>` +
     (data.role === "corp"
-      ? `<dt>Corporação</dt><dd>${esc(assetName(data.corp))}</dd><dt>Edição operacional</dt><dd>${data.canWrite ? "Sim: cria áreas, subáreas, TAGs e spots e vincula sensores nos ramos concedidos" : "Não: somente consulta"}</dd></dl>` +
-        `<h3>Concessões</h3>${grants.length ? `<ul>${grants.join("")}</ul>` : "<p>Nenhuma concessão: o usuário entra, mas não vê nenhum ramo.</p>"}<p class="grant-totals">${grantSummary()}</p>`
+      ? `<dt>Corporação</dt><dd>${esc(assetName(data.corp))}</dd><dt>Edição operacional</dt><dd>${data.canWrite ? "Sim: cria áreas, subáreas, TAGs e spots e vincula sensores nos ramos concedidos" : "Não: somente consulta"}</dd>` +
+        `<dt>Alcance</dt><dd>${SCOPE_LABEL[scope]}</dd></dl>` +
+        (scope === "select" || blocked.length
+          ? `<div class="review-lists">` +
+            (included.length ? `<div><h3>Ramos incluídos</h3><ul>${included.map(describe).join("")}</ul></div>` : "") +
+            (blocked.length ? `<div><h3>Exceções bloqueadas</h3><ul>${blocked.map(describe).join("")}</ul></div>` : "") +
+            `</div>`
+          : "") +
+        `<p class="grant-totals${wizard.previewError ? " is-error" : ""}">${esc(grantSummary())}</p>`
       : `<dt>Alcance</dt><dd>${data.role === "adm3" ? "Consulta e análise em todas as corporações, sem escrita" : "Global, conforme o nível"}</dd></dl>`) +
     (wizard.userId ? "" : `<p class="form-help">O cadastro é gravado antes do envio. Se o e-mail falhar, o convite fica pendente e pode ser reenviado. Se o e-mail já tiver uma conta verificada, ela é vinculada sem novo convite e sem troca de senha.</p>`);
 }
@@ -3315,6 +4024,7 @@ $id("userBack").onclick = () => {
   wizard.step = wizard.step === 3 && wizardData().role !== "corp" ? 1 : wizard.step - 1;
   $id("userFormMessage").textContent = "";
   syncWizard();
+  if (wizard.step === 2) renderGrantStep();
 };
 $id("userForm").onsubmit = async (event) => {
   event.preventDefault();
@@ -3329,18 +4039,27 @@ $id("userForm").onsubmit = async (event) => {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return void (message.textContent = "Informe um e-mail válido.");
       if (data.role === "corp" && !data.corp) return void (message.textContent = "Selecione a corporação.");
       if (data.role === "corp") {
-        if (wizard.corp !== data.corp && !wizard.userId) wizard.grants = new Map();
-        wizard.corp = data.corp;
-        wizard.kids = new Map();
-        wizard.open = new Set();
-        await refreshGrantTree();
+        // Outra corporação num cadastro novo: a seleção anterior não se aplica. Mesma corporação: tudo é mantido.
+        if (wizard.corp !== data.corp) {
+          if (!wizard.userId && wizard.corp) Object.assign(wizard, { grants: new Map(), stash: null, mode: "" });
+          Object.assign(wizard, { corp: data.corp, kids: new Map(), open: new Set(), root: null, totals: {} });
+        }
+        wizard.hint = "";
+        $id("grantSearch").value = "";
+        $id("grantResults").hidden = true;
         wizard.step = 2;
+        syncWizard();
+        renderGrantStep();
+        await refreshGrantTree();
       } else {
         renderUserReview();
         wizard.step = 3;
       }
     } else if (wizard.step === 2) {
-      await loadGrantLevel(null);
+      if (!wizard.mode) return void (message.textContent = "Escolha o alcance: Toda a corporação, Selecionar ramos ou Sem acesso.");
+      // A revisão usa a resposta do servidor. Se a prévia falhar, o fluxo não avança nem assume "sem acesso".
+      if (!(await refreshGrantTree())) return void (message.textContent = wizard.previewError ? "Não foi possível conferir o acesso no servidor. Tente de novo." : "");
+      await ensureAssets([...wizard.grants.keys()]);
       renderUserReview();
       wizard.step = 3;
     } else if (wizard.userId) {
@@ -3482,6 +4201,7 @@ async function enterApp(session) {
     $id("userBadge").textContent = (context.display_name || session.user.email || "?").trim().slice(0, 2).toUpperCase();
     $id("password").value = "";
     applyPermissions();
+    loadEquipCatalog().catch(() => {}); // rótulos dos tipos de equipamento; sem a leitura vale o catálogo inicial
     setConnection(true);
     showMessage("");
     if (session.user.user_metadata?.must_change_password) openAccountDialog(true);
@@ -3656,10 +4376,83 @@ $id("logout").onclick = async () => {
   showAuthView("loginForm");
 };
 
+// ---- 88-manual.js ----
+// =============================================================================
+// Manual dentro da aplicação. O conteúdo e o índice são os de operacao.html (uma
+// só fonte), lidos sob demanda. Como a navegação não sai da página, a sessão
+// autorizada, a tela de origem e o sensor selecionado continuam em memória, e o
+// Voltar devolve exatamente ao ponto de partida. operacao.html continua valendo
+// como endereço direto; aberto fora da plataforma, segue o fluxo normal de entrada.
+// =============================================================================
+const manual = { loaded: false, observer: null };
+function markManualSection(id) {
+  $id("manualNav")
+    .querySelectorAll("a[data-section]")
+    .forEach((link) => (link.dataset.section === id ? link.setAttribute("aria-current", "true") : link.removeAttribute("aria-current")));
+}
+function goManualSection(id) {
+  const target = $id("manualBody").querySelector("#" + CSS.escape(id));
+  if (!target) return;
+  target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  markManualSection(id);
+  if (isNarrow()) $id("manualNav").querySelector("details")?.removeAttribute("open");
+}
+async function openManual() {
+  if (!manual.loaded) {
+    $id("manualNav").replaceChildren();
+    $id("manualBody").innerHTML = '<p class="form-help">Carregando o manual…</p>';
+    try {
+      const response = await fetch("./operacao.html", { cache: "no-cache" });
+      if (!response.ok) throw Error("HTTP " + response.status);
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      const content = page.querySelector("[data-manual-content]");
+      const index = page.querySelector("[data-manual-nav]");
+      if (!content || !index) throw Error("formato inesperado");
+      for (const node of [content, index]) node.querySelectorAll("script, style, link").forEach((element) => element.remove());
+      $id("manualBody").replaceChildren(...[...content.children].map((node) => document.importNode(node, true)));
+      $id("manualNav").replaceChildren(...[...index.children].map((node) => document.importNode(node, true)));
+      manual.loaded = true;
+    } catch (error) {
+      $id("manualBody").innerHTML =
+        '<section><h2>Manual indisponível agora</h2><p>Não foi possível carregar o conteúdo. <a href="./operacao.html" target="_blank" rel="noopener">Abrir o manual em outra aba</a>.</p></section>';
+      return;
+    }
+    // Indicação da seção atual conforme a rolagem.
+    manual.observer?.disconnect();
+    manual.observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top)[0];
+        if (visible) markManualSection(visible.target.id);
+      },
+      { rootMargin: "-70px 0px -65% 0px" },
+    );
+    $id("manualBody")
+      .querySelectorAll("section[id]")
+      .forEach((section) => manual.observer.observe(section));
+  }
+  const index = $id("manualNav").querySelector("details");
+  if (index) index.open = !isNarrow();
+  window.scrollTo(0, 0);
+}
+// Dentro da aplicação o endereço (#manual) é a rota: os links do índice rolam até a seção sem trocá-lo.
+$id("manualPage").addEventListener("click", (event) => {
+  const link = event.target.closest('a[href^="#"]');
+  if (!link) return;
+  event.preventDefault();
+  goManualSection(link.getAttribute("href").slice(1));
+});
+
 // ---- 90-ble-ui.js ----
 // Diálogo de Bluetooth (herdado do pacote publicado, com o vínculo passando pelo fluxo autorizado).
+// Só existe no aplicativo nativo e só abre por toque explícito: abrir o aplicativo ou trocar de
+// tela nunca inicia busca nem envia comando à placa. Na web, a entrada e o diálogo são removidos.
 function openBleDialog() {
+  if (!bleAvailable() || !$id("bleDialog")) return;
   $id("bleDialog").showModal();
+}
+function closeBleDialog() {
+  const dialog = $id("bleDialog");
+  if (dialog?.open) dialog.close();
 }
 function onBleReading(t, e) {
   ((state.bleReading = t),
@@ -3672,6 +4465,7 @@ function onBleReading(t, e) {
     ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
 }
 function setBleStatus(t) {
+  if (!$id("bleStatus")) return;
   (($id("bleStatus").textContent = t),
     ($id("disconnectBle").disabled = !bleCurrent()),
     ($id("identifyBle").disabled = !bleCurrent()),
@@ -3739,6 +4533,14 @@ $id("linkBle").onclick = async () => {
 // Inicialização: liga a navegação e os eventos globais. O painel só abre por
 // enterApp(), chamado a partir de uma ação explícita de quem está usando.
 // =============================================================================
+// Plataforma: decidida pelo runtime (aplicativo nativo × navegador), nunca pela largura da tela.
+document.body.classList.toggle("native-app", isNativeApp());
+if (bleAvailable()) $id("openBle").hidden = false;
+else {
+  // Web (inclusive navegador de celular): sem entrada de Bluetooth e sem o diálogo no documento.
+  $id("openBle").remove();
+  $id("bleDialog").remove();
+}
 document.querySelectorAll("[data-glyph]").forEach((slot) => (slot.innerHTML = glyph(slot.dataset.glyph)));
 document.querySelectorAll("[data-page]").forEach((button) => (button.onclick = () => showPage(button.dataset.page)));
 document.querySelectorAll("[data-close]").forEach((button) => (button.onclick = () => $id(button.dataset.close).close()));
@@ -3746,7 +4548,8 @@ $id("refresh").onclick = () => refreshData(true);
 $id("pageActions").onclick = (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "find-sensor") openBleDialog();
-  if (action === "new-corporation") openAssetForm({ parentId: null });
+  if (action === "new-corporation") openAssetForm({ parentId: null }).catch((error) => showMessage(errorText(error), "error"));
+  if (action === "manual-back") showPage(state.manualReturn);
   if (action === "new-gateway") openGatewayForm().catch((error) => showMessage(errorText(error), "error"));
   if (action === "new-user") openUserWizard().catch((error) => showMessage(errorText(error), "error"));
 };
