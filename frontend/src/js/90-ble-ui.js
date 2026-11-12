@@ -1,6 +1,13 @@
 // Diálogo de Bluetooth (herdado do pacote publicado, com o vínculo passando pelo fluxo autorizado).
+// Só existe no aplicativo nativo e só abre por toque explícito: abrir o aplicativo ou trocar de
+// tela nunca inicia busca nem envia comando à placa. Na web, a entrada e o diálogo são removidos.
 function openBleDialog() {
+  if (!bleAvailable() || !$id("bleDialog")) return;
   $id("bleDialog").showModal();
+}
+function closeBleDialog() {
+  const dialog = $id("bleDialog");
+  if (dialog?.open) dialog.close();
 }
 function onBleReading(t, e) {
   ((state.bleReading = t),
@@ -13,6 +20,7 @@ function onBleReading(t, e) {
     ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
 }
 function setBleStatus(t) {
+  if (!$id("bleStatus")) return;
   (($id("bleStatus").textContent = t),
     ($id("disconnectBle").disabled = !bleCurrent()),
     ($id("identifyBle").disabled = !bleCurrent()),

@@ -40,7 +40,7 @@ begin
     begin
       if random() < 0.25 then
         select id into np from public.gaxeta_assets where corporation_id = t.id('corpA') and kind = 'equipment' order by random() limit 1;
-        perform public.gaxeta_save_asset(null, np, 'point', 'Spot c' || i || '-' || pg_backend_pid(), '', '');
+        perform public.gaxeta_save_asset(null, np, 'point', case when i % 2 = 0 then 'LOA' else 'LA' end, '', '');
       else
         select id, kind, name, tag, position into x from public.gaxeta_assets where corporation_id = t.id('corpA') and kind in ('equipment','subarea','area') order by random() limit 1;
         select id into np from public.gaxeta_assets where corporation_id = t.id('corpA')

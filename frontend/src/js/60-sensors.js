@@ -66,11 +66,13 @@ function renderSensorGrid() {
         const status = deviceStatus(device);
         const health = adjustmentInfo(device.stable_percent);
         const scale = Math.max(0, Math.min(100, Number(device.stable_percent) || 0));
-        const path = assetPathLabel(device.measurement_point_id);
+        // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
+        const identity = deviceIdentity(device);
+        const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
         return (
           `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
-          `<p class="card-path${path ? "" : " unlinked"}">${esc(path || "Sem vínculo · fila de associação")}</p>` +
+          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
           `<div class="card-main"><div class="card-value">${fmtNum(device.stable_percent)}<small>%</small></div>` +
           `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small>${health.action}</small></div></div>` +
           `<div class="mini-scale"><i style="width:${scale}%"></i></div>` +
@@ -107,12 +109,8 @@ $id("sensorGrid").onclick = (event) => {
   const button = event.target.closest("[data-act]");
   const sensorId = event.target.closest("[data-card]")?.dataset.card;
   if (!button || !sensorId) return;
-  if (button.dataset.act === "history") {
-    state.sensorId = sensorId;
-    state.history = [];
-    state.stats = {};
-    showPage("telemetry");
-  } else openDrawer(sensorId, button.dataset.act, button);
+  if (button.dataset.act === "history") openHistoryFor(sensorId);
+  else openDrawer(sensorId, button.dataset.act, button);
 };
 $id("sensorPager").onclick = (event) => {
   const move = event.target.closest("[data-page-move]");
@@ -137,7 +135,7 @@ const PICK_PLACEHOLDER = {
   corporation: "Selecione a corporação",
   company: "Selecione a empresa",
   area: "Selecione a área",
-  subarea: "TAG direto na área (sem subárea)",
+  subarea: "Sem subárea · TAGs da área",
   equipment: "Selecione o TAG",
   point: "Selecione o spot",
 };
@@ -164,13 +162,27 @@ async function refillPicker(prefix, fromIndex, values, levels = PICK_LEVELS) {
     }
     fillSelect(
       select,
-      options.map((asset) => ({ value: asset.id, label: asset.tag ? `${asset.name} · ${asset.tag}` : asset.name })),
-      PICK_PLACEHOLDER[level],
+      options.map((asset) => ({ value: asset.id, label: assetLabel(asset) })),
+      // Área sem subáreas: a opção vazia continua sendo o caminho normal (TAG direto na área).
+      level === "subarea" && parent && !options.length ? "Sem subárea" : PICK_PLACEHOLDER[level],
       values[level] || "",
     );
     values[level] = select.value;
     select.disabled = level !== "corporation" && !parent;
   }
+}
+
+// Depois de salvar, vincular ou desvincular: a tela em uso relê o que depende do vínculo.
+async function afterSensorChange() {
+  if (state.page === "sensors") await loadSensors({ quiet: true });
+  else if (state.page === "assets") {
+    renderTree();
+    await renderInspector();
+  } else if (state.page === "telemetry") {
+    renderHistorySelect();
+    renderTelemetryLive();
+  }
+  renderIcons();
 }
 
 // ----- Painel lateral -----
@@ -223,8 +235,9 @@ async function renderDrawer() {
   const pane = $id("detailPane");
   const point = assetIndex.get(device.measurement_point_id);
   const path = assetPathLabel(device.measurement_point_id);
+  const identity = deviceIdentity(device);
   const head =
-    `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
+    `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
     `<div class="drawer-values"><div><span>Estabilizado</span><strong id="detailStable"></strong></div><div><span>Bruto</span><strong id="detailRaw"></strong></div><div><span>Tensão est.</span><strong id="detailVolt"></strong></div></div>` +
@@ -273,7 +286,7 @@ async function renderDrawer() {
           await ensureAssets([saved.measurement_point_id]);
           showMessage(`Sensor ${name} salvo${saved.measurement_point_id ? " em " + assetPathLabel(saved.measurement_point_id) : ", sem vínculo"}.`, "success");
           openDrawer(sensorId, "detail");
-          if (state.page === "sensors") await loadSensors({ quiet: true });
+          await afterSensorChange();
         } catch (error) {
           message.textContent = errorText(error);
         }
@@ -287,7 +300,7 @@ async function renderDrawer() {
           mergeDevices([saved]);
           showMessage("Sensor desvinculado. Ele está na fila de associação.", "success");
           openDrawer(sensorId, "detail");
-          if (state.page === "sensors") await loadSensors({ quiet: true });
+          await afterSensorChange();
         });
       };
   } else {
@@ -297,6 +310,7 @@ async function renderDrawer() {
       ["ID", device.sensor_id],
       ["MAC Wi-Fi", device.wifi_mac || "—"],
       ["MAC BLE", device.ble_mac || "—"],
+      ["TAG", identity.linked ? identity.title : "—"],
       ["Spot", point ? point.name + (point.position ? " · " + point.position : "") : "Sem vínculo"],
       ["Transporte", "Wi-Fi direto"],
       ["Gateway", gateway ? `${gateway.name} · cadastrado` : "Sem gateway"],
@@ -309,14 +323,14 @@ async function renderDrawer() {
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
       `</div><dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
-      (canEditDevice(device)
+      // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
+      (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
       `<small class="drawer-note">Posição e tensão são estimadas. Curso de referência: 50 mm.</small></div>`;
     $id("detailHistory").onclick = () => {
-      state.sensorId = sensorId;
       closeDrawer(false);
-      showPage("telemetry");
+      openHistoryFor(sensorId);
     };
     if ($id("detailEdit")) $id("detailEdit").onclick = () => openDrawer(sensorId, "edit");
     if ($id("applyBleName"))

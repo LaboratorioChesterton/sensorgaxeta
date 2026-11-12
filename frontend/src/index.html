@@ -66,7 +66,7 @@
     <small class="auth-foot">Acesso individual, cadastrado pelo responsável pela operação. <a href="./operacao.html">Manual de operação</a></small>
   </div>
   <div class="auth-art" aria-hidden="true">
-    <img src="./icon.svg" alt="">
+    <img class="auth-symbol" src="./icon.svg" alt="">
     <div class="auth-statement">Precisão num ponto,<br>visão do conjunto</div>
     <p>GAXETA · GESTÃO DE ATIVOS</p>
   </div>
@@ -87,7 +87,7 @@
         <div class="menu-who"><strong id="userName"></strong><span id="userEmail"></span><small id="userRole"></small></div>
         <button id="account" type="button">Minha senha</button>
         <button type="button" data-page="users" class="needs-users mobile-only">Usuários</button>
-        <a href="./operacao.html" class="mobile-only">Manual de operação</a>
+        <button type="button" data-page="manual" class="mobile-only">Manual de operação</button>
         <button id="logout" type="button">Sair</button>
       </div>
     </details>
@@ -100,8 +100,8 @@
   <button data-page="telemetry" title="Telemetria"><i data-lucide="chart-no-axes-combined"></i><span>Telemetria</span></button>
   <button data-page="gateways" title="Gateways"><i data-lucide="router"></i><span>Gateways</span></button>
   <button data-page="users" class="needs-users desk-only" title="Usuários"><span class="glyph-slot" data-glyph="users"></span><span>Usuários</span></button>
-  <button id="openBle" title="Bluetooth"><i data-lucide="bluetooth"></i><span>Bluetooth</span></button>
-  <a href="./operacao.html" class="desk-only" title="Manual de operação"><i data-lucide="book-open"></i><span>Manual</span></a>
+  <button id="openBle" title="Bluetooth" hidden><i data-lucide="bluetooth"></i><span>Bluetooth</span></button>
+  <button data-page="manual" class="desk-only" title="Manual de operação"><i data-lucide="book-open"></i><span>Manual</span></button>
 </nav>
 
 <main>
@@ -133,7 +133,7 @@
     <div id="sensorPane" class="sensor-pane">
       <div class="sensor-toolbar">
         <button id="toggleTree" class="secondary compact" aria-controls="assetPane" aria-expanded="true"><span class="glyph-slot" data-glyph="panel"></span><span>Árvore</span></button>
-        <label class="search grow"><i data-lucide="search"></i><input id="sensorSearch" placeholder="Nome, ID ou MAC" aria-label="Buscar sensor" autocomplete="off"></label>
+        <label class="search grow"><i data-lucide="search"></i><input id="sensorSearch" placeholder="Sensor, TAG, ID ou MAC" aria-label="Buscar sensor por nome, TAG, ID ou MAC" autocomplete="off"></label>
         <select id="statusFilter" aria-label="Filtro de sensores">
           <option value="all">Todos</option>
           <option value="online">Transmitindo</option>
@@ -155,38 +155,53 @@
 
   <!-- Telemetria -->
   <section id="telemetryPage" class="telemetry-page" hidden>
-    <div class="telemetry-heading">
-      <div class="telemetry-title"><h2 id="historyTitle">Deslocamento da gaxeta</h2><p id="historyLocation" class="history-location"></p></div>
-      <div class="history-selection">
-        <label>Buscar sensor<input id="historySearch" placeholder="Nome, ID ou MAC" autocomplete="off"></label>
-        <label>Sensor<select id="historySensor" aria-label="Sensor do histórico"></select></label>
+    <div class="telemetry-bar">
+      <div class="telemetry-identity">
+        <h2 id="historyTitle">Telemetria</h2>
+        <p id="historyContext" class="history-context"></p>
+      </div>
+      <div class="telemetry-pick">
+        <label class="search"><i data-lucide="search"></i><input id="historySearch" placeholder="Buscar TAG, sensor, ID ou MAC" aria-label="Buscar sensor por TAG, nome, ID ou MAC" autocomplete="off"></label>
+        <select id="historySensor" aria-label="Sensor exibido"></select>
       </div>
       <div class="telemetry-actions">
-        <button id="historyEdit" class="secondary compact">Detalhes do sensor</button>
-        <button id="exportCsv" class="secondary compact">Exportar CSV</button>
+        <button id="historyEdit" class="secondary compact">Detalhes</button>
+        <button id="exportCsv" class="secondary compact" title="Exportar os intervalos do período exibido">CSV</button>
       </div>
     </div>
-    <div class="telemetry-status"><div id="historyHealth" class="health-banner"></div><p id="historyRaw" class="history-raw"></p></div>
-    <div class="history-filters">
-      <div class="periods" aria-label="Período">
-        <button data-range="300000">5 min</button><button data-range="3600000" class="selected">1 hora</button><button data-range="21600000">6 horas</button><button data-range="86400000">1 dia</button><button data-range="604800000">7 dias</button><button data-range="month">1 mês</button><button data-range="3months">3 meses</button>
+    <div class="telemetry-summary">
+      <div id="historyHealthBox" class="summary-main health-unknown">
+        <div class="summary-value"><small>Ajuste estabilizado</small><strong id="historyCurrent">—</strong></div>
+        <div class="summary-condition"><span id="historyHealth" class="adjustment-badge">Sem leitura</span><small id="historyAction"></small><small id="historySince" class="summary-since"></small></div>
       </div>
-      <form id="customRange"><label>De<input id="fromTime" type="datetime-local" required></label><label>Até<input id="toTime" type="datetime-local" required></label><button class="secondary compact">Aplicar</button></form>
-    </div>
-    <div class="history-stats">
-      <div><span>Ajuste estabilizado</span><strong id="historyCurrent">—</strong></div>
-      <div><span>Mínimo bruto</span><strong id="historyMin">—</strong></div>
-      <div><span>Máximo bruto</span><strong id="historyMax">—</strong></div>
-      <div><span>Leituras no período</span><strong id="historyCount">—</strong></div>
+      <dl class="summary-stats">
+        <div><dt>Bruto atual</dt><dd id="historyRawNow">—</dd></div>
+        <div><dt>Mínimo bruto</dt><dd id="historyMin">—</dd></div>
+        <div><dt>Máximo bruto</dt><dd id="historyMax">—</dd></div>
+        <div><dt>Leituras</dt><dd id="historyCount">—</dd></div>
+      </dl>
+      <div class="summary-period">
+        <div class="periods" role="group" aria-label="Período">
+          <button data-range="300000">5 min</button><button data-range="3600000" class="selected">1 hora</button><button data-range="21600000">6 horas</button><button data-range="86400000">1 dia</button><button data-range="604800000">7 dias</button><button data-range="month">1 mês</button><button data-range="3months">3 meses</button><button id="customToggle" aria-expanded="false" aria-controls="customRange">Personalizado</button>
+        </div>
+        <form id="customRange" hidden><label>De<input id="fromTime" type="datetime-local" required></label><label>Até<input id="toTime" type="datetime-local" required></label><button class="secondary compact">Aplicar</button></form>
+      </div>
     </div>
     <div class="chart-panel">
-      <div class="chart-caption"><span>Ajuste estabilizado <b>%</b></span><label class="raw-toggle"><input id="showRawBand" type="checkbox"> Mostrar variação bruta</label><button id="resetZoom" class="text-button">Voltar ao período</button></div>
-      <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico do deslocamento. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
+      <div class="chart-caption">
+        <span id="historyShown" class="chart-shown" role="status" aria-live="polite"></span>
+        <ul class="chart-legend" aria-label="Cores da linha por condição">
+          <li class="health-critical"><i></i>Sem ajuste · até 20 %</li><li class="health-low"><i></i>Baixo · acima de 20 %</li><li class="health-medium"><i></i>Médio · 45 % ou mais</li><li class="health-high"><i></i>Alto · 70 % ou mais</li><li class="legend-change"><i></i>Mudança</li>
+        </ul>
+        <label class="raw-toggle"><input id="showRawBand" type="checkbox"> Variação bruta</label>
+        <button id="resetZoom" class="text-button" hidden>Voltar ao período anterior</button>
+      </div>
+      <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico do ajuste estabilizado. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
       <div class="x-axis"><span id="chartFrom">—</span><span id="chartTo">—</span></div>
-      <div class="chart-footer"><span>Arraste sobre a linha para ampliar um intervalo. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
+      <div class="chart-footer"><span>Arraste sobre o gráfico para ampliar. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
     </div>
     <div class="movement-heading"><div><h3>Mudanças relevantes</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
-    <div class="table-wrap"><table><thead><tr><th>Horário</th><th>Referência anterior</th><th>Novo ajuste</th><th>Variação</th><th>Condição</th></tr></thead><tbody id="movementRows"></tbody></table></div>
+    <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Referência anterior</th><th>Novo ajuste</th><th>Variação</th><th>Condição</th></tr></thead><tbody id="movementRows"></tbody></table></div>
     <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Estabilizado / média bruta</th><th>Mín. / máx.</th><th>Posição estimada</th><th>Tensão estimada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
   </section>
 
@@ -213,6 +228,14 @@
     <details id="auditPanel" class="raw-details"><summary>Auditoria: últimas alterações de acesso e cadastro</summary><div class="table-wrap"><table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Alvo</th><th>Detalhe</th></tr></thead><tbody id="auditRows"></tbody></table></div></details>
   </section>
 
+  <!-- Manual: mesmo conteúdo de operacao.html, lido sob demanda, sem sair da sessão -->
+  <section id="manualPage" class="manual-page" hidden>
+    <div class="manual-layout">
+      <nav id="manualNav" class="manual-nav" aria-label="Seções do manual"></nav>
+      <article id="manualBody" class="manual-content"></article>
+    </div>
+  </section>
+
   <footer class="footer"><span>CHESTERTON · GAXETA GESTÃO DE ATIVOS</span><span>Precisão num ponto, visão do conjunto</span></footer>
 </main>
 </div>
@@ -222,9 +245,16 @@
   <div class="dialog-heading"><h2 id="assetDialogTitle">Novo ativo</h2><button type="button" data-close="assetDialog" class="icon-button" aria-label="Fechar">×</button></div>
   <p id="assetContext" class="form-context"></p>
   <label id="assetKindRow">Nível<select id="assetKind"></select></label>
-  <label>Nome<input id="assetName" maxlength="100" required autocomplete="off"></label>
-  <label id="assetTagRow">TAG / código<input id="assetTag" maxlength="48" autocomplete="off"></label>
+  <label id="assetNameRow">Nome<input id="assetName" maxlength="100" autocomplete="off"></label>
+  <label id="assetTagRow"><span id="assetTagLabel">Código (opcional)</span><input id="assetTag" maxlength="48" autocomplete="off"></label>
+  <p id="assetLegacyName" class="form-help" hidden></p>
+  <label id="assetSpotRow">Nome do spot<select id="assetSpotName"></select></label>
   <label id="assetPositionRow">Posição de montagem<input id="assetPosition" maxlength="100" placeholder="Ex.: lado do acionamento, posição 1" autocomplete="off"></label>
+  <div id="equipFields" hidden>
+    <label>Tipo de equipamento<select id="equipType"></select></label>
+    <div id="equipGroups" class="equip-groups"></div>
+    <p class="form-help">Só o TAG e o tipo são obrigatórios. Os demais campos são opcionais; em branco significa “não informado”. Dimensões aceitam a unidade (mm, pol).</p>
+  </div>
   <div id="corpFields" hidden>
     <label>E-mail de contato<input id="corpEmail" type="email" maxlength="120" autocomplete="off"></label>
     <label>Responsável<input id="corpResponsible" maxlength="120" autocomplete="off"></label>
@@ -265,9 +295,20 @@
     <label class="check" id="newUserWriteRow"><input id="newUserWrite" type="checkbox"> Pode editar áreas, subáreas, TAGs e spots e vincular sensores nos ramos concedidos</label>
   </div>
   <div id="userStep2" class="step-body" hidden>
-    <p class="form-help">Em cada ramo: <b>Todos</b> inclui os descendentes atuais e futuros; <b>Nenhum</b> bloqueia o ramo; abra o ramo para <b>selecionar</b> itens específicos. Sem concessão, o acesso é negado.</p>
-    <div id="grantTree" class="grant-tree"></div>
-    <p id="grantTotals" class="grant-totals"></p>
+    <p id="scopeLead" class="form-help"></p>
+    <div class="scope-choices" role="radiogroup" aria-label="Alcance do acesso">
+      <label class="scope-choice"><input type="radio" name="scopeMode" value="whole"><span><b>Toda a corporação</b><small>Todas as empresas e níveis de hoje e os que forem criados depois.</small></span></label>
+      <label class="scope-choice"><input type="radio" name="scopeMode" value="select"><span><b>Selecionar ramos</b><small>Empresas, áreas, subáreas ou TAGs escolhidos. O restante fica sem acesso.</small></span></label>
+      <label class="scope-choice"><input type="radio" name="scopeMode" value="none"><span><b>Sem acesso</b><small>A conta entra, mas não vê nenhum ramo.</small></span></label>
+    </div>
+    <div id="scopeSelect" class="scope-select" hidden>
+      <label class="check"><input id="scopeFuture" type="checkbox"> Incluir também as empresas que forem criadas depois (regra na corporação)</label>
+      <label class="search"><i data-lucide="search"></i><input id="grantSearch" placeholder="Buscar empresa, área, subárea ou TAG" aria-label="Buscar ramo nesta corporação" autocomplete="off"></label>
+      <div id="grantResults" class="tree-results" hidden></div>
+      <div id="grantTree" class="grant-tree"></div>
+      <p class="form-help">Em cada ramo, o menu <b>Regra</b> oferece Incluir ramo, Bloquear ramo ou Usar regra do nível acima. Vale a regra mais próxima do item.</p>
+    </div>
+    <p id="grantTotals" class="grant-totals" role="status" aria-live="polite"></p>
   </div>
   <div id="userStep3" class="step-body" hidden><div id="userReview" class="review"></div></div>
   <p id="userFormMessage" class="form-message" role="status"></p>
@@ -282,7 +323,7 @@
 
 <dialog id="bleDialog" class="ble-dialog">
   <div class="dialog-heading"><h2>Bluetooth · conexão local</h2><button type="button" data-close="bleDialog" class="icon-button" aria-label="Fechar">×</button></div>
-  <p>Inicie a busca aqui. O Android pode abrir a janela de pareamento quando uma configuração protegida for solicitada. O Bluetooth serve para identificar o sensor; o vínculo ao spot é feito na plataforma, conforme a sua permissão.</p>
+  <p>A busca só começa quando você tocar em Buscar sensores. O Android pode abrir a janela de pareamento quando uma configuração protegida for solicitada.</p>
   <div class="ble-actions"><button id="scanBle" class="primary"><i data-lucide="search"></i>Buscar sensores</button><button id="disconnectBle" class="secondary" disabled>Desconectar</button></div>
   <p id="bleStatus" role="status">Pronto para buscar.</p>
   <div id="bleDevices" class="ble-devices"></div>
@@ -292,7 +333,7 @@
     <p id="bleTimestamp"></p>
     <button id="identifyBle" class="secondary">Identificar: piscar LED</button>
     <button id="linkBle" class="primary">Abrir este sensor na plataforma</button>
-    <p class="form-help">Sem Bluetooth, localize o sensor pela busca por nome, ID ou MAC. O nome anunciado pela placa só muda por ação explícita em Detalhes, com o PIN de 6 dígitos do sensor.</p>
+    <p class="form-help">O Bluetooth só identifica o sensor. O vínculo ao spot é feito na plataforma, conforme a sua permissão. O nome anunciado pela placa só muda por ação explícita em Detalhes, com o PIN de 6 dígitos do sensor.</p>
   </div>
 </dialog>
 

@@ -63,6 +63,33 @@ const KIND_CHILDREN = {
   point: [],
 };
 const KIND_ICON = { corporation: "building-2", company: "factory", area: "folder", subarea: "folder", equipment: "cog", point: "map-pin" };
+
+// Spot: o nome é uma de três opções (o servidor valida a mesma lista).
+const SPOT_NAMES = ["LOA", "LA", "UNICO"];
+const spotCanonical = (name) => {
+  const key = String(name ?? "").replace(/\s+/g, "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return SPOT_NAMES.includes(key) ? key : null;
+};
+
+// Tipos de equipamento. A lista vem do servidor (gaxeta_equipment_types); esta cópia
+// é o catálogo inicial e só vale enquanto a leitura não chega.
+const equipCatalog = new Map([
+  ["bomba_centrifuga", "Bomba centrífuga"], ["bomba_biapoiada", "Bomba biapoiada"], ["agitador", "Agitador"],
+  ["misturador", "Misturador"], ["refinador", "Refinador"], ["digestor", "Digestor"], ["depurador", "Depurador"],
+  ["vaso_pressao", "Vaso de pressão"], ["bomba_magnetica", "Bomba magnética"], ["bomba_hermetica", "Bomba hermética"],
+  ["bomba_vacuo", "Bomba de vácuo"], ["compressor", "Compressor"], ["bomba_alta_pressao", "Bomba de alta pressão"],
+  ["bomba_baixa_pressao", "Bomba de baixa pressão"],
+]);
+const TYPE_UNKNOWN = "Tipo não informado";
+// Ficha técnica do TAG: [chave no servidor, rótulo, formato]. "count" = inteiro não negativo; "long" = texto livre.
+const EQUIP_GROUPS = [
+  { title: "Processo", fields: [["fluid", "Produto / fluido"], ["fluid_temperature", "Temperatura do fluido"], ["density", "Densidade"], ["characteristics", "Características", "long"]] },
+  {
+    title: "Equipamento e montagem",
+    fields: [["manufacturer", "Fabricante"], ["model", "Modelo"], ["shaft_size", "Tamanho do eixo"], ["sleeve_size", "Tamanho da luva"], ["stud_size", "Tamanho do prisioneiro"], ["stud_diameter", "Diâmetro do prisioneiro"], ["gland_bolt_count", "Parafusos do preme-gaxeta (qtd.)", "count"]],
+  },
+  { title: "Gaxeta", fields: [["ring_count", "Quantidade de anéis", "count"], ["packing_type", "Tipo"], ["packing_model", "Modelo"], ["assembly_rule", "Regra de montagem", "long"]] },
+];
 const ROLE_LABEL = { adm1: "ADM nível 1", adm2: "ADM nível 2", adm3: "ADM nível 3", corp: "Usuário de corporação" };
 
 const fmtNum = (value, digits = 1) =>
@@ -73,7 +100,11 @@ const fmtDateTime = (value) => (value ? new Date(value).toLocaleString("pt-BR", 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const $id = (id) => document.getElementById(id);
+// Plataforma: só o runtime nativo do Capacitor conta como aplicativo. Uma janela
+// estreita de navegador (inclusive Chrome ou Safari no celular) continua sendo web.
 const isNativeApp = () => Z.isNativePlatform();
+// Bluetooth existe apenas no aplicativo nativo com o plugin disponível.
+const bleAvailable = () => isNativeApp() && Z.isPluginAvailable("BluetoothLe");
 const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
 
 // Ícones Lucide incluídos no vendor (nomes minificados à direita).
@@ -97,7 +128,14 @@ const GLYPHS = {
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.4"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   shield: '<path d="M12 3.5l7 2.5v5.5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6l7-2.5z"/>',
+  "chevron-down": '<path d="M6 9.5l6 6 6-6"/>',
+  "chevron-right": '<path d="M9.5 6l6 6-6 6"/>',
+  back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
+  subfolder: '<path d="M3.5 6.5h6l2 2h9v10h-17z"/><path d="M8 13.5h8"/>',
+  list: '<path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/>',
 };
+// Ícone do nível: os do pacote, mais um próprio para distinguir subárea de área.
+const kindIcon = (kind) => (kind === "subarea" ? glyph("subfolder") : icon(KIND_ICON[kind]));
 const glyph = (name) =>
   `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
 
@@ -202,23 +240,7 @@ function adjustmentInfo(t) {
             action: "Substituir a gaxeta",
           };
 }
-function buildStablePath(t, e, r, s, n) {
-  const i = +new Date(r),
-    a = +new Date(s),
-    o = Math.min(a, +new Date(n));
-  if (!(a > i) || !(o >= i)) return "";
-  const l = (f) => Math.max(0, Math.min(1e3, ((f - i) / (a - i)) * 1e3)).toFixed(2),
-    c = (f) => (280 - Math.max(0, Math.min(100, Number(f))) * 2.8).toFixed(2);
-  let h = e?.stable_percent,
-    p = h == null ? "" : `M0 ${c(h)}`;
-  for (const f of t) {
-    const g = +new Date(f.received_at);
-    g < i ||
-      g > o ||
-      ((p += h == null ? `M${l(g)} ${c(f.stable_percent)}` : ` H${l(g)} V${c(f.stable_percent)}`), (h = f.stable_percent));
-  }
-  return h == null ? "" : p + ` H${l(o)}`;
-}
+// A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.
 async function exportCsvFile(t, e) {
   if (Z.isNativePlatform()) {
     const n = await FilesystemPlugin.writeFile({

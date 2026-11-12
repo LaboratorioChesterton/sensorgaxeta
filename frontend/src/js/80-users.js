@@ -144,11 +144,42 @@ $id("userRows").onclick = async (event) => {
   });
 };
 
-// ----- Cadastro e edição de acesso em três etapas -----
-const wizard = { step: 1, userId: null, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} };
+// ----- Cadastro e edição de acesso em três etapas: dados → acesso → revisão -----
+// O escopo é gravado como concessões por ramo: "all" (inclui o ramo e o que for criado
+// nele), "none" (bloqueia) ou nenhuma regra (segue o nível acima). Vale a regra do
+// ancestral mais próximo; sem regra nenhuma, o acesso é negado. A prévia e a lista
+// normalizada vêm do servidor (gaxeta_admin_preview_access) e são a fonte de verdade
+// da revisão e da gravação.
+const wizard = {
+  step: 1,
+  userId: null,
+  corp: "",
+  mode: "", // "whole" | "select" | "none" | "" (ainda não escolhido)
+  grants: new Map(),
+  stash: null, // seleção por ramos guardada ao alternar para "Toda a corporação" ou "Sem acesso"
+  names: new Map(),
+  kids: new Map(),
+  open: new Set(),
+  totals: {},
+  root: null, // item da corporação na prévia (estado e se tem empresas)
+  run: 0,
+  searchRun: 0,
+  previewError: "",
+  hint: "",
+  flash: "",
+};
 const KIND_PLURAL = { company: "empresa(s)", area: "área(s)", subarea: "subárea(s)", equipment: "TAG(s)", point: "spot(s)" };
+const SCOPE_LABEL = { whole: "Toda a corporação", select: "Ramos selecionados", none: "Sem acesso" };
+// Qual das três escolhas corresponde a um conjunto de concessões.
+function scopeOf(grants, corp) {
+  const included = [...grants].filter(([, mode]) => mode === "all");
+  if (!included.length) return "none";
+  if (grants.size === 1 && grants.get(corp) === "all") return "whole";
+  return "select";
+}
 async function openUserWizard({ userId = null } = {}) {
-  Object.assign(wizard, { step: 1, userId, corp: "", grants: new Map(), names: new Map(), kids: new Map(), open: new Set(), totals: {} });
+  Object.assign(wizard, { step: 1, userId, corp: "", mode: "", grants: new Map(), stash: null, names: new Map(), kids: new Map(), open: new Set(), totals: {}, root: null, previewError: "", hint: "", flash: "" });
+  wizard.run++;
   const roots = await loadKids(null);
   const roles = [["corp", ROLE_LABEL.corp]];
   if (hasCap("manage_global_roles")) roles.push(["adm3", ROLE_LABEL.adm3], ["adm2", ROLE_LABEL.adm2], ["adm1", ROLE_LABEL.adm1]);
@@ -163,10 +194,12 @@ async function openUserWizard({ userId = null } = {}) {
     $id("newUserEmail").value = detail.email;
     $id("newUserCorp").value = detail.corporation_id || "";
     $id("newUserWrite").checked = !!detail.can_write;
+    // Concessões já gravadas: entram como estão e só mudam por ação de quem edita.
     for (const grant of detail.grants) {
       wizard.grants.set(grant.asset_id, grant.mode);
-      wizard.names.set(grant.asset_id, { name: grant.name, kind: grant.kind, path: (grant.path || []).join(" / ") });
+      wizard.names.set(grant.asset_id, { name: grant.tag && grant.kind === "equipment" ? grant.tag : grant.name, kind: grant.kind, path: (grant.path || []).join(" / ") });
     }
+    wizard.mode = scopeOf(wizard.grants, detail.corporation_id);
   }
   for (const id of ["newUserName", "newUserEmail", "newUserRole", "newUserCorp"]) $id(id).disabled = !!userId;
   $id("userDialogTitle").textContent = userId ? "Editar acesso" : "Novo usuário";
@@ -191,20 +224,44 @@ function syncWizard() {
 }
 $id("newUserRole").onchange = syncWizard;
 const grantList = () => [...wizard.grants].map(([asset_id, mode]) => ({ asset_id, mode }));
-// Lê do servidor o efeito das concessões em um nível (prévia do acesso efetivo).
-async function loadGrantLevel(parentId) {
-  const result = await callRpc("gaxeta_admin_preview_access", { p_corporation_id: wizard.corp, p_grants: grantList(), p_parent_id: parentId || null });
+
+// Lê do servidor o efeito das concessões em um nível. Devolve false se a resposta chegou
+// atrasada (outra alteração ou outra corporação já está em curso) e deve ser ignorada.
+async function loadGrantLevel(parentId, run) {
+  const corp = wizard.corp;
+  const result = await callRpc("gaxeta_admin_preview_access", { p_corporation_id: corp, p_grants: grantList(), p_parent_id: parentId || null });
+  if (run !== wizard.run || corp !== wizard.corp) return false;
   wizard.kids.set(kidsKey(parentId), result.items);
-  for (const item of result.items) wizard.names.set(item.id, { ...wizard.names.get(item.id), name: item.name, kind: item.kind });
+  for (const item of result.items) wizard.names.set(item.id, { ...wizard.names.get(item.id), name: item.kind === "equipment" && item.tag ? item.tag : item.name, kind: item.kind });
   if (!parentId) {
     wizard.totals = result.totals || {};
+    wizard.root = result.items[0] || null;
     wizard.grants = new Map(result.normalized_grants.map((grant) => [grant.asset_id, grant.mode]));
   }
+  return true;
 }
+// Relê a prévia: primeiro a raiz (que normaliza as concessões), depois os ramos abertos.
 async function refreshGrantTree() {
-  await loadGrantLevel(null);
-  await Promise.all([...wizard.open].map((id) => loadGrantLevel(id)));
-  renderGrantTree();
+  const run = ++wizard.run;
+  wizard.previewError = "";
+  try {
+    if (!(await loadGrantLevel(null, run))) return false;
+    const levels = await Promise.all([wizard.corp, ...wizard.open].map((id) => loadGrantLevel(id, run)));
+    if (levels.includes(false)) return false;
+  } catch (error) {
+    if (run !== wizard.run) return false;
+    // Falha de consulta não é "sem acesso": a tela diz que a prévia não carregou.
+    wizard.previewError = errorText(error);
+  }
+  renderGrantStep();
+  return !wizard.previewError;
+}
+function grantChip(item, explicit) {
+  if (explicit === "all") return ["Incluído", "included"];
+  if (explicit === "none") return [item.state === "path" ? "Bloqueado · exceção abaixo" : "Bloqueado", "blocked"];
+  if (item.state === "full") return ["Acesso herdado", "inherited"];
+  if (item.state === "path") return ["Só caminho", "path"];
+  return ["Sem acesso", "none"];
 }
 function grantBranch(parentId) {
   const items = wizard.kids.get(kidsKey(parentId)) || [];
@@ -214,14 +271,19 @@ function grantBranch(parentId) {
       .map((item) => {
         const explicit = wizard.grants.get(item.id) || "";
         const open = wizard.open.has(item.id);
-        const stateLabel = { full: "Com acesso", path: "Só caminho", none: "Sem acesso" }[item.state];
+        const label = item.kind === "equipment" && item.tag ? item.tag : item.tag && item.tag !== item.name ? `${item.name} · ${item.tag}` : item.name;
+        const [chip, chipClass] = grantChip(item, explicit);
+        const option = (mode, text) => `<button type="button" data-grant="${item.id}" data-mode="${mode}" aria-pressed="${explicit === mode}">${text}</button>`;
         return (
-          `<li><div class="grant-row state-${item.state}"><button type="button" class="tree-toggle" data-grant-toggle="${item.id}"${item.has_children ? "" : " disabled"} aria-label="${open ? "Recolher" : "Selecionar dentro de"} ${esc(item.name)}">${item.has_children ? (open ? "▾" : "▸") : ""}</button>` +
-          `<span class="grant-name"><small>${KIND_LABEL[item.kind]}</small>${esc(item.tag ? item.name + " · " + item.tag : item.name)}</span><span class="grant-state">${stateLabel}</span>` +
-          `<span class="segmented" role="group" aria-label="Concessão para ${esc(item.name)}">` +
-          `<button type="button" data-grant="${item.id}" data-mode="all" aria-pressed="${explicit === "all"}">Todos</button>` +
-          `<button type="button" data-grant="${item.id}" data-mode="none" aria-pressed="${explicit === "none"}">Nenhum</button>` +
-          `<button type="button" data-grant="${item.id}" data-mode="" aria-pressed="${!explicit}" title="Segue o nível acima; abra o ramo para selecionar itens">Herdar</button></span></div>` +
+          `<li><div class="grant-row${wizard.flash === item.id ? " flash" : ""}" data-grant-row="${item.id}">` +
+          `<button type="button" class="tree-toggle" data-grant-toggle="${item.id}"${item.has_children ? "" : " disabled"} aria-label="${open ? "Recolher" : "Abrir"} ${esc(label)}">${item.has_children ? glyph(open ? "chevron-down" : "chevron-right") : ""}</button>` +
+          `<span class="grant-name"><small>${KIND_LABEL[item.kind]}</small>${esc(label)}</span>` +
+          `<span class="grant-state chip-${chipClass}">${chip}</span>` +
+          `<details class="row-menu grant-menu"><summary aria-label="Regra de acesso para ${esc(label)}">Regra</summary><div class="menu-list">` +
+          option("all", "Incluir ramo") +
+          option("none", "Bloquear ramo") +
+          option("", "Usar regra do nível acima") +
+          `</div></details></div>` +
           (open ? grantBranch(item.id) : "") +
           "</li>"
         );
@@ -230,45 +292,174 @@ function grantBranch(parentId) {
     "</ul>"
   );
 }
+// Resumo fiel ao servidor: nunca diz "sem acesso" quando há concessão válida na raiz,
+// nem transforma uma falha de consulta em acesso negado.
 function grantSummary() {
-  const parts = Object.entries(wizard.totals).filter(([kind]) => KIND_PLURAL[kind]).map(([kind, count]) => `${count} ${KIND_PLURAL[kind]}`);
-  return parts.length ? "Acesso efetivo hoje: " + parts.join(", ") + ". Ramos com “Todos” incluem itens futuros." : "Sem acesso efetivo: nenhuma concessão válida.";
+  if (wizard.previewError) return `Não foi possível carregar a prévia do acesso (${wizard.previewError}). Nada foi alterado; tente de novo.`;
+  if (!wizard.root) return "";
+  const parts = Object.entries(KIND_PLURAL).filter(([kind]) => wizard.totals[kind] > 0).map(([kind, label]) => `${wizard.totals[kind]} ${label}`);
+  const blocked = [...wizard.grants].filter(([, mode]) => mode === "none").length;
+  if (wizard.root.state === "full") {
+    if (!wizard.root.has_children) return "Acesso concedido à corporação. Ainda não há empresas cadastradas. Novos ramos serão incluídos.";
+    return (
+      `Acesso concedido à corporação${blocked ? `, com ${blocked} ramo(s) bloqueado(s)` : ""}. ` +
+      `Acesso efetivo hoje: ${parts.join(", ") || "nenhum ramo liberado"}. Novos ramos${blocked ? " fora dos bloqueios" : ""} serão incluídos.`
+    );
+  }
+  if (parts.length) return `Acesso efetivo hoje: ${parts.join(", ")}. Cada ramo incluído recebe também o que for criado dentro dele.`;
+  return "Sem acesso: nenhum ramo incluído. A conta entra, mas não vê nenhum ativo.";
 }
-function renderGrantTree() {
-  $id("grantTree").innerHTML = grantBranch(null);
-  $id("grantTotals").textContent = grantSummary();
+function renderGrantStep() {
+  const data = wizardData();
+  $id("scopeLead").textContent = `Acesso de ${data.name || data.email} em ${assetName(wizard.corp)}.`;
+  document.querySelectorAll('[name="scopeMode"]').forEach((radio) => (radio.checked = radio.value === wizard.mode));
+  $id("scopeSelect").hidden = wizard.mode !== "select";
+  $id("scopeFuture").checked = wizard.grants.get(wizard.corp) === "all";
+  const companies = wizard.kids.get(wizard.corp);
+  // Três situações diferentes, três textos diferentes: falha, corporação vazia, lista.
+  $id("grantTree").innerHTML = wizard.previewError
+    ? `<p class="tree-empty is-error">Não foi possível carregar os ramos: ${esc(wizard.previewError)} <button type="button" class="text-button" data-grant-retry>Tentar de novo</button></p>`
+    : !companies
+      ? '<p class="tree-empty">Carregando…</p>'
+      : !companies.length
+        ? '<p class="tree-empty">Esta corporação ainda não tem empresas cadastradas. Com “Toda a corporação”, as que forem criadas entram automaticamente.</p>'
+        : grantBranch(wizard.corp);
+  const summary = wizard.mode ? grantSummary() : "Escolha o alcance do acesso.";
+  $id("grantTotals").textContent = (wizard.hint ? wizard.hint + " " : "") + summary;
+  $id("grantTotals").classList.toggle("is-error", !!wizard.previewError);
+  if (wizard.flash) {
+    $id("grantTree").querySelector(".flash")?.scrollIntoView({ block: "nearest" });
+    wizard.flash = "";
+  }
 }
+// As três escolhas do nível superior.
+document.querySelectorAll('[name="scopeMode"]').forEach((radio) => {
+  radio.onchange = () => {
+    if (!radio.checked) return;
+    // A seleção por ramos em andamento fica guardada: voltar a "Selecionar ramos" a restaura.
+    if (wizard.mode === "select") wizard.stash = new Map(wizard.grants);
+    wizard.mode = radio.value;
+    wizard.hint = "";
+    if (radio.value === "whole") wizard.grants = new Map([[wizard.corp, "all"]]);
+    else if (radio.value === "none") wizard.grants = new Map();
+    else if (wizard.stash) wizard.grants = new Map(wizard.stash);
+    refreshGrantTree().catch((error) => ($id("userFormMessage").textContent = errorText(error)));
+  };
+});
+$id("scopeFuture").onchange = () => {
+  $id("scopeFuture").checked ? wizard.grants.set(wizard.corp, "all") : wizard.grants.delete(wizard.corp);
+  wizard.hint = "";
+  refreshGrantTree().catch((error) => ($id("userFormMessage").textContent = errorText(error)));
+};
 $id("grantTree").onclick = async (event) => {
   const toggle = event.target.closest("[data-grant-toggle]");
   const grant = event.target.closest("[data-grant]");
   try {
+    if (event.target.closest("[data-grant-retry]")) return void (await refreshGrantTree());
     if (toggle) {
       const id = toggle.dataset.grantToggle;
       if (wizard.open.has(id)) wizard.open.delete(id);
       else {
         wizard.open.add(id);
-        await loadGrantLevel(id);
+        if (!(await loadGrantLevel(id, wizard.run))) return;
       }
-      renderGrantTree();
+      renderGrantStep();
     } else if (grant) {
-      grant.dataset.mode ? wizard.grants.set(grant.dataset.grant, grant.dataset.mode) : wizard.grants.delete(grant.dataset.grant);
-      await refreshGrantTree();
+      const id = grant.dataset.grant;
+      const mode = grant.dataset.mode;
+      mode ? wizard.grants.set(id, mode) : wizard.grants.delete(id);
+      wizard.hint = "";
+      if (!(await refreshGrantTree())) return;
+      // O servidor descarta regras sem efeito; a tela explica em vez de mostrar um estado que não foi gravado.
+      const name = wizard.names.get(id)?.name || "Este ramo";
+      if (mode === "none" && !wizard.grants.has(id)) wizard.hint = `“${name}” já está sem acesso: sem regra acima, só entram os ramos incluídos.`;
+      if (mode === "all" && !wizard.grants.has(id)) wizard.hint = `“${name}” já está incluído pela regra do nível acima.`;
+      if (wizard.hint) renderGrantStep();
     }
   } catch (error) {
     $id("userFormMessage").textContent = errorText(error);
   }
 };
+// O menu "Regra" abre sobre a lista, sem ser cortado pela área de rolagem.
+$id("grantTree").addEventListener(
+  "toggle",
+  (event) => {
+    const menu = event.target;
+    if (!menu.matches?.("details.grant-menu") || !menu.open) return;
+    $id("grantTree").querySelectorAll("details.grant-menu[open]").forEach((other) => other !== menu && (other.open = false));
+    const anchor = menu.querySelector("summary").getBoundingClientRect();
+    const list = menu.querySelector(".menu-list");
+    list.style.position = "fixed";
+    list.style.right = "auto";
+    list.style.left = Math.max(8, Math.min(anchor.right - 220, window.innerWidth - 228)) + "px";
+    list.style.top = (anchor.bottom + 110 > window.innerHeight ? anchor.top - 112 : anchor.bottom + 4) + "px";
+  },
+  true,
+);
+$id("grantTree").addEventListener("scroll", () => $id("grantTree").querySelectorAll("details.grant-menu[open]").forEach((menu) => (menu.open = false)));
+
+// Busca de ramos dentro da corporação escolhida (empresa, área, subárea ou TAG).
+$id("grantSearch").oninput = debounce(async () => {
+  const query = $id("grantSearch").value.trim();
+  const box = $id("grantResults");
+  const run = ++wizard.searchRun;
+  const corp = wizard.corp;
+  if (query.length < 2) return void (box.hidden = true);
+  try {
+    const rows = (await callRpc("gaxeta_assets_search", { p_query: query, p_limit: 100 })).filter((row) => row.corporation_id === corp && row.kind !== "corporation");
+    if (run !== wizard.searchRun || corp !== wizard.corp) return;
+    box.hidden = false;
+    box.innerHTML = rows.length
+      ? rows
+          .slice(0, 30)
+          .map((row) => `<button type="button" data-grant-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(assetLabel(row))}</strong><span>${esc((row.path_names || []).slice(1, -1).join(" / "))}</span></button>`)
+          .join("")
+      : `<p class="tree-empty">Nenhum ramo desta corporação corresponde a “${esc(query)}”.</p>`;
+  } catch (error) {
+    if (run !== wizard.searchRun) return;
+    box.hidden = false;
+    box.innerHTML = `<p class="tree-empty is-error">Não foi possível buscar agora: ${esc(errorText(error))}</p>`;
+  }
+}, 300);
+$id("grantResults").onclick = async (event) => {
+  const button = event.target.closest("[data-grant-result]");
+  if (!button) return;
+  try {
+    const id = button.dataset.grantResult;
+    await ensureAssets([id]);
+    // Abre os níveis acima do resultado (da empresa até o pai) e destaca a linha.
+    for (const ancestor of (assetIndex.get(id)?.path || []).slice(1, -1)) wizard.open.add(ancestor);
+    wizard.flash = id;
+    $id("grantResults").hidden = true;
+    $id("grantSearch").value = "";
+    await refreshGrantTree();
+  } catch (error) {
+    $id("userFormMessage").textContent = errorText(error);
+  }
+};
+
 function renderUserReview() {
   const data = wizardData();
-  const grants = [...wizard.grants].map(([id, mode]) => {
+  const describe = ([id]) => {
     const known = wizard.names.get(id) || {};
-    return `<li><b>${mode === "all" ? "Todos" : "Nenhum"}</b> em ${esc((KIND_LABEL[known.kind] || "") + " " + (known.name || id))}</li>`;
-  });
+    const path = assetPathLabel(id) || [known.path, known.name].filter(Boolean).join(" / ") || id;
+    return `<li><small>${KIND_LABEL[known.kind || assetIndex.get(id)?.kind] || ""}</small> ${esc(path)}</li>`;
+  };
+  const included = [...wizard.grants].filter(([, mode]) => mode === "all");
+  const blocked = [...wizard.grants].filter(([, mode]) => mode === "none");
+  const scope = scopeOf(wizard.grants, wizard.corp);
   $id("userReview").innerHTML =
     `<dl class="detail-fields"><dt>Nome</dt><dd>${esc(data.name)}</dd><dt>Destinatário</dt><dd>${esc(data.email)}</dd><dt>Nível</dt><dd>${ROLE_LABEL[data.role]}</dd>` +
     (data.role === "corp"
-      ? `<dt>Corporação</dt><dd>${esc(assetName(data.corp))}</dd><dt>Edição operacional</dt><dd>${data.canWrite ? "Sim: cria áreas, subáreas, TAGs e spots e vincula sensores nos ramos concedidos" : "Não: somente consulta"}</dd></dl>` +
-        `<h3>Concessões</h3>${grants.length ? `<ul>${grants.join("")}</ul>` : "<p>Nenhuma concessão: o usuário entra, mas não vê nenhum ramo.</p>"}<p class="grant-totals">${grantSummary()}</p>`
+      ? `<dt>Corporação</dt><dd>${esc(assetName(data.corp))}</dd><dt>Edição operacional</dt><dd>${data.canWrite ? "Sim: cria áreas, subáreas, TAGs e spots e vincula sensores nos ramos concedidos" : "Não: somente consulta"}</dd>` +
+        `<dt>Alcance</dt><dd>${SCOPE_LABEL[scope]}</dd></dl>` +
+        (scope === "select" || blocked.length
+          ? `<div class="review-lists">` +
+            (included.length ? `<div><h3>Ramos incluídos</h3><ul>${included.map(describe).join("")}</ul></div>` : "") +
+            (blocked.length ? `<div><h3>Exceções bloqueadas</h3><ul>${blocked.map(describe).join("")}</ul></div>` : "") +
+            `</div>`
+          : "") +
+        `<p class="grant-totals${wizard.previewError ? " is-error" : ""}">${esc(grantSummary())}</p>`
       : `<dt>Alcance</dt><dd>${data.role === "adm3" ? "Consulta e análise em todas as corporações, sem escrita" : "Global, conforme o nível"}</dd></dl>`) +
     (wizard.userId ? "" : `<p class="form-help">O cadastro é gravado antes do envio. Se o e-mail falhar, o convite fica pendente e pode ser reenviado. Se o e-mail já tiver uma conta verificada, ela é vinculada sem novo convite e sem troca de senha.</p>`);
 }
@@ -276,6 +467,7 @@ $id("userBack").onclick = () => {
   wizard.step = wizard.step === 3 && wizardData().role !== "corp" ? 1 : wizard.step - 1;
   $id("userFormMessage").textContent = "";
   syncWizard();
+  if (wizard.step === 2) renderGrantStep();
 };
 $id("userForm").onsubmit = async (event) => {
   event.preventDefault();
@@ -290,18 +482,27 @@ $id("userForm").onsubmit = async (event) => {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) return void (message.textContent = "Informe um e-mail válido.");
       if (data.role === "corp" && !data.corp) return void (message.textContent = "Selecione a corporação.");
       if (data.role === "corp") {
-        if (wizard.corp !== data.corp && !wizard.userId) wizard.grants = new Map();
-        wizard.corp = data.corp;
-        wizard.kids = new Map();
-        wizard.open = new Set();
-        await refreshGrantTree();
+        // Outra corporação num cadastro novo: a seleção anterior não se aplica. Mesma corporação: tudo é mantido.
+        if (wizard.corp !== data.corp) {
+          if (!wizard.userId && wizard.corp) Object.assign(wizard, { grants: new Map(), stash: null, mode: "" });
+          Object.assign(wizard, { corp: data.corp, kids: new Map(), open: new Set(), root: null, totals: {} });
+        }
+        wizard.hint = "";
+        $id("grantSearch").value = "";
+        $id("grantResults").hidden = true;
         wizard.step = 2;
+        syncWizard();
+        renderGrantStep();
+        await refreshGrantTree();
       } else {
         renderUserReview();
         wizard.step = 3;
       }
     } else if (wizard.step === 2) {
-      await loadGrantLevel(null);
+      if (!wizard.mode) return void (message.textContent = "Escolha o alcance: Toda a corporação, Selecionar ramos ou Sem acesso.");
+      // A revisão usa a resposta do servidor. Se a prévia falhar, o fluxo não avança nem assume "sem acesso".
+      if (!(await refreshGrantTree())) return void (message.textContent = wizard.previewError ? "Não foi possível conferir o acesso no servidor. Tente de novo." : "");
+      await ensureAssets([...wizard.grants.keys()]);
       renderUserReview();
       wizard.step = 3;
     } else if (wizard.userId) {

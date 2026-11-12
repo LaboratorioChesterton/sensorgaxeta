@@ -25,7 +25,7 @@ begin
     insert into public.gaxeta_assets (parent_id, kind, name) select a.id, 'subarea', 'Subárea 1' from public.gaxeta_assets a where a.kind = 'area' and a.name = 'Área 1' and a.corporation_id in (select id from c);
     insert into public.gaxeta_assets (parent_id, kind, name, tag) select a.id, 'equipment', 'Bomba ' || n, 'B-10' || n from public.gaxeta_assets a, generate_series(1, 3) n
       where a.corporation_id in (select id from c) and (a.kind = 'subarea' or (a.kind = 'area' and a.name = 'Área 2'));
-    insert into public.gaxeta_assets (parent_id, kind, name, "position") select a.id, 'point', 'Spot ' || n, case n when 1 then 'LA' else 'LOA' end from public.gaxeta_assets a, generate_series(1, 2) n
+    insert into public.gaxeta_assets (parent_id, kind, name, "position") select a.id, 'point', case n when 1 then 'LA' else 'LOA' end, case n when 1 then 'LA' else 'LOA' end from public.gaxeta_assets a, generate_series(1, 2) n
       where a.kind = 'equipment' and a.corporation_id in (select id from c);
     commit;
     lo := lo + step;

@@ -94,6 +94,7 @@ async function enterApp(session) {
     $id("userBadge").textContent = (context.display_name || session.user.email || "?").trim().slice(0, 2).toUpperCase();
     $id("password").value = "";
     applyPermissions();
+    loadEquipCatalog().catch(() => {}); // rótulos dos tipos de equipamento; sem a leitura vale o catálogo inicial
     setConnection(true);
     showMessage("");
     if (session.user.user_metadata?.must_change_password) openAccountDialog(true);

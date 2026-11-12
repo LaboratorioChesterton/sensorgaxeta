@@ -8,17 +8,10 @@ const state = {
   sensorId: "",
   assetId: "",
   page: "sensors",
-  history: [],
-  movements: [],
-  seed: null,
-  stats: {},
-  period: 36e5,
-  range: presetRange(36e5),
-  custom: false,
+  manualReturn: "sensors", // tela de origem do Manual aberto dentro da aplicação
   authorized: false,
   loading: false,
   timer: null,
-  historyRequest: 0,
   authRequest: 0,
   bleReading: null,
   bleDevice: null,
@@ -29,17 +22,45 @@ const state = {
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
 };
 const assetIndex = new Map();
+// Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
+const equipTypeIndex = new Map();
+let equipTypesMissing = false; // a tabela da ficha ainda não existe no banco (migração não aplicada)
 
 const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset);
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
+// O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
+const equipTag = (asset) => asset?.tag || asset?.name || "—";
+const assetLabel = (asset) =>
+  !asset ? "—" : asset.kind === "equipment" ? equipTag(asset) : asset.tag && asset.tag !== asset.name ? `${asset.name} · ${asset.tag}` : asset.name;
 const assetName = (id) => assetIndex.get(id)?.name || "—";
-const assetPathLabel = (id) =>
-  assetPath(id, state.assets)
-    .map((asset) => (asset.tag ? `${asset.name} · ${asset.tag}` : asset.name))
-    .join(" / ");
+const assetPathLabel = (id) => assetPath(id, state.assets).map(assetLabel).join(" / ");
+const equipTypeLabel = (id) => equipCatalog.get(equipTypeIndex.get(id)) || "";
 const deviceLabel = (device) =>
   device.desired_label || device.applied_label || (device.label === "Sensor de gaxeta" ? device.sensor_id : device.label) || device.sensor_id;
+
+// Identidade de um sensor para leitura rápida: TAG · tipo na frente, sensor e spot como contexto.
+// O caminho completo continua disponível (dica do título e painel de Detalhes).
+function deviceIdentity(device) {
+  const chain = device ? assetPath(device.measurement_point_id, state.assets) : [];
+  const pick = (kind) => chain.find((asset) => asset.kind === kind);
+  const equip = pick("equipment");
+  const point = pick("point");
+  const sensor = device ? deviceLabel(device) : "";
+  if (!equip || !point) return { linked: false, sensor, tag: "", type: "", spot: "", title: sensor || "Sensor", context: "", path: "" };
+  const tag = equipTag(equip);
+  const type = equipTypeLabel(equip.id);
+  return {
+    linked: true,
+    sensor,
+    tag,
+    type,
+    spot: point.name,
+    title: `${tag} · ${type || TYPE_UNKNOWN}`,
+    context: [pick("company")?.name, pick("area")?.name].filter(Boolean).join(" / "),
+    path: chain.map(assetLabel).join(" / "),
+  };
+}
 
 const myRole = () => state.ctx?.role || null;
 const hasCap = (name) => !!state.ctx?.capabilities?.[name];
@@ -55,10 +76,12 @@ function showMessage(text, kind = "info") {
   box.hidden = !text;
   if (text && kind !== "error") messageTimer = setTimeout(() => (box.hidden = true), 7000);
 }
+// Falha de transporte (sem rede, tempo esgotado no aparelho): só ela muda o indicador de conexão.
+const isNetworkError = (error) =>
+  error?.name === "AbortError" || /Failed to fetch|NetworkError|Load failed|network request failed/i.test(error?.message || String(error || ""));
 function errorText(error) {
   const message = error?.message || String(error || "");
-  if (error?.name === "AbortError" || /Failed to fetch|NetworkError|Load failed/i.test(message))
-    return "Não foi possível conectar. Verifique sua conexão e tente de novo.";
+  if (isNetworkError(error)) return "Não foi possível conectar. Verifique sua conexão e tente de novo.";
   if (error?.code === "42501") return "Sua conta não tem permissão para esta operação.";
   if (error?.code === "23505") {
     if (/gateway|identifier/i.test(message + (error.details || ""))) return "Já existe um gateway com esta identificação.";
@@ -118,7 +141,8 @@ function forgetAsset(id) {
   assetIndex.delete(id);
   state.assets = [...assetIndex.values()];
 }
-// Garante no cache os ativos indicados e seus ancestrais (duas consultas no máximo).
+// Garante no cache os ativos indicados e seus ancestrais (duas consultas no máximo) e,
+// para os TAGs envolvidos, o tipo de equipamento (uma consulta, só para os ainda não lidos).
 async function ensureAssets(ids) {
   const fetchRows = async (wanted) => {
     const rows = [];
@@ -131,11 +155,36 @@ async function ensureAssets(ids) {
     rememberAssets(rows);
     return rows;
   };
-  const missing = [...new Set(ids.filter((id) => id && !assetIndex.get(id)?.path))];
-  if (!missing.length) return;
-  const rows = await fetchRows(missing);
-  const ancestors = [...new Set(rows.flatMap((row) => row.path || []))].filter((id) => !assetIndex.has(id));
-  if (ancestors.length) await fetchRows(ancestors);
+  const wantedIds = [...new Set(ids.filter(Boolean))];
+  const missing = wantedIds.filter((id) => !assetIndex.get(id)?.path);
+  if (missing.length) {
+    const rows = await fetchRows(missing);
+    const ancestors = [...new Set(rows.flatMap((row) => row.path || []))].filter((id) => !assetIndex.has(id));
+    if (ancestors.length) await fetchRows(ancestors);
+  }
+  await ensureEquipTypes(
+    wantedIds.flatMap((id) => assetIndex.get(id)?.path || []).filter((id) => assetIndex.get(id)?.kind === "equipment"),
+  );
+}
+async function ensureEquipTypes(ids) {
+  const wanted = [...new Set(ids)].filter((id) => id && !equipTypeIndex.has(id));
+  if (!wanted.length || equipTypesMissing) return;
+  try {
+    const rows = [];
+    for (let i = 0; i < wanted.length; i += 80)
+      rows.push(...(await unwrap(sb.from("gaxeta_equipment_details").select("asset_id,equipment_type").in("asset_id", wanted.slice(i, i + 80)))));
+    for (const id of wanted) equipTypeIndex.set(id, null);
+    for (const row of rows) equipTypeIndex.set(row.asset_id, row.equipment_type || null);
+  } catch (error) {
+    // O tipo é complemento da tela: sem ele, o TAG aparece com "Tipo não informado".
+    if (error?.code === "42P01" || error?.code === "PGRST205") equipTypesMissing = true;
+  }
+}
+async function loadEquipCatalog() {
+  const rows = await unwrap(sb.from("gaxeta_equipment_types").select("key,label").order("sort_order"));
+  if (!rows.length) return;
+  equipCatalog.clear();
+  for (const row of rows) equipCatalog.set(row.key, row.label);
 }
 function mergeDevices(rows) {
   const byId = new Map(state.devices.map((device) => [device.sensor_id, device]));
@@ -157,9 +206,7 @@ async function refreshKnownDevices() {
     // O sensor saiu do escopo de quem está logado (vínculo ou acesso alterado).
     state.devices = state.devices.filter((device) => device.sensor_id !== state.sensorId);
     state.sensorId = "";
-    state.history = [];
-    state.movements = [];
-    state.stats = {};
+    resetTelemetryData();
   }
 }
 
@@ -184,20 +231,29 @@ async function checkContext() {
 }
 
 // ----- Navegação -----
-const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários" };
+const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários", manual: "Manual de operação" };
 function renderPageActions() {
   const actions = [];
-  if (state.page === "sensors") actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
-  if (state.page === "assets" && hasCap("manage_corporations") && !isNarrow() && !isNativeApp())
+  // Bluetooth: só no aplicativo nativo e só por toque. Na web, a busca da lista encontra por nome, TAG, ID ou MAC.
+  if (state.page === "sensors" && bleAvailable())
+    actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
+  // A estrutura de ativos é administrada na web (qualquer largura de janela).
+  if (state.page === "assets" && hasCap("manage_corporations") && !isNativeApp())
     actions.push('<button class="primary compact" data-action="new-corporation">' + icon("plus") + "Nova corporação</button>");
   if (state.page === "gateways" && hasCap("manage_gateways"))
     actions.push('<button class="primary compact" data-action="new-gateway">' + icon("plus") + "Cadastrar gateway</button>");
   if (state.page === "users" && hasCap("manage_users"))
     actions.push('<button class="primary compact" data-action="new-user">' + icon("plus") + "Novo usuário</button>");
+  if (state.page === "manual")
+    actions.push(`<button class="secondary compact" data-action="manual-back">${glyph("back")}Voltar para ${esc(PAGE_TITLES[state.manualReturn] || "Sensores")}</button>`);
   $id("pageActions").innerHTML = actions.join("");
 }
 function showPage(page) {
   if (!PAGE_TITLES[page] || (page === "users" && !hasCap("manage_users"))) page = "sensors";
+  // O Manual abre dentro da aplicação: guarda a tela de origem para o Voltar (sessão e seleção intactas).
+  if (page === "manual" && state.page !== "manual") state.manualReturn = state.page;
+  // Bluetooth nunca fica aberto de uma tela para outra, nem abre sozinho.
+  closeBleDialog();
   state.page = page;
   if (location.hash.slice(1) !== page) history.replaceState(null, "", "#" + page);
   document.body.dataset.page = page;
@@ -207,6 +263,7 @@ function showPage(page) {
   $id("telemetryPage").hidden = page !== "telemetry";
   $id("gatewayPage").hidden = page !== "gateways";
   $id("usersPage").hidden = page !== "users";
+  $id("manualPage").hidden = page !== "manual";
   $id("summary").hidden = page !== "sensors";
   $id("pageTitle").textContent = PAGE_TITLES[page];
   $id("userMenu").open = false;
@@ -222,6 +279,7 @@ function showPage(page) {
   if (page === "telemetry") openTelemetry().catch(fail);
   if (page === "gateways") loadGateways().catch(fail);
   if (page === "users") loadUsers().catch(fail);
+  if (page === "manual") openManual().catch(fail);
   if (page === "sensors" || page === "assets") ensureTreeRoot().catch(fail);
   renderIcons();
 }
@@ -246,8 +304,11 @@ async function refreshData(manual = false) {
     if (session !== state.authRequest) return;
     if (state.page === "sensors") await loadSensors({ quiet: true });
     else if (state.page === "telemetry") {
+      // Leitura atual: leve, a cada ciclo. Histórico: consulta separada, no ritmo do período
+      // exibido, sem competir com um pedido feito por quem está usando (ver 70-telemetry).
       await refreshKnownDevices();
-      await loadHistory();
+      renderTelemetryLive();
+      refreshHistoryIfDue();
     }
     if (state.drawer.open) {
       if (state.page !== "telemetry") await refreshKnownDevices();
@@ -258,20 +319,14 @@ async function refreshData(manual = false) {
   } catch (error) {
     if (error?.code === "42501") await checkContext().catch(() => {});
     else {
-      setConnection(false);
-      if (manual) showMessage(errorText(error), "error");
+      // Só falha de transporte vira "Sem conexão"; erro de consulta é mostrado onde aconteceu.
+      if (isNetworkError(error)) setConnection(false);
+      if (manual || !isNetworkError(error)) showMessage(errorText(error), "error");
     }
   } finally {
     state.loading = false;
     if (state.authorized) state.timer = setTimeout(refreshData, state.refreshPending ? 0 : CONFIG.pollMs);
   }
-}
-function renderAll() {
-  if (state.page === "sensors") renderSensorGrid();
-  renderTree();
-  updateDrawerLive();
-  renderHistorySelect();
-  renderIcons();
 }
 const openSensorEditor = (sensorId) => openDrawer(sensorId, "detail");
 
@@ -280,8 +335,10 @@ function clearSessionData() {
   clearTimeout(state.timer);
   state.authorized = false;
   state.authRequest++;
-  state.historyRequest++;
-  Object.assign(state, { devices: [], assets: [], sensorId: "", assetId: "", history: [], movements: [], seed: null, stats: {}, ctx: null, userId: null });
+  Object.assign(state, { devices: [], assets: [], sensorId: "", assetId: "", ctx: null, userId: null, manualReturn: "sensors" });
+  resetTelemetryData();
+  Object.assign(telem, { matchIds: null, listed: false, period: 36e5, custom: false, range: presetRange(36e5) });
+  equipTypeIndex.clear();
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
   assetIndex.clear();
   resetTree();

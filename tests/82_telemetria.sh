@@ -49,9 +49,9 @@ select t.put('a1', public.gaxeta_save_asset(null, t.id('e'), 'area', 'Área 1', 
 select t.put('a2', public.gaxeta_save_asset(null, t.id('e'), 'area', 'Área 2', '', '') ->> 'id');
 select t.put('q1', public.gaxeta_save_asset(null, t.id('a1'), 'equipment', 'TAG 1', 'T-1', '') ->> 'id');
 select t.put('q2', public.gaxeta_save_asset(null, t.id('a2'), 'equipment', 'TAG 2', 'T-2', '') ->> 'id');
-select t.put('p1', public.gaxeta_save_asset(null, t.id('q1'), 'point', 'S1', '', '') ->> 'id');
-select t.put('p1b', public.gaxeta_save_asset(null, t.id('q1'), 'point', 'S2', '', '') ->> 'id');
-select t.put('p2', public.gaxeta_save_asset(null, t.id('q2'), 'point', 'S1', '', '') ->> 'id');
+select t.put('p1', public.gaxeta_save_asset(null, t.id('q1'), 'point', 'LOA', '', '') ->> 'id');
+select t.put('p1b', public.gaxeta_save_asset(null, t.id('q1'), 'point', 'LA', '', '') ->> 'id');
+select t.put('p2', public.gaxeta_save_asset(null, t.id('q2'), 'point', 'LOA', '', '') ->> 'id');
 select public.gaxeta_admin_invite_user('alfa.todos@dev.test', 'Alfa', null, t.id('c'), false, jsonb_build_array(jsonb_build_object('asset_id', t.id('a1'), 'mode', 'all'))) ->> 'kind';
 commit;
 update public.gaxeta_devices set measurement_point_id = t.id('p1') where sensor_id = 'ESP32-PERF00066K';

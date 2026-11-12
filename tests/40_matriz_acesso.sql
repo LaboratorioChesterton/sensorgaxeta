@@ -42,7 +42,7 @@ commit;
 
 -- Detalhe do TAG restrito: caminho sem irmãos, IDs conhecidos, histórico e contagens.
 begin; select t.login(t.id('uA_tag'));
-select t.eq((select string_agg(name, ' > ' order by cardinality(path)) from public.gaxeta_assets), 'Corporação Alfa > Alfa Unidade 2 > Utilidades > Bomba 101 > Spot 1', 'TAG restrito: exatamente o caminho e o próprio ramo');
+select t.eq((select string_agg(name, ' > ' order by cardinality(path)) from public.gaxeta_assets), 'Corporação Alfa > Alfa Unidade 2 > Utilidades > Bomba 101 > LOA', 'TAG restrito: exatamente o caminho e o próprio ramo');
 select t.eq((select count(*) from public.gaxeta_assets where id in (t.id('A1'), t.id('A1_b101'), t.id('B1_b101'))), 0::bigint, 'ID conhecido de irmã, de TAG homônimo e de outra corporação não retorna linha');
 select t.eq((select count(*) from public.gaxeta_devices where sensor_id in ('ESP32-A00000000002', 'ESP32-B00000000001', 'ESP32-PILOTO000001')), 0::bigint, 'sensores fora do escopo e fila sem vínculo: invisíveis');
 select t.eq((select count(*) from public.gaxeta_readings where sensor_id <> 'ESP32-A00000000003'), 0::bigint, 'leituras de outros sensores: nenhuma, mesmo filtrando por ID');
@@ -105,7 +105,7 @@ select t.eq(public.gaxeta_unlink_sensor('ESP32-PILOTO000001', 'devolve à fila')
 commit;
 begin; select t.login(t.id('uA_campo'));
 select t.put('A1_tq201', public.gaxeta_save_asset(null, t.id('A1_cald'), 'equipment', 'Tanque 201', 'TQ-201', '') ->> 'id');
-select t.put('A1_tq201_s1', public.gaxeta_save_asset(null, t.id('A1_tq201'), 'point', 'Spot 1', '', '') ->> 'id');
+select t.put('A1_tq201_s1', public.gaxeta_save_asset(null, t.id('A1_tq201'), 'point', 'LOA', '', '') ->> 'id');
 select t.ok(t.id('A1_tq201_s1') is not null, 'operador com edição: cria TAG e spot no ramo concedido');
 select t.put('A1_cald_sub', public.gaxeta_save_asset(null, t.id('A1_cald'), 'subarea', 'Linha 1', '', '') ->> 'id');
 select t.throws($$select public.gaxeta_save_asset(null, t.id('A1'), 'area', 'Nova área', '', '')$$, '42501', 'operador: não cria em ancestral que é só caminho');
@@ -130,7 +130,7 @@ begin; select t.login(t.id('adm1'));
 -- Gateway preservado ao salvar o ponto (o defeito da baseline) e regra de mesma empresa.
 select public.gaxeta_save_asset(t.id('A1_b101_la'), t.id('A1_b101'), 'point', 'Lado acionado', '', 'LA rev.', 'ESP32-AAAA00000001', 'A1-B101-LA') ->> 'id';
 select t.eq((select gateway_id from public.gaxeta_devices where sensor_id = 'ESP32-AAAA00000001'), t.id('gwA1'), 'salvar o ponto preserva o gateway do sensor');
-select t.throws($$select public.gaxeta_save_asset(t.id('A2_b101_s1'), t.id('A2_b101'), 'point', 'Spot 1', '', 'LA', 'ESP32-AAAA00000001', null)$$, '23505|Desvincule o gateway', 'mover sensor com gateway para outra empresa exige desvincular antes');
+select t.throws($$select public.gaxeta_save_asset(t.id('A2_b101_s1'), t.id('A2_b101'), 'point', 'LOA', '', 'LA', 'ESP32-AAAA00000001', null)$$, '23505|Desvincule o gateway', 'mover sensor com gateway para outra empresa exige desvincular antes');
 select t.throws($$select public.gaxeta_set_sensor_gateway('ESP32-A00000000003', t.id('gwA1'))$$, 'mesma empresa', 'sensor, spot e gateway precisam ser da mesma empresa');
 select t.throws($$select public.gaxeta_set_sensor_gateway('ESP32-PILOTO000001', t.id('gwA1'))$$, 'antes de associar', 'gateway exige sensor instalado num spot');
 select t.eq(public.gaxeta_set_sensor_gateway('ESP32-AAAA00000001', null) ->> 'gateway_id', null, 'desvínculo explícito de gateway');
@@ -149,7 +149,7 @@ select t.throws($$select public.gaxeta_save_asset(t.id('A1_cald'), t.id('A1'), '
 -- Movimentação dentro da corporação: caminho dos descendentes e acessos reavaliados.
 select public.gaxeta_save_asset(t.id('A1_tq200'), t.id('A1_util'), 'equipment', 'Tanque 200', 'TQ-200', '') ->> 'id';
 select t.eq((select string_agg(x.name, ' > ' order by o.ord) from public.gaxeta_assets a, unnest(a.path) with ordinality o(id, ord) join public.gaxeta_assets x on x.id = o.id where a.id = t.id('A1_tq200_s1')),
-            'Corporação Alfa > Alfa Unidade 1 > Utilidades > Tanque 200 > Spot 1', 'mover o TAG atualiza o caminho dos spots');
+            'Corporação Alfa > Alfa Unidade 1 > Utilidades > Tanque 200 > LOA', 'mover o TAG atualiza o caminho dos spots');
 commit;
 select t.ok(t.view_of(t.id('uA_campo')) like 'true ativos=6 %', 'após a movimentação, o operador deixa de ver o TAG que saiu da sua área');
 begin; select t.login(t.id('adm1'));

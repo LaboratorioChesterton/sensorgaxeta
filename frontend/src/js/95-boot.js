@@ -2,6 +2,14 @@
 // Inicialização: liga a navegação e os eventos globais. O painel só abre por
 // enterApp(), chamado a partir de uma ação explícita de quem está usando.
 // =============================================================================
+// Plataforma: decidida pelo runtime (aplicativo nativo × navegador), nunca pela largura da tela.
+document.body.classList.toggle("native-app", isNativeApp());
+if (bleAvailable()) $id("openBle").hidden = false;
+else {
+  // Web (inclusive navegador de celular): sem entrada de Bluetooth e sem o diálogo no documento.
+  $id("openBle").remove();
+  $id("bleDialog").remove();
+}
 document.querySelectorAll("[data-glyph]").forEach((slot) => (slot.innerHTML = glyph(slot.dataset.glyph)));
 document.querySelectorAll("[data-page]").forEach((button) => (button.onclick = () => showPage(button.dataset.page)));
 document.querySelectorAll("[data-close]").forEach((button) => (button.onclick = () => $id(button.dataset.close).close()));
@@ -9,7 +17,8 @@ $id("refresh").onclick = () => refreshData(true);
 $id("pageActions").onclick = (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
   if (action === "find-sensor") openBleDialog();
-  if (action === "new-corporation") openAssetForm({ parentId: null });
+  if (action === "new-corporation") openAssetForm({ parentId: null }).catch((error) => showMessage(errorText(error), "error"));
+  if (action === "manual-back") showPage(state.manualReturn);
   if (action === "new-gateway") openGatewayForm().catch((error) => showMessage(errorText(error), "error"));
   if (action === "new-user") openUserWizard().catch((error) => showMessage(errorText(error), "error"));
 };

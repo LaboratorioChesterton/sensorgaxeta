@@ -29,18 +29,23 @@ async function ensureTreeRoot() {
   renderTree();
   renderIcons();
 }
+// Próxima criação por nível selecionado (a mesma regra vale no gatilho do servidor):
+//   raiz → Corporação · Corporação → Empresa · Empresa → Área · Área → TAG ou Subárea ·
+//   Subárea → TAG · TAG → Spot · Spot → vínculo de sensor existente.
+// A estrutura é administrada na web: no aplicativo nativo a árvore serve para navegar e
+// escolher o destino, sem criar nem editar níveis (o vínculo sensor → spot continua lá).
 function allowedChildKinds(asset) {
+  if (isNativeApp()) return [];
   const kinds = asset ? KIND_CHILDREN[asset.kind] || [] : ["corporation"];
   const role = myRole();
   return kinds.filter((kind) => {
     if (kind === "corporation") return role === "adm1";
-    // Corporações e empresas são criadas no desktop (o servidor valida de qualquer forma).
-    if (kind === "company" && (isNarrow() || isNativeApp())) return false;
     if (role === "adm1" || role === "adm2") return true;
     return role === "corp" && state.ctx.can_write && kind !== "company" && asset.access === "full";
   });
 }
 function canEditAsset(asset) {
+  if (isNativeApp()) return false;
   const role = myRole();
   if (role === "adm1") return true;
   if (role === "adm2") return asset.kind !== "corporation";
@@ -55,15 +60,17 @@ function treeBranch(parentId) {
     if (!asset) continue;
     const open = tree.open.has(id);
     const selected = state.assetId === id;
-    const label = asset.tag ? `${asset.name} · ${asset.tag}` : asset.name;
+    const label = assetLabel(asset);
     const sensor = asset.kind === "point" ? state.devices.find((device) => device.measurement_point_id === id) : null;
+    const addKinds = allowedChildKinds(asset).map((kind) => KIND_LABEL[kind]).join(" ou ");
     html +=
-      `<li role="treeitem" aria-selected="${selected}"${asset.has_children ? ` aria-expanded="${open}"` : ""}>` +
+      `<li role="treeitem" class="kind-${asset.kind}" aria-selected="${selected}"${asset.has_children ? ` aria-expanded="${open}"` : ""}>` +
       `<div class="tree-row${selected ? " selected" : ""}${asset.access === "path" ? " path-only" : ""}">` +
-      `<button class="tree-toggle" data-toggle="${id}" aria-label="${open ? "Recolher" : "Expandir"} ${esc(asset.name)}"${asset.has_children ? "" : " disabled"}>${asset.has_children ? (open ? "▾" : "▸") : ""}</button>` +
-      `<button class="tree-node" data-asset="${id}" title="${esc(KIND_LABEL[asset.kind] + ": " + label)}">${icon(KIND_ICON[asset.kind])}<span><small>${KIND_LABEL[asset.kind]}</small>${esc(label)}</span></button>` +
-      (allowedChildKinds(asset).length
-        ? `<button class="tree-action" data-add-child="${id}" aria-label="Adicionar abaixo de ${esc(asset.name)}" title="Adicionar abaixo">+</button>`
+      // Expandir e selecionar são ações separadas: a seta abre o ramo, o nome seleciona.
+      `<button class="tree-toggle" data-toggle="${id}" aria-label="${open ? "Recolher" : "Expandir"} ${esc(label)}"${asset.has_children ? "" : " disabled"}>${asset.has_children ? glyph(open ? "chevron-down" : "chevron-right") : ""}</button>` +
+      `<button class="tree-node" data-asset="${id}" title="${esc(KIND_LABEL[asset.kind] + ": " + label)}">${kindIcon(asset.kind)}<span><small>${KIND_LABEL[asset.kind]}</small>${esc(label)}</span></button>` +
+      (addKinds
+        ? `<button class="tree-action" data-add-child="${id}" aria-label="Adicionar ${esc(addKinds)} em ${esc(label)}" title="Adicionar ${esc(addKinds)}">+</button>`
         : "") +
       "</div>" +
       (sensor
@@ -87,7 +94,7 @@ function renderTree() {
     box.innerHTML =
       myRole() === "adm1"
         ? '<div class="tree-empty"><strong>Nenhuma corporação cadastrada.</strong><p>Comece pela corporação; depois empresa, área, TAG e spot. A subárea é opcional.</p>' +
-          (isNarrow() || isNativeApp() ? "<p>A criação de corporações é feita no computador.</p>" : '<button class="secondary compact" data-add-child="">Criar corporação</button>') +
+          (isNativeApp() ? "<p>A estrutura de ativos é criada na versão web.</p>" : '<button class="secondary compact" data-add-child="">Criar corporação</button>') +
           "</div>"
         : '<div class="tree-empty"><strong>Nenhum ativo disponível.</strong><p>Sua conta ainda não tem ramos concedidos, ou a estrutura não foi cadastrada.</p></div>';
     return;
@@ -128,10 +135,9 @@ $id("tree").onclick = async (event) => {
   const pick = (name) => event.target.closest(`[data-${name}]`);
   try {
     if (pick("tree-sensor")) {
-      state.sensorId = pick("tree-sensor").dataset.treeSensor;
-      showPage("telemetry");
+      openHistoryFor(pick("tree-sensor").dataset.treeSensor);
     } else if (pick("add-child")) {
-      openAssetForm({ parentId: pick("add-child").dataset.addChild || null });
+      await openAssetForm({ parentId: pick("add-child").dataset.addChild || null });
     } else if (pick("more")) {
       await loadKids(pick("more").dataset.more || null, { more: true });
       renderTree();
@@ -154,9 +160,13 @@ $id("tree").onclick = async (event) => {
   }
 };
 $id("clearAsset").onclick = () => selectAsset("").catch((error) => showMessage(errorText(error), "error"));
+// Recolhe e reabre a árvore sem tocar em seleção, ramos abertos, busca ou filtro da lista.
 $id("toggleTree").onclick = () => {
-  if (isNarrow()) setTreeDrawer(!document.body.classList.contains("tree-open"));
-  else {
+  if (isNarrow()) {
+    const open = !document.body.classList.contains("tree-open");
+    setTreeDrawer(open);
+    $id("toggleTree").setAttribute("aria-expanded", String(open));
+  } else {
     const collapsed = document.body.classList.toggle("tree-collapsed");
     $id("toggleTree").setAttribute("aria-expanded", String(!collapsed));
   }
@@ -180,7 +190,7 @@ $id("treeSearch").oninput = debounce(async () => {
       ? rows
           .map(
             (row) =>
-              `<button data-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(row.tag ? row.name + " · " + row.tag : row.name)}</strong><span>${esc((row.path_names || []).slice(0, -1).join(" / "))}</span></button>`,
+              `<button data-result="${row.id}"><small>${KIND_LABEL[row.kind]}</small><strong>${esc(assetLabel(row))}</strong><span>${esc((row.path_names || []).slice(0, -1).join(" / "))}</span></button>`,
           )
           .join("")
       : '<p class="tree-empty">Nenhum ativo encontrado.</p>';
