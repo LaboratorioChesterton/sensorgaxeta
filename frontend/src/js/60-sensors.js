@@ -74,6 +74,8 @@ function renderSensorGrid() {
         // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
         const identity = deviceIdentity(device);
         const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
+        // Tensão sempre com a origem: calibrada pelo ADC (firmware 4.3.0+) ou estimada.
+        const volt = voltageInfo(device, state.gland.get(device.sensor_id));
         return (
           `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
@@ -81,7 +83,7 @@ function renderSensorGrid() {
           `<div class="card-main"><div class="card-value${health.unit === "%" ? "" : " small-unit"}">${health.value}<small>${health.unit}</small></div>` +
           `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small title="${esc(health.warn || health.action)}">${esc(health.warn || health.action)}</small></div></div>` +
           `<div class="mini-scale${health.scale == null ? " idle" : ""}"><i style="width:${health.scale ?? 0}%"></i></div>` +
-          `<div class="card-meta"><span title="${esc(health.nominal ? "Escala nominal do firmware, ainda não conferida com o paquímetro" : "")}">${esc(health.sub || "Sensor " + fmtNum(device.last_percent) + " % da escala")}${health.nominal ? " · escala nominal" : ""}</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<div class="card-meta"><span title="${esc(health.nominal ? "Ciclo registrado na regra anterior: estimativa pelo curso nominal do firmware, sem classificação" : "")}">${esc(health.sub || "Sensor " + fmtNum(device.last_percent) + " % da escala elétrica")}</span><span class="volt" title="${esc(volt.title)}">${esc(volt.text)}${volt.short ? `<small>${esc(volt.short)}</small>` : ""}</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
           `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
           (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
           `</footer></article>`
@@ -224,10 +226,29 @@ function updateDrawerLive() {
   const health = deviceCycle(device);
   const gland = state.gland.get(device.sensor_id);
   $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
-  $id("detailStable").textContent = health.mode === "cycle" ? health.value + " %" : "—";
-  $id("detailRaw").textContent = gland?.state === "active" ? fmtMm(gland.distance_mm) : "—";
-  $id("detailVolt").textContent = `${fmtNum(device.last_percent)} % · ${fmtNum(device.last_voltage_v, 3)} V`;
+  // Distância, percentual e tensão lado a lado, da mesma leitura. Sem cálculo válido: traço.
+  const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
+  const volt = voltageInfo(device, gland);
+  $id("detailStable").textContent = computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" : "—";
+  $id("detailRaw").textContent = computed ? fmtMm(gland.distance_mm, 2) : "—";
+  $id("detailVolt").innerHTML = `${esc(volt.text)}<small>${esc(volt.source)}</small>`;
+  $id("detailVolt").title = volt.title;
   $id("detailHealth").textContent = health.label + " · " + (health.warn || health.action);
+  if ($id("detailDiag")) {
+    const block = device.last_adc_min != null && device.last_adc_max != null ? ` (bloco de ${fmtNum(device.last_adc_min, 0)} a ${fmtNum(device.last_adc_max, 0)})` : "";
+    const rows = [
+      ["Escala elétrica", `${fmtNum(device.last_percent)} % do ADC`],
+      ["ADC bruto", device.last_adc_raw != null || gland?.adc != null ? fmtNum(device.last_adc_raw ?? gland.adc, 1) + " contagens" + block : "—"],
+      ["Dispersão do bloco", device.adc_noise != null ? fmtNum(device.adc_noise, 1) + " contagens" : "—"],
+      ["Qualidade", QUALITY_TEXT[gland?.quality] || "—"],
+      ["Tensão calibrada", device.last_voltage_mv != null ? fmtVolt(device.last_voltage_mv) : "não enviada por este firmware"],
+      ["Tensão estimada", device.last_voltage_v != null ? fmtNum(device.last_voltage_v, 3) + " V (ADC × 3,3 ÷ 4095)" : "—"],
+      ["Método de aquisição", device.last_acq_method || "anterior ao 4.3.0"],
+      ["Amostra colhida", fmtDateTime(device.last_sampled_at)],
+      ["Recebida no servidor", fmtDateTime(device.last_received_at)],
+    ];
+    $id("detailDiag").innerHTML = rows.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("");
+  }
   $id("detailHealth").className = "health-banner health-" + health.key;
   if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
   if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
@@ -246,7 +267,7 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values"><div><span>Ajuste do ciclo</span><strong id="detailStable"></strong></div><div><span>Distância atual</span><strong id="detailRaw"></strong></div><div><span>Sensor (escala · tensão est.)</span><strong id="detailVolt" class="compact-value"></strong></div></div>` +
+    `<div class="drawer-values"><div><span>Ajuste do ciclo (%)</span><strong id="detailStable"></strong></div><div><span>Distância atual (mm)</span><strong id="detailRaw"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div></div>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
   if (mode === "edit") {
@@ -330,11 +351,13 @@ async function renderDrawer() {
       `</div><section id="glandPanel" class="gland-panel" aria-live="polite"></section>` +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
+      // Dados elétricos da leitura atual: servem para diagnosticar ligação, ruído e saturação.
+      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A escala elétrica é a posição do potenciômetro no ADC. Ela não é o ajuste da gaxeta.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A distância e o percentual valem a partir da referência registrada no engaxetamento; a tensão é estimada.</small></div>`;
+      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. Distância e percentual valem a partir da referência registrada com o sensor na marca superior. A tensão traz a origem: calibrada pelo ADC da placa ou estimada.</small></div>`;
     glandPanelState.key = "";
     refreshGlandPanel(true).catch((error) => showMessage(errorText(error), "error"));
     $id("detailHistory").onclick = () => {

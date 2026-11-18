@@ -250,9 +250,13 @@ function adjustmentInfo(t) {
             action: "Substituir a gaxeta",
           };
 }
-// ----- Ciclo de gaxeta (migrações 08 e 09) -----
-// O percentual do ciclo vem do servidor: 100 % na distância medida no engaxetamento,
-// 0 % na distância de fim de ajuste informada. As faixas são as mesmas de adjustmentInfo.
+// ----- Ciclo de gaxeta (migrações 08, 09 e 10) -----
+// Regra 2 (migração 10): o técnico reposiciona o potenciômetro na marca superior validada,
+// mede a distância inicial com o paquímetro e registra. Essa distância é o 100 % daquele
+// ciclo; 0 % é a distância de fim de ajuste. Distância, percentual e avanço vêm do
+// servidor, calculados da tensão calibrada e de uma inclinação comprovada na montagem.
+// Sem calibração válida a tela mostra o motivo e não classifica (nada de curso nominal).
+// Os ciclos anteriores (regra 1) continuam visíveis, identificados como estimativa.
 const GLAND_KIND = { maintenance: "Manutenção iniciada", replacement: "Troca da gaxeta", adjustment: "Reajuste", check: "Conferência de medida" };
 const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
 // Lê um número digitado em pt-BR ("22,5") ou com ponto; devolve null quando não é número.
@@ -261,8 +265,49 @@ function parseMm(text) {
   if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
   return Number(clean);
 }
+// Tensão em volts a partir de milivolts.
+const fmtVolt = (millivolts, digits = 3) => (millivolts == null || !Number.isFinite(Number(millivolts)) ? "—" : fmtNum(Number(millivolts) / 1000, digits) + " V");
+// Tensão atual de um sensor, sempre com a origem: calibrada pelo ADC da placa (firmware
+// 4.3.0 em diante) ou estimada pela conta ADC × 3,3 ÷ 4095 das versões anteriores.
+function voltageInfo(device, gland) {
+  const calibrated = device?.last_voltage_mv ?? (gland?.voltage_source === "calibrated" ? gland.voltage_mv : null);
+  if (calibrated != null && Number.isFinite(Number(calibrated)))
+    return { text: fmtVolt(calibrated), source: "calibrada", short: "calibrada", calibrated: true, title: "Tensão no pino, calibrada pelo ADC da placa: média das mesmas amostras da leitura bruta" };
+  if (device?.last_voltage_v == null) return { text: "—", source: "", short: "", calibrated: false, title: "" };
+  return { text: fmtNum(device.last_voltage_v, 3) + " V", source: "estimada", short: "estimada", calibrated: false, title: "Estimativa ADC × 3,3 ÷ 4095 (firmware anterior ao 4.3.0, sem a calibração do ADC)" };
+}
+// Qualidade do bloco de amostras da leitura atual, em palavras.
+const QUALITY_TEXT = {
+  ok: "boa",
+  unstable: "instável (dispersão alta no bloco)",
+  saturated_high: "saturada no limite superior do ADC",
+  saturated_low: "no limite inferior do ADC",
+  missing: "sem dados de qualidade",
+};
+// Por que um ciclo espera a referência, e por que uma referência aprovada ainda não vira distância.
+const GLAND_WAIT = {
+  no_sample: "Mantenha o sensor na marca superior: a referência vale na próxima leitura da placa",
+  needs_confirmation: "Leitura recebida: confirme em Detalhes com o sensor na marca superior",
+  outside_window: "Leitura fora da faixa esperada da marca superior: confira a posição do sensor",
+  saturated_high: "A marca superior satura o ADC desta placa: calibração bloqueada, medida preservada",
+  saturated_low: "Leitura no limite inferior do ADC: confira a ligação do sensor",
+  unstable: "Leitura instável: confira o fio do cursor e a fixação",
+  stale: "A leitura chegou com atraso: aguardando a próxima",
+  missing: "Leitura sem dados de qualidade: aguardando a próxima",
+  method_changed: "O método de aquisição mudou: confirme a referência de novo",
+};
+const GLAND_SCALE_REASON = {
+  none: "Faça uma Conferência de medida (segundo ponto com paquímetro) para a plataforma calcular a distância",
+  insufficient_span: "A conferência teve variação elétrica pequena demais: meça em uma posição mais distante da referência",
+  inverted: "Sentido invertido: a distância subiu quando a tensão caiu. Confira a montagem e a ligação",
+  nonlinear: "Os pontos medidos não fecham uma reta: é preciso calibração por vários pontos ou revisão mecânica",
+  incoherent: "A conferência não é coerente com o curso mecânico: repita a medição",
+  method_changed: "A leitura atual usa outro método de aquisição: a calibração anterior não é reaproveitada",
+  no_anchor: "Referência ainda não aprovada",
+};
 // Como apresentar o ajuste de um sensor. `gland` é o item do resumo do servidor (ou o estado
-// completo); sem ele (banco ainda sem a migração) vale a apresentação anterior.
+// completo); sem ele (banco ainda sem a migração) vale a apresentação anterior. Só um ciclo
+// calibrado (`calibrated`) recebe as faixas de adjustmentInfo e a recomendação de ação.
 function cycleView(gland, device) {
   const raw = device?.stable_percent;
   const rawScale = Math.max(0, Math.min(100, Number(raw) || 0));
@@ -271,24 +316,51 @@ function cycleView(gland, device) {
     return { mode: "legacy", key: info.key, label: info.label, action: info.action, value: fmtNum(raw), unit: "%", scale: rawScale, sub: "" };
   }
   const neutral = (label, action, extra = {}) => ({ mode: gland.state, key: "unknown", label, action, value: "—", unit: "", scale: null, sub: "", ...extra });
-  if (gland.state === "active" && gland.percent != null) {
+  const reference = gland.initial_mm != null ? `distância inicial ${fmtMm(gland.initial_mm)}` : "";
+  const advance = gland.advance_mm != null ? ` · avanço ${fmtMm(gland.advance_mm)}` : "";
+  if (gland.state === "active" && Number(gland.rule) === 2 && gland.percent != null) {
     const percent = Math.max(0, Math.min(100, Number(gland.percent)));
     const info = adjustmentInfo(percent);
     return {
-      mode: "cycle", key: info.key, label: info.label, action: info.action, value: fmtNum(percent), unit: "%", scale: percent,
-      sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)}`,
-      warn: gland.out_of_range ? "Fora da faixa do ciclo: confira a montagem" : gland.near_limit ? "Sensor perto do fim do curso elétrico" : "",
-      nominal: gland.scale_source === "nominal" || gland.scale?.source === "nominal",
+      mode: "cycle", key: info.key, label: info.label, action: info.action, value: fmtNum(percent), unit: "%", scale: percent, calibrated: true,
+      sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)}${advance}`,
+      warn: gland.near_limit ? "Sensor perto do fim do curso elétrico" : "",
     };
   }
-  if (gland.state === "active")
-    return neutral("Sem fim de ajuste", "Informe o fim de ajuste para ver o percentual", { mode: "distance", value: fmtNum(gland.distance_mm), unit: "mm", sub: `referência ${fmtMm(gland.initial_mm)}` });
-  if (gland.state === "waiting") return neutral("Aguardando leitura", "Referência registrada; vale a partir da próxima leitura válida");
+  if (gland.state === "active") {
+    // Regra 1: o número fica, identificado como estimativa, e não gera recomendação.
+    const hasPercent = gland.percent != null;
+    const percent = Math.max(0, Math.min(100, Number(gland.percent)));
+    return neutral("Estimativa nominal", "Ciclo da regra anterior: registre o engaxetamento com o sensor na marca superior", {
+      mode: hasPercent ? "cycle" : "distance", value: fmtNum(hasPercent ? percent : gland.distance_mm), unit: hasPercent ? "%" : "mm",
+      scale: hasPercent ? percent : null, sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)} · estimativa`, nominal: true,
+    });
+  }
+  if (gland.state === "no_end")
+    return neutral(
+      gland.reason === "outside_validated" ? "Fim de ajuste fora da faixa" : "Fim de ajuste não informado",
+      gland.reason === "outside_validated" ? "O fim de ajuste informado cai fora da faixa medida: confira a medida perto do fim de ajuste" : "Informe o fim de ajuste para ver o percentual",
+      { mode: "distance", value: fmtNum(gland.distance_mm), unit: "mm", sub: reference + advance },
+    );
+  if (gland.state === "out_of_range")
+    return neutral(
+      "Fora da faixa calibrada",
+      gland.reason === "above" ? "Tensão acima da faixa validada: confira a posição do sensor" : "Tensão abaixo da faixa validada: amplie a calibração com outra conferência",
+      { mode: "distance", value: fmtNum(gland.distance_mm), unit: "mm", sub: "valor fora da faixa validada, sem classificação", warn: "Fora da faixa calibrada: valor calculado, sem classificação" },
+    );
+  if (gland.state === "no_scale") return neutral("Sem calibração de distância", GLAND_SCALE_REASON[gland.reason] || GLAND_SCALE_REASON.none, { sub: reference });
+  if (gland.state === "waiting")
+    return neutral(Number(gland.rule) === 2 ? "Aguardando referência" : "Aguardando leitura", GLAND_WAIT[gland.wait_reason] || "Referência registrada; vale a partir da próxima leitura válida", { sub: reference });
   if (gland.state === "maintenance") return neutral("Em manutenção", "Registre o engaxetamento ao concluir o serviço");
-  if (gland.state === "unusable") return neutral("Leitura instável", "Sinal ruidoso ou no fim da escala: confira a montagem");
+  if (gland.state === "unusable")
+    return neutral(
+      String(gland.reason || "").startsWith("saturated") ? "Leitura saturada" : gland.reason === "stale" ? "Leitura atrasada" : "Leitura instável",
+      GLAND_WAIT[gland.reason] || "Sinal ruidoso ou no fim da escala: confira a montagem",
+      { sub: reference },
+    );
   // Sem referência: o número disponível é só a posição do potenciômetro na escala do ADC.
   return neutral("Sem referência", gland.state === "unlinked" ? "Vincule a um spot para registrar o engaxetamento" : "Registre o engaxetamento em Detalhes", {
-    value: fmtNum(raw), unit: "% da escala", scale: rawScale, sub: "posição do sensor, sem relação com a gaxeta",
+    value: fmtNum(raw), unit: "% da escala", scale: rawScale, sub: "posição elétrica do sensor (diagnóstico), sem relação com a gaxeta",
   });
 }
 // A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.

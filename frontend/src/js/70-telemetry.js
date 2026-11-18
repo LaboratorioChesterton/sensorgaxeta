@@ -259,6 +259,15 @@ function renderTelemetryLive() {
   $id("historyHealthBox").className = "summary-main health-" + health.key;
   $id("historyHealth").textContent = health.label;
   $id("historyAction").textContent = health.warn || health.action;
+  // Distância, percentual e tensão lado a lado, da mesma leitura; a escala elétrica fica como diagnóstico.
+  const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
+  const volt = voltageInfo(device, gland);
+  $id("historyDistance").textContent = computed ? fmtMm(gland.distance_mm, 2) + (gland.state === "out_of_range" ? " *" : "") : "—";
+  $id("historyDistance").title = computed && gland.state === "out_of_range" ? "Fora da faixa calibrada: valor calculado, sem classificação" : computed && Number(gland.rule) !== 2 ? "Estimativa: ciclo registrado na regra anterior" : "";
+  $id("historyPercent").textContent = computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" + (Number(gland.rule) !== 2 ? " (est.)" : "") : "—";
+  $id("historyVoltLabel").textContent = volt.source ? `Tensão ${volt.source}` : "Tensão";
+  $id("historyVolt").textContent = volt.text;
+  $id("historyVolt").title = volt.title;
   $id("historyRawNow").textContent = `${fmtNum(device?.last_percent)} %`;
   $id("historySince").textContent = gland?.recorded_at
     ? `${health.sub ? health.sub + " · " : ""}referência de ${fmtDateTime(gland.recorded_at)}`
@@ -375,9 +384,9 @@ function renderHistory() {
       .reverse()
       .map(
         (row) =>
-          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(row.travel_percent)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
+          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(row.travel_percent)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${row.voltage_mv == null ? "—" : fmtVolt(row.voltage_mv)}</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
       )
-      .join("") || '<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>';
+      .join("") || '<tr><td colspan="7">Nenhuma leitura neste período.</td></tr>';
 }
 
 // ----- Período -----
@@ -454,7 +463,7 @@ $id("historyChart").onpointermove = (event) => {
   if (!nearest) return;
   $id("chartTooltip").hidden = false;
   $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
-Estabilizado ${fmtNum(nearest.stable_percent)}% (${adjustmentInfo(nearest.stable_percent).label}) · média bruta ${fmtNum(nearest.travel_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%
+Estabilizado ${fmtNum(nearest.stable_percent)}% (${adjustmentInfo(nearest.stable_percent).label}) · média bruta ${fmtNum(nearest.travel_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
 ${fmtNum(nearest.samples, 0)} leituras`;
 };
 $id("historyChart").onpointerleave = () => {
@@ -487,9 +496,22 @@ $id("historyChart").onpointerup = (event) => {
 $id("exportCsv").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.history.length) return;
+  const fromAt = new Date(loaded.range.from).getTime();
+  const bucketMs = Math.max(1, Number(loaded.bucketSeconds) || 1) * 1000;
+  const bucketOf = (at) => Math.floor((new Date(at).getTime() - fromAt) / bucketMs);
+  const cycleByBucket = new Map((loaded.cycle?.points || []).map((point) => [bucketOf(point.received_at), point]));
   const text = [
-    ["horario", "percentual_estabilizado", "media_percentual", "min_percentual", "max_percentual", "posicao_estimada_mm", "tensao_estimada_v", "leituras"],
-    ...loaded.history.map((row) => [row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent, row.position_mm, row.voltage_v, row.samples]),
+    // As colunas antigas não mudam de nome nem de conteúdo. As do ciclo vêm do mesmo cálculo do
+    // servidor usado na tela (gaxeta_gland_history), casadas por intervalo.
+    ["horario", "percentual_estabilizado", "media_percentual", "min_percentual", "max_percentual", "posicao_estimada_mm", "tensao_estimada_v", "leituras",
+      "tensao_calibrada_v", "adc_bruto", "distancia_ciclo_mm", "ajuste_ciclo_pct", "avanco_mm", "calculo_ciclo"],
+    ...loaded.history.map((row) => {
+      const cycle = cycleByBucket.get(bucketOf(row.received_at));
+      return [row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent, row.position_mm, row.voltage_v, row.samples,
+        row.voltage_mv == null ? "" : Number(row.voltage_mv) / 1000, row.adc_raw ?? "",
+        cycle?.distance_mm ?? "", cycle?.percent ?? "", cycle?.advance_mm ?? "",
+        !cycle ? "" : cycle.out_of_range ? "fora da faixa calibrada" : cycle.nominal || Number(cycle.rule) === 1 ? "estimativa nominal (regra anterior)" : cycle.percent == null ? "calibrado, sem fim de ajuste valido" : "calibrado"];
+    }),
   ]
     .map((row) => row.map(csvCell).join(";"))
     .join("\r\n");

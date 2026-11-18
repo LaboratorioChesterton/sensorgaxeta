@@ -29,7 +29,7 @@ frontend/
         ├── 40-shell     estado, permissões, navegação, atualização periódica
         ├── 50-tree      árvore de ativos por ramo, busca
         ├── 60-sensors   lista paginada e painel lateral
-        ├── 62-gland     ciclo de gaxeta: estado, registro do engaxetamento, conferência, manutenção, painel na Telemetria
+        ├── 62-gland     ciclo de gaxeta: estado, registro na marca superior, confirmação da leitura, conferência, manutenção, painel na Telemetria
         ├── 65-assets    ficha do nível, TAG + ficha técnica, spots do TAG, Excluir equipamento, vínculo sensor–spot
         ├── 70-telemetry identidade, histórico por contexto, gráfico por condição, CSV
         ├── 75-gateways  cadastro e edição
@@ -62,10 +62,12 @@ O servidor valida papéis e escopos nos dois casos; a diferença acima é só de
 - Tipos de equipamento: tabela `gaxeta_equipment_types`. A cópia em `equipCatalog` é o catálogo inicial e é substituída pela leitura do servidor ao entrar.
 - Campos da ficha técnica: `EQUIP_GROUPS` (`10-core.js`) e a tabela `gaxeta_equipment_details`.
 
-## Ciclo de gaxeta (migrações 08 e 09)
+## Ciclo de gaxeta (migrações 08, 09 e 10)
 
-- O percentual mostrado nos cartões, no painel e no topo da Telemetria vem do servidor: `gaxeta_gland_summary` (lista) e `gaxeta_gland_status` (painel). A tela só aplica as faixas de `adjustmentInfo` e limita a exibição a 0–100 %.
-- `cycleView()` em `10-core.js` decide o que mostrar por estado (`active`, `waiting`, `maintenance`, `unusable`, `no_reference`, `unlinked`). Sem referência, o número é rotulado como posição do sensor em % da escala.
+- Distância (mm), percentual (%) e avanço vêm do servidor: `gaxeta_gland_summary` (lista), `gaxeta_gland_status` (painel) e `gaxeta_gland_history` (gráfico e CSV). A tela não calcula: só aplica as faixas de `adjustmentInfo` e limita a exibição a 0–100 %, mantendo o aviso de fora da faixa.
+- `cycleView()` em `10-core.js` decide o que mostrar por estado (`active`, `waiting`, `no_scale`, `no_end`, `out_of_range`, `unusable`, `maintenance`, `no_reference`, `unlinked`). Só um ciclo calibrado da regra 2 recebe faixa e recomendação. Ciclo da regra anterior aparece como **Estimativa nominal**, sem classificação. Sem referência, o número é rotulado como escala elétrica (diagnóstico).
+- `voltageInfo()` devolve a tensão com a origem: **calibrada** (`last_voltage_mv`, firmware 4.3.0+) ou **estimada** (`last_voltage_v`). A tensão nunca aparece sem a origem.
+- Registro: o diálogo exige marcar que o potenciômetro está na marca superior. Enquanto a marca da instalação não tem faixa elétrica, o painel mostra a leitura candidata e o botão **Confirmar leitura na marca superior** (`gaxeta_confirm_gland_anchor`).
 - O registro usa `gaxeta_record_gland_event` com um identificador de solicitação gerado ao abrir o diálogo: reenviar depois de uma queda de rede não duplica. Conflito (`PT409`) relê o estado e pede nova confirmação.
 - Se o banco ainda não tiver as funções (`PGRST202`), `state.glandMissing` liga e a tela volta à apresentação anterior, sem erro.
 - Situação de transmissão: `connectionStatus()` usa a cadência observada (`interval_s` do resumo). Até 12 s vale a regra original de 25 s / 65 s.
