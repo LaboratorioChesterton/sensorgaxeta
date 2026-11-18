@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP 1
 -- Migrações 08 e 09: ciclos de gaxeta, referência por engaxetamento, escala e exclusão de equipamento.
+-- Desde a migração 10 este é o comportamento da regra 1, preservado para os ciclos antigos.
 -- Roda depois das suítes 30, 40, 60 e 70 (usa a árvore, os sensores e os usuários sintéticos delas).
 select set_config('t.suite', '75 ciclos de gaxeta e referência', false);
 
@@ -32,10 +33,21 @@ begin
 exception when insufficient_privilege then return 'negado';
 end $$;
 create or replace function t.gs(p_sensor text) returns jsonb language sql as $$ select public.gaxeta_gland_status(p_sensor) $$;
+-- Esta suíte cobre a regra 1 (ciclos anteriores à migração 10: referência em qualquer posição e
+-- curso nominal do firmware). Os eventos novos nascem na regra 2; aqui são devolvidos à regra 1
+-- logo depois do registro, para o cálculo preservado continuar verificado. A regra 2 é a suíte 76.
+create or replace function t.rule1() returns void language sql security definer set search_path to '' as $$
+  update gaxeta_private.gland_events set rule_version = 1 where rule_version = 2 $$;
+grant execute on function t.rule1() to public;
 -- Registra um evento com o estado atual como esperado e devolve o id.
-create or replace function t.gev(p_sensor text, p_kind text, p_mm numeric default null, p_end numeric default null) returns text language sql as $$
-  select public.gaxeta_record_gland_event(p_sensor, s ->> 'link_id', s ->> 'event_id', gen_random_uuid(), p_kind, p_mm, p_end) ->> 'id'
-    from (select public.gaxeta_gland_status(p_sensor) s) q $$;
+create or replace function t.gev(p_sensor text, p_kind text, p_mm numeric default null, p_end numeric default null) returns text language plpgsql as $$
+declare v_id text;
+begin
+  select public.gaxeta_record_gland_event(p_sensor, s ->> 'link_id', s ->> 'event_id', gen_random_uuid(), p_kind, p_mm, p_end) ->> 'id' into v_id
+    from (select public.gaxeta_gland_status(p_sensor) s) q;
+  perform t.rule1();
+  return v_id;
+end $$;
 
 -- s1 e s2 não têm leituras futuras na fixture; s3 só entra nos testes de escopo.
 \set s1 'ESP32-PILOTO000001'
@@ -81,6 +93,7 @@ begin; select t.login(t.id('adm1'));
 select t.gs(:'s1') ->> 'link_id' as link1 \gset
 select '11111111-1111-4111-8111-111111111111'::uuid as req1 \gset
 select t.put('g_ev1', public.gaxeta_record_gland_event(:'s1', :'link1', null, :'req1', 'replacement', 30, 10) ->> 'id');
+select t.rule1();
 select t.eq(public.gaxeta_record_gland_event(:'s1', :'link1', null, :'req1', 'replacement', 30, 10) ->> 'duplicate', 'true', 'mesma solicitação reenviada: devolve o evento, sem duplicar');
 select t.throws($$select public.gaxeta_record_gland_event('ESP32-PILOTO000001', (select t.gs('ESP32-PILOTO000001') ->> 'link_id'), null, '11111111-1111-4111-8111-111111111111', 'replacement', 31, 10)$$, 'PT409', 'mesma solicitação com outra medida é recusada');
 select t.throws($$select public.gaxeta_record_gland_event('ESP32-PILOTO000001', (select t.gs('ESP32-PILOTO000001') ->> 'link_id'), null, gen_random_uuid(), 'replacement', 30, 10)$$, 'PT409', 'registro repetido com estado desatualizado é recusado');

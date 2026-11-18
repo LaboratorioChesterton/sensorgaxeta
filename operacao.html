@@ -149,7 +149,7 @@
     <section id="sensores">
       <h2>Sensores</h2>
       <ul>
-        <li>Cada cartão mostra o nome do sensor, <b>TAG · tipo · spot</b>, o ajuste do ciclo da gaxeta, a condição, a transmissão, a tensão e o horário da última leitura.</li>
+        <li>Cada cartão mostra o nome do sensor, <b>TAG · tipo · spot</b>, o ajuste do ciclo da gaxeta em % com a distância atual em mm, a condição, a transmissão, a tensão com a origem (calibrada ou estimada) e o horário da última leitura.</li>
         <li>Sem engaxetamento registrado, o cartão diz <b>Sem referência</b> e mostra só a posição do sensor em % da escala, que não tem relação com a gaxeta. Veja <a href="#ciclo">Ciclo da gaxeta</a>.</li>
         <li>Placa que hiberna entre envios aparece como <b>Transmitindo · a cada N</b> enquanto estiver dentro do próprio intervalo. O intervalo é observado nas últimas leituras recebidas.</li>
         <li>A busca encontra por nome do sensor, TAG, ID ou MAC. Selecione um ramo na árvore para filtrar; <b>Todos</b> remove o filtro.</li>
@@ -161,29 +161,53 @@
         <tr><td>Acima de 20 % e abaixo de 45 %</td><td>Baixo ajuste</td><td>Planejar intervenção</td></tr>
         <tr><td>20 % ou menos</td><td>Sem ajuste</td><td>Substituir a gaxeta</td></tr>
       </tbody></table></div>
-      <p>As faixas valem para o percentual do ciclo: 100 % é a distância medida no engaxetamento e 0 % é a distância de fim de ajuste informada. São as mesmas faixas usadas antes; os limites ainda não foram confrontados com a especificação de cada equipamento.</p>
+      <p>As faixas valem para o percentual de um ciclo calibrado: 100 % é a distância inicial medida no engaxetamento, com o sensor na marca superior, e 0 % é a distância de fim de ajuste. Sem calibração válida o cartão mostra o estado e o motivo, sem faixa e sem recomendação. Os limites das faixas ainda não foram confrontados com a especificação de cada equipamento.</p>
       <p>No gráfico da Telemetria, a posição do sensor (% da escala) continua com a regra de estabilização: só muda quando a leitura varia 5 pontos percentuais ou mais.</p>
     </section>
 
     <section id="ciclo">
       <h2>Ciclo da gaxeta</h2>
-      <p>Cada bomba e cada montagem tem a sua distância inicial. Por isso a referência é registrada sensor a sensor, depois de cada engaxetamento. O sensor é um potenciômetro rotativo de uma volta: ele informa a posição, e a plataforma transforma essa posição em distância a partir da medida que você informa.</p>
+      <p>Cada bomba e cada montagem tem a sua distância inicial. Por isso a referência é registrada sensor a sensor, depois de cada engaxetamento, sempre com o potenciômetro na <b>marca superior</b> da montagem. O sensor é um potenciômetro rotativo de uma volta: ele informa uma tensão, e a plataforma transforma essa tensão em distância a partir das medidas que você informa com o paquímetro.</p>
+      <h3>Na troca ou no reajuste</h3>
       <ol>
-        <li><b>Antes de mexer no sensor</b>, abra <b>Sensores → Detalhes</b> e use <b>Iniciar manutenção</b>. As leituras continuam gravadas, mas não contam para o ajuste enquanto a manutenção estiver aberta. O passo é recomendado, não obrigatório.</li>
-        <li>Troque ou reajuste a gaxeta e reposicione o sensor. Deixe o potenciômetro longe dos batentes: abaixo de 5 % ou acima de 95 % da escala a plataforma avisa que ele está perto do fim do curso.</li>
-        <li>Meça com o paquímetro a distância entre as duas referências mecânicas da montagem.</li>
-        <li>Use <b>Registrar engaxetamento</b>, escolha <b>Troca completa</b> ou <b>Reajuste</b>, informe a distância medida e, se souber, a <b>distância no fim de ajuste</b> (a mesma medida quando não resta aperto; use 0 quando a medida é a folga até o encosto).</li>
-        <li>A primeira leitura válida depois do registro vira a referência: 100 % naquela distância. Até ela chegar, o estado é <b>Aguardando leitura</b>.</li>
+        <li><b>Antes de desacoplar o conjunto</b>, abra <b>Sensores → Detalhes</b> e use <b>Iniciar manutenção</b>. As leituras continuam gravadas, mas não contam para o ajuste enquanto a manutenção estiver aberta.</li>
+        <li>Troque ou reajuste a gaxeta e <b>recoloque o potenciômetro na marca superior validada</b>. Confira pela marca física da montagem.</li>
+        <li>Meça com o paquímetro a distância entre o preme-gaxeta e a referência mecânica do equipamento. Essa é a <b>distância inicial</b>: 12 mm, 15 mm ou 40 mm, ela é o <b>100 % daquele ciclo</b>.</li>
+        <li>Use <b>Registrar engaxetamento</b>, escolha <b>Troca completa</b> ou <b>Reajuste</b>, marque que o potenciômetro está na marca superior e informe a distância inicial. Se souber, informe também a <b>distância no fim de ajuste</b>: a mesma medida quando não resta aperto. Ela é o 0 % e pode ser maior que zero. Os campos aceitam vírgula ou ponto.</li>
+        <li><b>Mantenha o sensor na marca superior</b> até a plataforma confirmar a leitura. A placa envia a cada intervalo (cerca de 3 minutos no teste de bancada), então a confirmação pode levar esse tempo, mais o transporte. Enquanto isso o estado é <b>Aguardando referência</b>, com o motivo da espera.</li>
+        <li>Na primeira vez em uma instalação, a plataforma ainda não conhece a tensão da marca superior. Ela mostra a leitura recebida e pede <b>Confirmar leitura na marca superior</b>. Confirme só com o sensor fisicamente na marca. Nos ciclos seguintes, uma leitura dentro da faixa esperada é aprovada sozinha, e uma leitura em posição intermediária não é aceita como máxima.</li>
       </ol>
+      <h3>Para a plataforma calcular a distância</h3>
       <ul>
-        <li><b>Sem fim de ajuste</b>, a plataforma mostra a distância em milímetros e não calcula percentual.</li>
-        <li><b>Conferir medida</b>: em qualquer momento do ciclo, meça de novo com o paquímetro e registre. Com pelo menos 100 contagens de diferença no sensor, a plataforma passa a usar a escala medida naquela montagem (mm por contagem). Até lá vale a escala nominal do firmware, e a tela avisa que ela ainda não foi conferida.</li>
-        <li>Um registro novo abre um ciclo novo. Os anteriores ficam no <b>Histórico do ciclo</b> e as leituras antigas continuam calculadas com a referência da época.</li>
-        <li>A referência vale só para aquele sensor naquela instalação. Se o sensor for desvinculado e vinculado de novo, registre o engaxetamento outra vez.</li>
-        <li><b>Leitura instável</b> significa sinal ruidoso, no fim da escala ou recebido com atraso. <b>Fora da faixa do ciclo</b> significa valor abaixo de 0 % ou acima de 100 %: confira a montagem e registre de novo.</li>
-        <li>A placa não recebe a referência: ela continua enviando o valor bruto. Com a placa hibernando, o registro passa a valer no próximo envio dela (até um intervalo de espera).</li>
-        <li>Registram: níveis 1 e 2, e o usuário de corporação com edição no ramo do sensor. Os demais só consultam. Cada registro fica na auditoria.</li>
-        <li>Na <b>Telemetria</b>, o painel <b>Ajuste pelo ciclo de gaxeta</b> mostra a evolução no período, com uma marca em cada engaxetamento, reajuste, conferência ou manutenção.</li>
+        <li>Um ponto só (a referência) não basta para converter tensão em milímetros. Use <b>Conferir medida</b> depois do primeiro avanço: meça de novo com o paquímetro, registre e deixe o conjunto parado até a próxima leitura. Esse é o <b>segundo ponto</b>. Ele precisa de pelo menos 0,1 V de diferença em relação à referência.</li>
+        <li>Feita <b>no fim de ajuste</b>, a conferência também valida o 0 %. Sem isso, a plataforma mostra milímetros e avanço, e deixa o percentual em branco até o fim de ajuste ficar dentro da faixa medida.</li>
+        <li>A calibração medida vale para os ciclos seguintes da mesma instalação. Mais de uma conferência no mesmo ciclo verifica se a resposta é uma reta; se um ponto ficar fora, a plataforma avisa e não calcula.</li>
+        <li>Não existe mais valor pelo curso nominal do firmware nos ciclos novos. Sem calibração válida a tela mostra a distância inicial, a tensão e o motivo.</li>
+      </ul>
+      <h3>O que cada estado quer dizer</h3>
+      <div class="table-wrap"><table><thead><tr><th>Estado</th><th>Significado</th><th>O que fazer</th></tr></thead><tbody>
+        <tr><td>Aguardando referência</td><td>Engaxetamento registrado; nenhuma leitura aprovada ainda.</td><td>Manter o sensor na marca superior. Ler o motivo: sem leitura nova, leitura instável, leitura atrasada, fora da faixa esperada, saturada ou aguardando a sua confirmação.</td></tr>
+        <tr><td>Sem calibração de distância</td><td>Referência aprovada, sem segundo ponto válido.</td><td>Conferir medida depois de um avanço. Se o motivo for sentido invertido, conferir montagem e ligação.</td></tr>
+        <tr><td>Fim de ajuste não informado</td><td>Distância e avanço calculados; falta o 0 %.</td><td>Informar o fim de ajuste em um novo registro, ou conferir a medida no fim de ajuste.</td></tr>
+        <tr><td>Fora da faixa calibrada</td><td>A tensão saiu da faixa em que a calibração foi comprovada.</td><td>O número aparece marcado e sem classificação. Conferir a posição do sensor ou ampliar a calibração.</td></tr>
+        <tr><td>Leitura instável, saturada ou atrasada</td><td>A última leitura não serve para o cálculo.</td><td>Conferir fios, fixação e alimentação. Saturada no limite superior: a marca fica fora da faixa do ADC e depende de ajuste no circuito.</td></tr>
+        <tr><td>Estimativa nominal</td><td>Ciclo registrado antes da regra atual (referência em qualquer posição).</td><td>O número fica só como histórico. Registrar o engaxetamento com o sensor na marca superior.</td></tr>
+      </tbody></table></div>
+      <h3>Tensão, milímetros e percentual lado a lado</h3>
+      <ul>
+        <li><b>Sensores → Detalhes</b> mostra, da mesma leitura: <b>Ajuste do ciclo (%)</b>, <b>Distância atual (mm)</b> e <b>Tensão (V)</b> com a origem. <b>Calibrada</b> é a tensão medida pelo ADC da placa com os coeficientes de fábrica (firmware 4.3.0 em diante). <b>Estimada</b> é a conta antiga, ADC × 3,3 ÷ 4095.</li>
+        <li>No quadro <b>Ciclo da gaxeta</b> ficam a distância inicial (100 %), o fim de ajuste (0 %), o avanço, a tensão na referência, a tensão no fim de ajuste e a calibração em uso.</li>
+        <li>Em <b>Leitura elétrica (diagnóstico)</b> ficam o ADC bruto, o mínimo e o máximo do bloco, a dispersão e a escala elétrica em %. A escala elétrica é a posição do potenciômetro, não o ajuste da gaxeta.</li>
+        <li>Na <b>Telemetria</b>, o topo repete distância, percentual e tensão; o painel <b>Ajuste pelo ciclo de gaxeta</b> mostra a evolução, com uma marca em cada evento. O <b>CSV</b> traz as mesmas colunas, com a tensão calibrada.</li>
+      </ul>
+      <h3>Regras gerais</h3>
+      <ul>
+        <li>As faixas de ajuste e a recomendação só aparecem em ciclo calibrado. Sensor sem vínculo, ciclo sem calibração e leitura fora da faixa não geram recomendação de aperto ou troca.</li>
+        <li>Um registro novo abre um ciclo novo. Os anteriores ficam no <b>Histórico do ciclo</b> e as leituras antigas continuam calculadas com a referência e a calibração da época.</li>
+        <li>Uma referência aprovada não é trocada por uma leitura que chegue depois. Para outra referência, registre de novo.</li>
+        <li>A referência vale só para aquele sensor naquela instalação. Se o sensor for desvinculado e vinculado de novo, a marca superior é confirmada outra vez.</li>
+        <li>A placa não recebe a referência: ela mede e transmite. O cálculo fica no servidor e vale igual na web e no aplicativo.</li>
+        <li>Registram e confirmam: níveis 1 e 2, e o usuário de corporação com edição no ramo do sensor. Os demais só consultam. Cada registro e cada confirmação ficam na auditoria.</li>
       </ul>
     </section>
 

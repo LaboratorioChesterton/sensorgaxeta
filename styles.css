@@ -677,3 +677,18 @@ body.manual-standalone .manual-layout { max-width: 1140px; margin: 0 auto; paddi
   .manual-content section { padding: 10px 12px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* ----- Migração 10: tensão com origem, leitura candidata e marcas do gráfico do ciclo ----- */
+.card-meta .volt small { margin-left: 4px; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.drawer-values .volt-value { display: grid; font-size: 18px; line-height: 1.15; }
+.drawer-values .volt-value small { font-family: "Barlow", sans-serif; font-size: 10px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+.gland-candidate { padding: 6px 10px; border: 1px dashed var(--navy); border-radius: 6px; background: #fff; font-size: 13px; }
+.gland-panel .detail-fields dd { font-weight: 500; }
+.gland-panel .detail-fields dd span { font-weight: 700; }
+.cycle-line.cycle-estimate { stroke: var(--muted); stroke-dasharray: 5 4; }
+.cycle-dot.cycle-estimate { fill: var(--muted); }
+.cycle-off { fill: none; stroke: var(--amber); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.chart-legend .legend-estimate i { background: repeating-linear-gradient(90deg, var(--muted) 0 5px, transparent 5px 9px); }
+.chart-legend .legend-off i { background: none; border: 2px solid var(--amber); border-radius: 50%; width: 9px; height: 9px; }
+.summary-stats dd[title]:not([title=""]) { cursor: help; }
+#glandTopField { align-items: flex-start; font-weight: 600; }

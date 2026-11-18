@@ -29,7 +29,7 @@ if psql -q -At -d postgres -c "select 1 from pg_database where datname='gaxeta_d
     select t.ok(t.view_of(t.id('uA_all')) like 'false ativos=0 gateways=0 sensores=0 leituras=0 %', 'após reverter o corte, usuário de corporação fica sem acesso (não vê outra corporação)');
     select t.ok(t.view_of(t.id('uB_all')) like 'false ativos=0 %', 'idem para a outra corporação');
     select t.ok(t.view_of(t.id('adm2')) like 'false ativos=0 %', 'adm2/adm3 (fora da lista do piloto) ficam sem acesso');
-    select t.ok(t.view_of(t.id('adm1')) like 'true ativos=% sensores=6 %', 'contas administrativas do piloto seguem com a visão anterior');
-    select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '86e3e54a185017b0b3d70c5cf95de619', 'ingestão intocada após a reversão');"
+    select t.ok(t.view_of(t.id('adm1')) like 'true ativos=% sensores=9 %', 'contas administrativas do piloto seguem com a visão anterior');
+    select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '7be2a1efbbe41d30ac66c88098e3d0fc', 'ingestão intocada após a reversão');"
   psql -q -d postgres -c "drop database gaxeta_rb with (force)"
 fi

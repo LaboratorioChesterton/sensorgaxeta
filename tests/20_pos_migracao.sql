@@ -10,7 +10,7 @@ select t.eq((select string_agg(global_role, ',' order by email) from gaxeta_priv
 select t.eq((select gateway_id from public.gaxeta_devices where sensor_id = 'ESP32-AAAA00000001'), t.id('gwA1'), 'gateway legado preservado pela migração');
 
 -- Ingestão intocada: corpos e privilégios idênticos aos de produção (hash sem espaços lido em 11/11).
-select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '86e3e54a185017b0b3d70c5cf95de619', 'gaxeta_ingest: corpo igual ao de produção');
+select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '7be2a1efbbe41d30ac66c88098e3d0fc', 'gaxeta_ingest: corpo igual ao de produção');
 select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest_v3(text,jsonb)'::regprocedure), '1f743ba2f7786202193314e4f2f63e58', 'gaxeta_ingest_v3: corpo igual ao de produção');
 select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'gaxeta_private.stabilize(numeric,numeric)'::regprocedure), 'd5cc19fb9511412aeef67bf00b39e490', 'stabilize: corpo igual ao de produção');
 select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_snapshot(text,integer)'::regprocedure), '16cd86e07816114e3d6ab72196ac4274', 'gaxeta_snapshot: corpo igual ao de produção');

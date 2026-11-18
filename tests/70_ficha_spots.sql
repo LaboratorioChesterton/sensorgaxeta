@@ -78,4 +78,4 @@ select t.throws($$select 1 from public.gaxeta_equipment_types$$, '42501', 'anôn
 select t.throws($$select public.gaxeta_equipment_overview(t.id('rf01'))$$, '42501', 'anônimo: resumo do TAG sem privilégio');
 commit;
 
-select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '86e3e54a185017b0b3d70c5cf95de619', 'ingestão intocada pela migração 07');
+select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '7be2a1efbbe41d30ac66c88098e3d0fc', 'ingestão intocada pela migração 07');

@@ -1,8 +1,8 @@
 # Estado da produção — SensorGaxeta
 
-Conferido em 17/11/2026 às 19:49 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
+Conferido em 18/11/2026 às 10:45 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
 
-## Migrações: nove de nove aplicadas
+## Migrações: dez de dez aplicadas
 
 O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations/` (comparação feita no banco, coluna `statements`; para a 08, o arquivo foi escrito a partir do que está gravado, com fim de linha LF).
 
@@ -15,8 +15,44 @@ O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations
 | 05 | `20261111175624_corte_acesso.sql` | `20261111175624` | 11/11 14:56 |
 | 06 | `20261111175658_telemetria_consultas.sql` | `20261111175658` | 11/11 14:56 |
 | 07 | `20261112143031_ficha_equipamento_spots.sql` | `20261112143031` | 12/11 11:30 |
-| 08 | `20261117210000_ciclos_gaxeta.sql` | `20261117210000` | 17/11, antes desta revisão |
+| 08 | `20261117210000_ciclos_gaxeta.sql` | `20261117210000` | 17/11, antes da revisão de 17/11 |
 | 09 | `20261117222922_referencia_gaxeta.sql` | `20261117222922` | 17/11 19:29 |
+| 10 | `20261118132114_calibracao_tensao.sql` | `20261118132114` | 18/11 10:21 |
+
+## Migração 10 (tensão calibrada e marca superior validada, 18/11/2026)
+
+Aditiva. MD5 do arquivo igual ao gravado no histórico (`e4d36c6104017c8017676e7d77a7a879`). Os corpos das 23 funções do ciclo e da ingestão em produção têm o mesmo hash do banco local em que as 454 verificações foram executadas.
+
+| Objeto | O que é |
+|---|---|
+| `public.gaxeta_readings`: `voltage_mv`, `adc_min`, `adc_max`, `acq_method` | Campos novos e opcionais do firmware 4.3.0: tensão no pino em mV calibrada pelo ADC (mesmas amostras do bloco bruto), menor e maior amostra do bloco e identificador do método de aquisição. Nulos em firmware anterior. `voltage_v`, `adc_raw`, `travel_percent` e `position_mm` não mudam. |
+| `public.gaxeta_devices`: `last_voltage_mv`, `last_adc_raw`, `last_adc_min`, `last_adc_max`, `last_acq_method` | Diagnóstico da leitura atual, com a mesma proteção contra envio atrasado ou fora de ordem. |
+| `public.gaxeta_ingest(text, jsonb)` | **Corpo substituído** (invólucro). Valida e grava os campos novos e aprova a amostra de referência do ciclo. `gaxeta_ingest_v3` e `gaxeta_private.stabilize` têm o mesmo hash de antes. Identidade idempotente continua `sensor_id + boot_id + sequence`. |
+| `gaxeta_private.gland_events.rule_version` | 1 para os eventos que já existiam, 2 para os novos. |
+| `gaxeta_private.gland_anchors` | Amostra de referência aprovada de cada evento (regra 2): gravada uma vez, com os valores copiados da leitura, o modo (`window`, `confirmed`, `check`) e quem confirmou. Não é substituída. |
+| `gaxeta_private.gland_profiles` | Perfil versionado por instalação: faixa elétrica da marca superior, marca de fim de ajuste, faixa validada, razão de transmissão documentada. Vale da criação em diante. |
+| `gaxeta_private.gland_quality`, `gland_qvalue`, `gland_profile_at`, `gland_window`, `gland_try_anchor`, `gland_model`, `gland_eval` | Qualidade do bloco (instável, saturado), grandeza comparável (mV só entre leituras do mesmo método), faixa esperada da marca superior, aprovação na chegada da leitura, modelo de conversão válido num instante e cálculo de distância, percentual e avanço. |
+| `gaxeta_private.gland_state` | **Corpo substituído.** Regra 1 com o cálculo preservado e marcada como não calibrada; regra 2 sem recurso ao curso nominal. |
+| `public.gaxeta_confirm_gland_anchor(text, text, text, text)` | Confirmação, pelo técnico, da leitura colhida com o sensor na marca superior. Mesma autorização do registro (`can_operate_point`), auditoria `gland.anchor`. |
+| `public.gaxeta_save_gland_profile(text, text, uuid, jsonb)` | Nova versão do perfil da instalação. Níveis 1 e 2. Auditoria `gland.profile`. Sem tela nesta entrega. |
+| `public.gaxeta_gland_status`, `gaxeta_gland_summary`, `gaxeta_gland_history` | **Corpos substituídos**, mesmas assinaturas. Campos novos são aditivos: regra, calibrado, avanço, motivo da espera, tensão e origem, qualidade, faixa esperada, leitura candidata, perfil. |
+| `public.gaxeta_history(text, timestamptz, timestamptz)` | **Corpo substituído**: cada intervalo ganha `voltage_mv` (média calibrada) e `adc_raw`. As chaves antigas não mudam. |
+
+Estados do ciclo na regra 2: `waiting` (aguardando referência, com `wait_reason`), `no_scale` (sem calibração de distância, com `reason`), `no_end` (fim de ajuste não informado ou fora da faixa validada), `out_of_range` (fora da faixa calibrada), `active`, `unusable`, `maintenance`, `no_reference`, `unlinked`.
+
+Nenhum dado existente foi alterado. Os quatro eventos que existiam (instalação 6 do sensor `ESP32-80D0BBE0F908`, registrados em 17/11 pela interface) ficaram na regra 1. `gland_anchors` e `gland_profiles` estão vazias.
+
+Conferido depois da aplicação (18/11, 10:21):
+
+- Leitura do firmware 4.2.0 às 10:23:32, dois minutos depois da aplicação, com os campos novos nulos.
+- Firmware 4.3.0 gravado às 10:33: leituras 104114 a 104117 (sequências 1 a 4, a cada 174 a 183 s) com `voltage_mv` de 2733 a 2747, `adc_min`/`adc_max` e `acq_method = a1-12db-n20-lf-vref`; `gaxeta_devices` mostra `4.3.0-hib180` e os campos `last_*`.
+- Limite de dispositivos da chave de ingestão: 10, com 2 em uso.
+
+Limites conhecidos desta migração:
+
+- A aprovação da referência roda dentro da ingestão. Uma falha nela vira aviso no registro do banco e não rejeita a leitura.
+- As tolerâncias sem perfil (±60 mV ou ±75 contagens em torno da marca superior confirmada, 100 mV de amplitude mínima numa conferência, 0,3 mm ou 5 % de desvio de linearidade, 2 % de tolerância nos extremos da faixa) são provisórias: saem das poucas leituras de bancada e precisam do ensaio com multímetro e paquímetro.
+- Reverter a migração descarta as referências aprovadas e os perfis; os eventos ficam e voltam a ser calculados pela regra anterior.
 
 ## Migrações 08 e 09 (ciclo de gaxeta, 17/11/2026)
 
@@ -48,11 +84,11 @@ Limite conhecido: enquanto um ciclo aguarda a primeira leitura apta, cada consul
 
 `gaxeta_asset_dependencies` e `gaxeta_delete_asset` existem em produção desde a migração 03 e não foram alteradas. Só nível 1 exclui; a exclusão é recusada com filhos, sensores vinculados, gateways, histórico de instalação ou usuários. Em 17/11: `L2-956` não tem dependências; `L2-955` tem 1 spot, 1 sensor vinculado e 1 registro de instalação. Nada foi excluído em produção.
 
-## Sensores em 17/11/2026
+## Sensores em 18/11/2026
 
 | Sensor | Firmware | Vínculo | Última leitura |
 |---|---|---|---|
-| `ESP32-80D0BBE0F908` (placa de reposição) | 4.1.0, contínuo, 10 s | Sem vínculo, na fila de associação | 17/11 19:48, transmitindo |
+| `ESP32-80D0BBE0F908` (placa de reposição, nome G1-432) | 4.3.0-hib180, hibernação de 180 s | Vinculado em 17/11 22:55 ao spot UNICO (instalação 6), pela interface | 18/11 10:42, transmitindo |
 | `ESP32-54CE2CDC5194` (placa anterior) | 4.0.0 | L2-955 / LOA (vínculo nº 1, preservado) | 16/11 22:15 |
 
 ## Migração 07 (refinamento de 12/11/2026)
