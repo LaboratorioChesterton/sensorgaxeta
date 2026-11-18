@@ -26,7 +26,7 @@ const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.c
 // Leitura e condição do sensor pelo ciclo de gaxeta (ou "Sem referência" quando não há engaxetamento registrado).
 const cycleReading = (device) => {
   const view = deviceCycle(device);
-  return `<span class="spot-reading">${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
+  return `<span class="spot-reading"${view.electric ? ' title="Posição elétrica do sensor (% da escala do ADC). Não é o ajuste da gaxeta."' : ""}>${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : view.electric && view.unit ? " % elétr." : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);

@@ -1,10 +1,10 @@
-# Como publicar — calibração por tensão e marca superior (18/11/2026)
+# Como publicar — destravar a calibração: cadastro 15/3, comissionamento em dois pontos e série elétrica (18/11/2026)
 
-Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit `b70fd06` (o que está publicado hoje). Extraia sobre a cópia local do repositório, confira com `git status` e faça o commit.
+Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit da calibração por tensão (o que está publicado hoje, deploy Pages nº 13). Extraia sobre a cópia local do repositório, confira com `git status` e faça o commit.
 
-**O banco já está pronto.** A migração 10 (`20261118132114_calibracao_tensao`) foi aplicada no projeto SensorGaxeta em 18/11/2026 às 10:21. Só falta publicar os arquivos do site.
+**Banco:** o banco já está pronto. A migração 11 (`20261118165547_comissionamento_dois_pontos`) foi aplicada no projeto SensorGaxeta em 18/11/2026 às 13:55, com o mesmo MD5 deste arquivo. Só falta publicar os arquivos do site.
 
-Até o push, o site publicado continua funcionando: ele lê os mesmos nomes de função. A diferença é a apresentação. O site antigo não conhece os estados novos e mostra **Sem referência** para um ciclo registrado na regra nova. Publique antes de registrar o próximo engaxetamento.
+A ordem entre o banco e o site é livre. Foi conferido no banco local: o site publicado hoje funciona com a migração 11 aplicada, e o site novo funciona com o banco ainda na migração 10 (nesse caso sem o comissionamento gravado no perfil e sem a reconciliação pelo registro, que dependem da migração).
 
 ## 1. Arquivos servidos pelo Pages (raiz do repositório)
 
@@ -13,7 +13,7 @@ Até o push, o site publicado continua funcionando: ele lê os mesmos nomes de f
 | `index.html` | **Substituir** |
 | `app.js` | **Substituir** |
 | `styles.css` | **Substituir** |
-| `operacao.html` | **Substituir** (Manual com a seção Ciclo da gaxeta reescrita) |
+| `operacao.html` | **Substituir** (Manual: cadastro × leitura apta, comissionamento em dois pontos, limite do ADC) |
 | `acesso.html` | **Substituir** (gerado a partir do `index.html`) |
 | `COMO_PUBLICAR.md` | **Substituir** (este arquivo) |
 | Demais arquivos da raiz (`README.md`, `config.js`, ícone, logo, `web-*.js`, fontes) | Iguais aos atuais |
@@ -25,29 +25,32 @@ Nada precisa ser apagado.
 | Arquivo | Ação |
 |---|---|
 | `frontend/README.md` | Substituir |
-| `frontend/src/index.html` | Substituir (diálogo de registro com a marca superior; topo da Telemetria com distância, percentual e tensão) |
+| `frontend/src/index.html` | Substituir (diálogo de registro; topo e legendas da Telemetria como série elétrica) |
 | `frontend/src/operacao.html` | Substituir |
 | `frontend/src/styles/app.css` | Substituir |
-| `frontend/src/js/10-core.js` | Substituir (estados do ciclo, tensão com origem, classificação só em ciclo calibrado) |
-| `frontend/src/js/60-sensors.js` | Substituir (cartões e painel com mm, % e V; diagnóstico elétrico) |
-| `frontend/src/js/62-gland.js` | Substituir (registro na marca superior, confirmação da leitura, conferência, gráfico do ciclo) |
-| `frontend/src/js/70-telemetry.js` | Substituir (topo, tabela e CSV com tensão calibrada e colunas do ciclo) |
-| `supabase/migrations/20261118132114_calibracao_tensao.sql` | **Novo** (já aplicada) |
-| `supabase/rollback/20261118132114_calibracao_tensao.down.sql` | **Novo** |
+| `frontend/src/js/10-core.js` | Substituir (posição elétrica, diagnóstico do bloco, cadência do firmware, textos dos estados) |
+| `frontend/src/js/40-shell.js` | Substituir (variação bruta entre dois envios) |
+| `frontend/src/js/50-tree.js` | Substituir (árvore: ajuste do ciclo ou posição elétrica rotulada) |
+| `frontend/src/js/60-sensors.js` | Substituir (bloco fixo em Detalhes; diagnóstico elétrico) |
+| `frontend/src/js/62-gland.js` | Substituir (caixa da marca superior, salvamento e reconciliação, leitura candidata, comissionamento em dois pontos) |
+| `frontend/src/js/65-assets.js` | Substituir (rótulo elétrico no spot) |
+| `frontend/src/js/70-telemetry.js` | Substituir (mesma leitura de Detalhes, série elétrica sem classificação mecânica, CSV) |
+| `supabase/migrations/20261118165547_comissionamento_dois_pontos.sql` | **Novo** (já aplicada) |
+| `supabase/rollback/20261118165547_comissionamento_dois_pontos.down.sql` | **Novo** |
 | `supabase/README.md`, `supabase/ESTADO_PRODUCAO.md` | Substituir |
-| `tests/76_calibracao_tensao.sql` | **Novo** |
-| `tests/75_ciclos_gaxeta.sql` | Substituir (passa a cobrir a regra 1, preservada) |
-| `tests/20_pos_migracao.sql`, `tests/70_ficha_spots.sql`, `tests/90_base_limpa_e_reversao.sh` | Substituir (hash novo do invólucro de ingestão; contagem de sensores) |
-| `dev/run_all.sh` | Substituir (inclui a suíte 76) |
+| `tests/77_comissionamento_dois_pontos.sql` | **Novo** (85 verificações) |
+| `tests/76_calibracao_tensao.sql` | Substituir (a confirmação depois de uma leitura mais alta passa a levar a declaração; assinatura nova da função) |
+| `tests/90_base_limpa_e_reversao.sh` | Substituir (contagem de sensores com a suíte 77) |
+| `dev/run_all.sh` | Substituir (inclui a suíte 77) |
 
-Total: 21 arquivos alterados e 3 novos. O firmware e o APK ficam fora do repositório, na pasta da entrega.
+Total: 22 arquivos alterados e 3 novos. O firmware, o APK e as evidências ficam fora do repositório, na pasta da entrega.
 
 ## 3. Commit
 
 Mensagem sugerida (está em `MENSAGEM_DO_COMMIT.txt`, ao lado da pasta do repositório):
 
 ```
-Calibração por tensão: referência na marca superior, tensão calibrada e ciclo em mm, % e V
+Destravar a calibração: cadastro com leitura no limite do ADC, comissionamento em dois pontos e série elétrica
 ```
 
 Pela linha de comando, com o pacote extraído sobre o repositório:
@@ -59,10 +62,10 @@ git commit -F ../MENSAGEM_DO_COMMIT.txt
 git push
 ```
 
-Alternativa, a partir de um clone em `b70fd06`:
+Alternativa, a partir de um clone no commit publicado:
 
 ```bash
-git am ../calibracao-tensao-2026-11-18.patch      # cria o commit já com a mensagem
+git am ../destravar-calibracao-2026-11-18.patch      # cria o commit já com a mensagem
 git push
 ```
 
@@ -71,18 +74,18 @@ Pelo site do GitHub: em cada pasta, **Add file → Upload files** e arraste os a
 ## 4. Depois do push
 
 1. Abrir o site, tocar em **Continuar** e recarregar sem cache (Cmd+Shift+R).
-2. **Sensores**: o cartão do G1-432 mostra a tensão com a palavra **calibrada** (firmware 4.3.0). O ciclo registrado em 17/11 aparece como **Estimativa nominal**, sem faixa de ajuste.
-3. **Detalhes** do G1-432: três quadros no topo, **Ajuste do ciclo (%)**, **Distância atual (mm)** e **Tensão (V)**. Em **Leitura elétrica (diagnóstico)**: ADC bruto, bloco, dispersão e método `a1-12db-n20-lf-vref`.
-4. **Registrar engaxetamento**: o diálogo pede para marcar que o potenciômetro está na marca superior.
-5. **Telemetria**: no topo, distância, ajuste do ciclo e tensão calibrada; **CSV** com as colunas novas ao final.
-6. `…/sensorgaxeta/operacao.html`: seção **Ciclo da gaxeta** com a tabela de estados.
+2. **Sensores**: sem ciclo calculado, o cartão do G1-432 mostra a posição elétrica como **% elétrico** e, se a leitura estiver no teto, **Limite do ADC**.
+3. **Detalhes** do G1-432: quatro quadros fixos (**Posição elétrica do sensor (%)**, **Tensão (V)**, **Distância atual (mm)**, **Ajuste do ciclo (%)**), o horário da leitura com a cadência da placa e a linha do **Ciclo vigente** com as medidas cadastradas.
+4. **Registrar engaxetamento**: com a caixa desmarcada, a mensagem é “Marque a caixa para confirmar que você colocou o potenciômetro na marca superior.” e nada é enviado. Com a caixa marcada, 15 e 3 são salvos e a tela mostra o número do registro e **Medidas salvas · aguardando leitura apta**.
+5. **Telemetria**: os mesmos quatro números de Detalhes; o gráfico principal com **Leitura atual** e **Linha estabilizada (5 p.p.)**, sem “Sem ajuste”; CSV com a coluna `escala_dos_percentuais` ao final.
+6. `…/sensorgaxeta/operacao.html`: seção **Ciclo da gaxeta** com o **Comissionamento em dois pontos**.
 
 ## 5. Voltar atrás
 
-- **Site**: restaurar `index.html`, `app.js`, `styles.css`, `operacao.html` e `acesso.html` do commit `b70fd06`. O pacote anterior funciona com o banco atual.
-- **Banco**: `supabase/rollback/20261118132114_calibracao_tensao.down.sql` devolve a ingestão, o histórico e as funções do ciclo à forma das migrações 06 e 09 e descarta a tensão calibrada, as referências aprovadas e os perfis. Eventos, vínculos e leituras ficam. O firmware 4.3.0 continua aceito depois da reversão: os campos novos são ignorados.
-- **Firmware**: regravar o 4.2.0 (pasta `ENTREGA_2026-11-17_CICLO_GAXETA/firmware`). O banco aceita as duas versões.
+- **Site**: restaurar `index.html`, `app.js`, `styles.css`, `operacao.html` e `acesso.html` do commit anterior. O pacote anterior funciona com o banco na migração 10 ou na 11.
+- **Banco**: `supabase/rollback/20261118165547_comissionamento_dois_pontos.down.sql` devolve o estado, a consulta, o resumo e a confirmação do ciclo à forma da migração 10. Eventos, referências, perfis e leituras ficam.
+- **Firmware**: `GAXETA_BENCH_PROFILE 0` em `GaxetaConfig.h` e gravar de novo devolve a placa à hibernação de 180 s (`4.3.1-hib180`). O 4.3.0 da entrega anterior também continua aceito.
 
 ## Estado das migrações
 
-Dez aplicadas em produção, com os números que aparecem nos nomes dos arquivos de `supabase/migrations/`. Detalhes em `supabase/ESTADO_PRODUCAO.md`.
+Onze aplicadas em produção, com os números que aparecem nos nomes dos arquivos de `supabase/migrations/`. Detalhes em `supabase/ESTADO_PRODUCAO.md`.

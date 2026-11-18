@@ -6,8 +6,11 @@
 //   * Leitura atual (leve, a cada ciclo) separada da consulta de histórico (pesada,
 //     só quando o período pede). Uma solicitação por combinação; respostas e erros
 //     de pedidos substituídos são descartados e a requisição é cancelada.
-//   * Linha estabilizada em degraus, colorida pela condição de cada trecho.
-// O cálculo, os limites da consulta e o formato dos CSV não mudaram.
+//   * O gráfico principal é a série ELÉTRICA do sensor (posição em % da escala do ADC):
+//     leitura atual (média bruta de cada intervalo) e linha estabilizada em degraus, que só
+//     muda com variação de 5 p.p. Nenhuma das duas recebe classificação mecânica
+//     ("Sem ajuste", "Baixo"…): a condição da gaxeta vem só do ciclo calibrado.
+// O cálculo, os limites da consulta e as colunas existentes dos CSV não mudaram.
 // =============================================================================
 const telem = {
   matchIds: null, // resultado da busca do seletor (null = sem filtro)
@@ -210,7 +213,7 @@ function refreshHistoryIfDue() {
 // Linha estabilizada em degraus, um trecho por referência em vigor: começa na semente
 // autorizada (referência anterior ao período) ou na primeira mudança, troca de valor no
 // instante da mudança e termina na última leitura elegível, nunca além dela.
-// Cada patamar leva a cor da condição do valor que esteve em vigor ali. O degrau vertical
+// Os patamares têm uma cor só (série elétrica, sem condição mecânica). O degrau vertical
 // (o instante da mudança) é neutro: não representa um valor mantido.
 function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
   const from = +new Date(fromValue);
@@ -224,8 +227,7 @@ function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
   let value = seed?.stable_percent ?? null;
   let startX = value == null ? null : px(from);
   const close = (endX) => {
-    // A condição é classificada com o valor gravado, sem arredondar.
-    if (value != null && endX !== startX) levels.push({ key: adjustmentInfo(value).key, d: `M${startX} ${py(value)}H${endX}` });
+    if (value != null && endX !== startX) levels.push({ key: "electric", d: `M${startX} ${py(value)}H${endX}` });
   };
   for (const move of movements) {
     const time = +new Date(move.received_at);
@@ -243,7 +245,8 @@ function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
 function renderTelemetryLive() {
   const device = currentDevice();
   const identity = deviceIdentity(device);
-  // Condição pelo ciclo de gaxeta; o gráfico abaixo continua na escala do sensor (ADC).
+  // Condição pelo ciclo de gaxeta; o gráfico abaixo é a série elétrica do sensor (ADC).
+  // Os mesmos números de Sensores → Detalhes: os dois saem de state.devices e state.gland.
   const health = device ? deviceCycle(device) : cycleView(null, null);
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
   $id("historyTitle").title = identity.path || "";
@@ -254,21 +257,35 @@ function renderTelemetryLive() {
       : `Sensor sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
   const gland = device && !state.glandMissing ? state.gland.get(device.sensor_id) : null;
-  $id("historyCurrentLabel").textContent = health.mode === "cycle" ? "Ajuste do ciclo" : health.mode === "distance" ? "Distância atual" : health.mode === "legacy" ? "Ajuste estabilizado" : "Posição do sensor";
-  $id("historyCurrent").textContent = health.mode === "cycle" || health.mode === "distance" || health.mode === "legacy" ? `${health.value} ${health.unit}` : `${fmtNum(device?.stable_percent)} %`;
+  const electric = electricInfo(device, gland);
+  $id("historyCurrentLabel").textContent = health.mode === "cycle" ? "Ajuste do ciclo" : health.mode === "distance" ? "Distância atual" : health.mode === "legacy" ? "Posição elétrica estabilizada" : "Posição elétrica" + (electric.label ? " · " + electric.label : "");
+  $id("historyCurrent").textContent = health.mode === "cycle" || health.mode === "distance" || health.mode === "legacy" ? `${health.value} ${health.unit}` : electric.text;
   $id("historyHealthBox").className = "summary-main health-" + health.key;
   $id("historyHealth").textContent = health.label;
   $id("historyAction").textContent = health.warn || health.action;
-  // Distância, percentual e tensão lado a lado, da mesma leitura; a escala elétrica fica como diagnóstico.
+  // Posição elétrica, tensão, distância e ajuste do ciclo lado a lado, da mesma leitura.
+  // Sem escala validada, ciclo e milímetros ficam indisponíveis, com o passo que falta na dica.
   const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
   const volt = voltageInfo(device, gland);
-  $id("historyDistance").textContent = computed ? fmtMm(gland.distance_mm, 2) + (gland.state === "out_of_range" ? " *" : "") : "—";
-  $id("historyDistance").title = computed && gland.state === "out_of_range" ? "Fora da faixa calibrada: valor calculado, sem classificação" : computed && Number(gland.rule) !== 2 ? "Estimativa: ciclo registrado na regra anterior" : "";
-  $id("historyPercent").textContent = computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" + (Number(gland.rule) !== 2 ? " (est.)" : "") : "—";
-  $id("historyVoltLabel").textContent = volt.source ? `Tensão ${volt.source}` : "Tensão";
-  $id("historyVolt").textContent = volt.text;
-  $id("historyVolt").title = volt.title;
-  $id("historyRawNow").textContent = `${fmtNum(device?.last_percent)} %`;
+  const missing = glandMissingStep(gland);
+  $id("historyDistance").textContent = computed ? fmtMm(gland.distance_mm, 2) + (gland.state === "out_of_range" ? " *" : "") : device ? "indisponível" : "—";
+  $id("historyDistance").title = computed && gland.state === "out_of_range" ? "Fora da faixa calibrada: valor calculado, sem classificação" : computed && Number(gland.rule) !== 2 ? "Estimativa: ciclo registrado na regra anterior" : computed ? "" : "Para ter a distância: " + missing.distance;
+  $id("historyPercent").textContent = computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" + (Number(gland.rule) !== 2 ? " (est.)" : "") : device ? "indisponível" : "—";
+  $id("historyPercent").title = computed && gland.percent != null ? "" : "Para ter o percentual do ciclo: " + missing.percent;
+  $id("historyVoltLabel").textContent = volt.source ? `Tensão ${volt.source} (V)` : "Tensão (V)";
+  $id("historyVolt").textContent = volt.text + (electric.block && electric.block !== "ok" && BLOCK_SHORT[electric.block] ? " *" : "");
+  $id("historyVolt").title = [volt.title, electric.block ? "Condição do bloco: " + (BLOCK_TEXT[electric.block] || "—") : ""].filter(Boolean).join(". ");
+  $id("historyRawNow").textContent = electric.text;
+  $id("historyRawNow").title = electric.label ? electric.label + ": " + (BLOCK_HINT[electric.block] || "") : "Leitura atual, sem a estabilização de 5 p.p.";
+  $id("historyDelta").textContent = rawDeltaText(device).split(" · ").slice(0, 2).join(" · ") || "—";
+  const cadence = firmwareCadence(device?.firmware_version);
+  $id("historyReading").textContent = !device
+    ? ""
+    : `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` +
+      (electric.label ? ` · ${electric.label}` : electric.block && electric.block !== "ok" ? ` · ${BLOCK_SHORT[electric.block]}` : "") +
+      ` · linha estabilizada em ${fmtNum(device.stable_percent)} %` +
+      (cadence ? ` · ${cadence.text}` : "") +
+      (glandCadastro(gland) ? ` · ${glandCadastro(gland)}` : "");
   $id("historySince").textContent = gland?.recorded_at
     ? `${health.sub ? health.sub + " · " : ""}referência de ${fmtDateTime(gland.recorded_at)}`
     : device?.stable_since
@@ -329,28 +346,28 @@ function renderHistory() {
     ? ""
     : loaded.truncated
       ? "Muitas mudanças neste intervalo. Reduza o período para exibir a linha completa."
-      : "Linha: mudanças de 5 p.p. ou mais · faixa bruta: mín./máx. · médias de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s";
+      : "Linha estabilizada: mudanças de 5 p.p. ou mais · leitura atual: média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo · faixa: mín./máx. brutos";
   $id("movementCount").textContent = !loaded
     ? ""
     : loaded.truncated
       ? "Mais de 5.000 registros — reduza o período"
-      : movements.filter((move) => move.previous_percent != null).length + " mudanças no período";
+      : movements.filter((move) => move.previous_percent != null).length + " mudanças de 5 p.p. no período";
   $id("movementRows").innerHTML =
     movements
       .slice(-30)
       .reverse()
-      .map((move) => {
-        const health = adjustmentInfo(move.stable_percent);
-        return `<tr><td>${fmtDateTime(move.received_at)}</td><td>${move.previous_percent == null ? "Referência inicial" : fmtNum(move.previous_percent) + " %"}</td><td>${fmtNum(move.stable_percent)} %</td><td>${move.previous_percent == null ? "—" : fmtNum(move.stable_percent - move.previous_percent) + " p.p."}</td><td><span class="adjustment-badge health-${health.key}">${health.label}</span></td></tr>`;
-      })
+      .map(
+        (move) =>
+          `<tr><td>${fmtDateTime(move.received_at)}</td><td>${move.previous_percent == null ? "Primeira leitura" : fmtNum(move.previous_percent) + " %"}</td><td>${fmtNum(move.stable_percent)} %</td><td>${move.previous_percent == null ? "—" : fmtNum(move.stable_percent - move.previous_percent) + " p.p."}</td></tr>`,
+      )
       .join("") ||
-    `<tr><td colspan="5">${loaded ? "Nenhuma mudança de 5 pontos neste período. A referência anterior é mantida enquanto chegam novas leituras." : telem.error || "Aguardando o histórico…"}</td></tr>`;
+    `<tr><td colspan="4">${loaded ? "Nenhuma mudança de 5 pontos na posição elétrica neste período. Movimentos menores aparecem na leitura atual do gráfico e na tabela de leituras brutas." : telem.error || "Aguardando o histórico…"}</td></tr>`;
   const point = (row, field) => {
     const x = Math.max(0, Math.min(1e3, ((new Date(row.received_at) - range.from) / (range.to - range.from)) * 1e3));
     const y = 280 - Math.max(0, Math.min(100, Number(row[field]))) * 2.8;
     return `${x.toFixed(2)} ${y.toFixed(2)}`;
   };
-  // Trechos agrupados por condição: no máximo quatro traços, um por cor.
+  // Patamares da linha estabilizada: um traço só, na cor da série elétrica.
   const byHealth = new Map();
   let risers = "";
   if (loaded && !loaded.truncated) {
@@ -366,17 +383,24 @@ function renderHistory() {
         .join(" ") +
       " Z"
     : "";
+  // Leitura atual: a média bruta de cada intervalo, sem filtro. É ela que mostra um avanço de
+  // 1 a 2 mm, que a linha estabilizada (5 p.p.) pode não mostrar. A linha quebra em lacunas longas.
+  const gapMs = Math.max(3 * (Number(loaded?.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(state.gland.get(state.sensorId)?.interval_s) || 0) * 1000);
+  let rawPath = "";
+  rows.forEach((row, index) => {
+    const previous = rows[index - 1];
+    rawPath += `${!previous || new Date(row.received_at) - new Date(previous.received_at) > gapMs ? "M" : "L"}${point(row, "travel_percent")} `;
+  });
   $id("historyChart").innerHTML = rows.length
     ? `<path class="chart-band" d="${$id("showRawBand").checked ? band : ""}"/>` +
       `<path class="chart-riser" d="${risers}"/>` +
-      [...byHealth].map(([key, d]) => `<path class="chart-line health-${key}" d="${d}"/>`).join("") +
-      (rows.length === 1 && byHealth.size
-        ? `<circle class="chart-dot health-${adjustmentInfo(rows[0].stable_percent).key}" cx="${point(rows[0], "travel_percent").split(" ")[0]}" cy="${point(rows[0], "stable_percent").split(" ")[1]}" r="4"/>`
-        : "")
+      [...byHealth].map(([key, d]) => `<path class="chart-line chart-${key}" d="${d}"/>`).join("") +
+      `<path class="chart-raw" d="${rawPath.trim()}"/>` +
+      (rows.length === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${point(rows[0], "travel_percent").split(" ")[0]}" cy="${point(rows[0], "travel_percent").split(" ")[1]}" r="4"/>` : "")
     : "";
   $id("historyChart").setAttribute(
     "aria-label",
-    `${rows.length} intervalos. ${fmtNum(stats.count || 0, 0)} leituras. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Linha colorida pela condição do ajuste. Arraste para ampliar.`,
+    `Posição elétrica do sensor. ${rows.length} intervalos. ${fmtNum(stats.count || 0, 0)} leituras. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Leitura atual e linha estabilizada de 5 pontos, sem classificação mecânica. Arraste para ampliar.`,
   );
   $id("historyRows").innerHTML =
     rows
@@ -384,7 +408,7 @@ function renderHistory() {
       .reverse()
       .map(
         (row) =>
-          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Bruta: ${fmtNum(row.travel_percent)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${row.voltage_mv == null ? "—" : fmtVolt(row.voltage_mv)}</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
+          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Leitura: ${fmtNum(row.travel_percent, 2)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${row.voltage_mv == null ? "—" : fmtVolt(row.voltage_mv)}</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
       )
       .join("") || '<tr><td colspan="7">Nenhuma leitura neste período.</td></tr>';
 }
@@ -463,7 +487,7 @@ $id("historyChart").onpointermove = (event) => {
   if (!nearest) return;
   $id("chartTooltip").hidden = false;
   $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
-Estabilizado ${fmtNum(nearest.stable_percent)}% (${adjustmentInfo(nearest.stable_percent).label}) · média bruta ${fmtNum(nearest.travel_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
+Posição elétrica: leitura ${fmtNum(nearest.travel_percent, 2)}% · linha estabilizada ${fmtNum(nearest.stable_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
 ${fmtNum(nearest.samples, 0)} leituras`;
 };
 $id("historyChart").onpointerleave = () => {
@@ -504,13 +528,15 @@ $id("exportCsv").onclick = async () => {
     // As colunas antigas não mudam de nome nem de conteúdo. As do ciclo vêm do mesmo cálculo do
     // servidor usado na tela (gaxeta_gland_history), casadas por intervalo.
     ["horario", "percentual_estabilizado", "media_percentual", "min_percentual", "max_percentual", "posicao_estimada_mm", "tensao_estimada_v", "leituras",
-      "tensao_calibrada_v", "adc_bruto", "distancia_ciclo_mm", "ajuste_ciclo_pct", "avanco_mm", "calculo_ciclo"],
+      "tensao_calibrada_v", "adc_bruto", "distancia_ciclo_mm", "ajuste_ciclo_pct", "avanco_mm", "calculo_ciclo", "escala_dos_percentuais"],
     ...loaded.history.map((row) => {
       const cycle = cycleByBucket.get(bucketOf(row.received_at));
       return [row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent, row.position_mm, row.voltage_v, row.samples,
         row.voltage_mv == null ? "" : Number(row.voltage_mv) / 1000, row.adc_raw ?? "",
         cycle?.distance_mm ?? "", cycle?.percent ?? "", cycle?.advance_mm ?? "",
-        !cycle ? "" : cycle.out_of_range ? "fora da faixa calibrada" : cycle.nominal || Number(cycle.rule) === 1 ? "estimativa nominal (regra anterior)" : cycle.percent == null ? "calibrado, sem fim de ajuste valido" : "calibrado"];
+        !cycle ? "sem escala validada: so posicao eletrica" : cycle.out_of_range ? "fora da faixa calibrada" : cycle.nominal || Number(cycle.rule) === 1 ? "estimativa nominal (regra anterior)" : cycle.percent == null ? "calibrado, sem fim de ajuste valido" : "calibrado",
+        // percentual_estabilizado, media, min e max são a posição ELÉTRICA (% da escala do ADC); o ajuste da gaxeta é ajuste_ciclo_pct.
+        "posicao eletrica (% da escala do ADC)"];
     }),
   ]
     .map((row) => row.map(csvCell).join(";"))
@@ -526,8 +552,8 @@ $id("exportMovements").onclick = async () => {
   if (!loaded?.movements.length) return;
   if (loaded.truncated) return showMessage("Reduza o período para exportar todas as mudanças.");
   const text = [
-    ["horario", "percentual_anterior", "percentual_estabilizado", "variacao_pontos", "regra"],
-    ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), move.rule_version]),
+    ["horario", "percentual_anterior", "percentual_estabilizado", "variacao_pontos", "regra", "escala_dos_percentuais"],
+    ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), move.rule_version, "posicao eletrica estabilizada (% da escala do ADC, mudancas de 5 p.p.)"]),
   ]
     .map((row) => row.map(csvCell).join(";"))
     .join("\r\n");

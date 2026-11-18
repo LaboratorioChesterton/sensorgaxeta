@@ -191,8 +191,27 @@ async function loadEquipCatalog() {
 }
 function mergeDevices(rows) {
   const byId = new Map(state.devices.map((device) => [device.sensor_id, device]));
-  for (const row of rows || []) byId.set(row.sensor_id, row);
+  for (const row of rows || []) {
+    // Guarda a leitura anterior quando chega um envio novo: a tela mostra a variação bruta entre
+    // dois envios (o movimento pequeno que a linha estabilizada de 5 p.p. não mostra).
+    const before = byId.get(row.sensor_id);
+    row.prev =
+      before && (before.last_sequence !== row.last_sequence || before.last_received_at !== row.last_received_at)
+        ? { percent: before.last_percent, voltage_mv: before.last_voltage_mv, adc: before.last_adc_raw, received_at: before.last_received_at }
+        : before?.prev || null;
+    byId.set(row.sensor_id, row);
+  }
   state.devices = [...byId.values()];
+}
+// Variação bruta entre o envio anterior e o atual (posição elétrica, tensão calibrada e ADC).
+function rawDeltaText(device) {
+  const prev = device?.prev;
+  if (!prev || device.last_percent == null || prev.percent == null) return "";
+  const signed = (value, digits, unit) => (value > 0 ? "+" : value < 0 ? "−" : "") + fmtNum(Math.abs(value), digits) + unit;
+  const parts = [signed(Number(device.last_percent) - Number(prev.percent), 2, " p.p.")];
+  if (device.last_voltage_mv != null && prev.voltage_mv != null) parts.push(signed(Number(device.last_voltage_mv) - Number(prev.voltage_mv), 0, " mV"));
+  if (device.last_adc_raw != null && prev.adc != null) parts.push(signed(Number(device.last_adc_raw) - Number(prev.adc), 1, " contagens"));
+  return parts.join(" · ");
 }
 function setServerTime(serverTime, observedAt) {
   if (serverTime) state.clockOffset = new Date(serverTime).getTime() - observedAt;

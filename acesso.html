@@ -171,18 +171,20 @@
     </div>
     <div class="telemetry-summary">
       <div id="historyHealthBox" class="summary-main health-unknown">
-        <div class="summary-value"><small id="historyCurrentLabel">Ajuste estabilizado</small><strong id="historyCurrent">—</strong></div>
+        <div class="summary-value"><small id="historyCurrentLabel">Posição elétrica</small><strong id="historyCurrent">—</strong></div>
         <div class="summary-condition"><span id="historyHealth" class="adjustment-badge">Sem leitura</span><small id="historyAction"></small><small id="historySince" class="summary-since"></small></div>
       </div>
       <dl class="summary-stats">
-        <div><dt>Distância atual</dt><dd id="historyDistance">—</dd></div>
-        <div><dt>Ajuste do ciclo</dt><dd id="historyPercent">—</dd></div>
-        <div><dt id="historyVoltLabel">Tensão</dt><dd id="historyVolt">—</dd></div>
-        <div><dt title="Posição do potenciômetro na escala do ADC. É diagnóstico elétrico, não é o ajuste da gaxeta.">Escala elétrica</dt><dd id="historyRawNow">—</dd></div>
-        <div><dt>Mínimo bruto</dt><dd id="historyMin">—</dd></div>
-        <div><dt>Máximo bruto</dt><dd id="historyMax">—</dd></div>
+        <div><dt title="Leitura atual do potenciômetro na escala do ADC, em %. Não é o ajuste da gaxeta.">Posição elétrica (%)</dt><dd id="historyRawNow">—</dd></div>
+        <div><dt id="historyVoltLabel">Tensão (V)</dt><dd id="historyVolt">—</dd></div>
+        <div><dt>Distância atual (mm)</dt><dd id="historyDistance">—</dd></div>
+        <div><dt>Ajuste do ciclo (%)</dt><dd id="historyPercent">—</dd></div>
+        <div><dt title="Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p.">Variação bruta</dt><dd id="historyDelta">—</dd></div>
+        <div><dt title="Menor posição elétrica do período">Mín. elétrico</dt><dd id="historyMin">—</dd></div>
+        <div><dt title="Maior posição elétrica do período">Máx. elétrico</dt><dd id="historyMax">—</dd></div>
         <div><dt>Leituras</dt><dd id="historyCount">—</dd></div>
       </dl>
+      <p id="historyReading" class="summary-reading" role="status"></p>
       <div class="summary-period">
         <div class="periods" role="group" aria-label="Período">
           <button data-range="300000">5 min</button><button data-range="3600000" class="selected">1 hora</button><button data-range="21600000">6 horas</button><button data-range="86400000">1 dia</button><button data-range="604800000">7 dias</button><button data-range="month">1 mês</button><button data-range="3months">3 meses</button><button id="customToggle" aria-expanded="false" aria-controls="customRange">Personalizado</button>
@@ -193,14 +195,14 @@
     <div class="chart-panel">
       <div class="chart-caption">
         <span id="historyShown" class="chart-shown" role="status" aria-live="polite"></span>
-        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala elétrica do ADC, com a regra de estabilização de 5 pontos. É um diagnóstico do sensor. O ajuste da gaxeta (distância e percentual do ciclo) aparece no topo e no painel abaixo.">Escala elétrica do sensor (% do ADC) · diagnóstico</span>
-        <ul class="chart-legend" aria-label="Cores da linha por condição">
-          <li class="health-critical"><i></i>Sem ajuste · até 20 %</li><li class="health-low"><i></i>Baixo · acima de 20 %</li><li class="health-medium"><i></i>Médio · 45 % ou mais</li><li class="health-high"><i></i>Alto · 70 % ou mais</li><li class="legend-change"><i></i>Mudança</li>
+        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala elétrica do ADC. A leitura atual é a média de cada intervalo, sem filtro; a linha estabilizada só muda com variação de 5 pontos ou mais. É a série elétrica do sensor, sem classificação mecânica. O ajuste da gaxeta (distância e percentual do ciclo) aparece no topo e no painel abaixo.">Posição elétrica do sensor (% da escala do ADC)</span>
+        <ul class="chart-legend" aria-label="Legenda da série elétrica">
+          <li class="legend-raw"><i></i>Leitura atual (média por intervalo)</li><li class="legend-stable"><i></i>Linha estabilizada (5 p.p.)</li><li class="legend-change"><i></i>Mudança da linha estabilizada</li>
         </ul>
-        <label class="raw-toggle"><input id="showRawBand" type="checkbox"> Variação bruta</label>
+        <label class="raw-toggle"><input id="showRawBand" type="checkbox"> Faixa mín./máx. bruta</label>
         <button id="resetZoom" class="text-button" hidden>Voltar ao período anterior</button>
       </div>
-      <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico do ajuste estabilizado. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
+      <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico da posição elétrica do sensor. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
       <div class="x-axis"><span id="chartFrom">—</span><span id="chartTo">—</span></div>
       <div class="chart-footer"><span>Arraste sobre o gráfico para ampliar. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
     </div>
@@ -211,9 +213,9 @@
       </div>
       <div class="chart-layout cycle-layout"><div class="y-axis" id="cycleAxis"><span>100</span><span>50</span><span>0</span></div><div class="chart-surface"><svg id="cycleChart" viewBox="0 0 1000 120" preserveAspectRatio="none" role="img" aria-label="Ajuste do ciclo de gaxeta no período"></svg></div></div>
     </div>
-    <div class="movement-heading"><div><h3>Mudanças relevantes</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
-    <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Referência anterior</th><th>Novo ajuste</th><th>Variação</th><th>Condição</th></tr></thead><tbody id="movementRows"></tbody></table></div>
-    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Estabilizado / média bruta</th><th>Mín. / máx.</th><th>Posição nominal (firmware)</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
+    <div class="movement-heading"><div><h3>Mudanças da linha estabilizada (posição elétrica)</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
+    <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Posição elétrica anterior</th><th>Nova posição elétrica</th><th>Variação</th></tr></thead><tbody id="movementRows"></tbody></table></div>
+    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Posição elétrica: estabilizada / leitura (média)</th><th>Mín. / máx. elétrico</th><th>Posição nominal (firmware)</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
   </section>
 
   <!-- Gateways -->
@@ -333,9 +335,11 @@
     <label class="check"><input type="radio" name="glandKind" value="replacement" checked> Troca completa da gaxeta</label>
     <label class="check"><input type="radio" name="glandKind" value="adjustment"> Reajuste da gaxeta existente</label>
   </fieldset>
-  <label id="glandTopField" class="check"><input id="glandTop" type="checkbox"> O potenciômetro está na marca superior validada desta montagem (conferido pela marca física)</label>
-  <label><span id="glandMmLabel">Distância inicial medida com o paquímetro (mm)</span><input id="glandMm" inputmode="decimal" maxlength="14" required autocomplete="off" placeholder="ex.: 15,0"></label>
-  <label id="glandEndField">Distância no fim de ajuste (mm) — 0 % do ciclo, opcional<input id="glandEnd" inputmode="decimal" maxlength="14" autocomplete="off" placeholder="ex.: 5,0"></label>
+  <label id="glandTopField" class="check"><input id="glandTop" type="checkbox"> Coloquei o potenciômetro na marca superior desta montagem (conferi pela marca física)</label>
+  <label><span id="glandMmLabel">Distância inicial (100 %) — medida com o paquímetro, em mm</span><input id="glandMm" inputmode="decimal" maxlength="14" required autocomplete="off" placeholder="ex.: 15"></label>
+  <button type="button" id="glandAtEnd" class="text-button" hidden></button>
+  <label id="glandEndField">Distância no fim de ajuste (0 %, opcional), em mm<input id="glandEnd" inputmode="decimal" maxlength="14" autocomplete="off" placeholder="ex.: 3"></label>
+  <p id="glandCourse" class="gland-course" role="status" aria-live="polite"></p>
   <p id="glandHelp" class="form-help"></p>
   <p id="glandLive" class="form-context"></p>
   <p id="glandMessage" class="form-message" role="status"></p>

@@ -51,6 +51,15 @@ function canEditAsset(asset) {
   if (role === "adm2") return asset.kind !== "corporation";
   return role === "corp" && state.ctx.can_write && ["area", "subarea", "equipment", "point"].includes(asset.kind) && asset.access === "full";
 }
+// Valor ao lado do sensor na árvore: o ajuste do ciclo quando há ciclo calculado; senão a posição
+// elétrica (leitura atual), sempre identificada como elétrica e sem classificação mecânica.
+function treeSensorValue(sensor) {
+  const view = deviceCycle(sensor);
+  if (view.mode === "cycle" || view.mode === "distance")
+    return `<strong title="${esc(view.label + (view.sub ? " · " + view.sub : ""))}">${esc(view.value)}${view.unit === "%" ? "%" : " " + esc(view.unit)}</strong>`;
+  const electric = electricInfo(sensor, state.glandMissing ? null : state.gland.get(sensor.sensor_id));
+  return `<strong class="tree-electric" title="Posição elétrica do sensor (leitura atual, % da escala do ADC)${electric.label ? " · " + electric.label : ""}. Não é o ajuste da gaxeta.">${esc(electric.percent == null ? "—" : fmtNum(electric.percent))}% <small>elétr.</small></strong>`;
+}
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));
   if (!entry) return "";
@@ -74,7 +83,7 @@ function treeBranch(parentId) {
         : "") +
       "</div>" +
       (sensor
-        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}${esc(deviceLabel(sensor))} <strong>${fmtNum(sensor.stable_percent)}%</strong></button>`
+        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}${esc(deviceLabel(sensor))} ${treeSensorValue(sensor)}</button>`
         : "") +
       (open ? treeBranch(id) : "") +
       "</li>";
