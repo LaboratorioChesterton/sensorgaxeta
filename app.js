@@ -1291,6 +1291,8 @@ const GLYPHS = {
   back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
   subfolder: '<path d="M3.5 6.5h6l2 2h9v10h-17z"/><path d="M8 13.5h8"/>',
   list: '<path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/>',
+  ruler: '<path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l1.5 1.5M10 9l1.5 1.5M13 6l1.5 1.5"/>',
+  wrench: '<path d="M14.5 6.5a4 4 0 0 0-5.2 5.2L4 17l3 3 5.3-5.3a4 4 0 0 0 5.2-5.2l-2.5 2.5-2-2z"/>',
 };
 // Ícone do nível: os do pacote, mais um próprio para distinguir subárea de área.
 const kindIcon = (kind) => (kind === "subarea" ? glyph("subfolder") : icon(KIND_ICON[kind]));
@@ -1298,15 +1300,23 @@ const glyph = (name) =>
   `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
 
 // ----- Regras de domínio herdadas do pacote publicado (sem alteração de comportamento) -----
-function connectionStatus(t, e = Date.now()) {
+// Cadência observada de cada sensor (gaxeta_gland_summary → interval_s). Até 12 s vale a
+// regra original (25 s / 65 s). Placa que hiberna entre envios é avaliada pelo próprio
+// intervalo: transmitindo até 1,5 intervalo + 15 s; atraso até 3 intervalos + 15 s.
+const fmtInterval = (seconds) =>
+  seconds < 90 ? `${Math.round(seconds)} s` : seconds < 5400 ? `${Math.round(seconds / 60)} min` : `${fmtNum(seconds / 3600, 1)} h`;
+function connectionStatus(t, e = Date.now(), intervalS = null) {
   const r = e - new Date(t.last_received_at || 0).getTime();
-  return r < 25e3
+  const slow = Number(intervalS) > 12;
+  const onlineMs = slow ? intervalS * 1500 + 15e3 : 25e3;
+  const lateMs = slow ? intervalS * 3000 + 15e3 : 65e3;
+  return r < onlineMs
     ? {
         online: !0,
-        label: "Transmitindo",
+        label: slow ? "Transmitindo · a cada " + fmtInterval(intervalS) : "Transmitindo",
         className: "green",
       }
-    : r < 65e3
+    : r < lateMs
       ? {
           online: !1,
           label: "Atraso na transmissão",
@@ -1397,6 +1407,47 @@ function adjustmentInfo(t) {
             label: "Sem ajuste",
             action: "Substituir a gaxeta",
           };
+}
+// ----- Ciclo de gaxeta (migrações 08 e 09) -----
+// O percentual do ciclo vem do servidor: 100 % na distância medida no engaxetamento,
+// 0 % na distância de fim de ajuste informada. As faixas são as mesmas de adjustmentInfo.
+const GLAND_KIND = { maintenance: "Manutenção iniciada", replacement: "Troca da gaxeta", adjustment: "Reajuste", check: "Conferência de medida" };
+const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
+// Lê um número digitado em pt-BR ("22,5") ou com ponto; devolve null quando não é número.
+function parseMm(text) {
+  const clean = String(text ?? "").trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
+  return Number(clean);
+}
+// Como apresentar o ajuste de um sensor. `gland` é o item do resumo do servidor (ou o estado
+// completo); sem ele (banco ainda sem a migração) vale a apresentação anterior.
+function cycleView(gland, device) {
+  const raw = device?.stable_percent;
+  const rawScale = Math.max(0, Math.min(100, Number(raw) || 0));
+  if (!gland) {
+    const info = adjustmentInfo(raw);
+    return { mode: "legacy", key: info.key, label: info.label, action: info.action, value: fmtNum(raw), unit: "%", scale: rawScale, sub: "" };
+  }
+  const neutral = (label, action, extra = {}) => ({ mode: gland.state, key: "unknown", label, action, value: "—", unit: "", scale: null, sub: "", ...extra });
+  if (gland.state === "active" && gland.percent != null) {
+    const percent = Math.max(0, Math.min(100, Number(gland.percent)));
+    const info = adjustmentInfo(percent);
+    return {
+      mode: "cycle", key: info.key, label: info.label, action: info.action, value: fmtNum(percent), unit: "%", scale: percent,
+      sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)}`,
+      warn: gland.out_of_range ? "Fora da faixa do ciclo: confira a montagem" : gland.near_limit ? "Sensor perto do fim do curso elétrico" : "",
+      nominal: gland.scale_source === "nominal" || gland.scale?.source === "nominal",
+    };
+  }
+  if (gland.state === "active")
+    return neutral("Sem fim de ajuste", "Informe o fim de ajuste para ver o percentual", { mode: "distance", value: fmtNum(gland.distance_mm), unit: "mm", sub: `referência ${fmtMm(gland.initial_mm)}` });
+  if (gland.state === "waiting") return neutral("Aguardando leitura", "Referência registrada; vale a partir da próxima leitura válida");
+  if (gland.state === "maintenance") return neutral("Em manutenção", "Registre o engaxetamento ao concluir o serviço");
+  if (gland.state === "unusable") return neutral("Leitura instável", "Sinal ruidoso ou no fim da escala: confira a montagem");
+  // Sem referência: o número disponível é só a posição do potenciômetro na escala do ADC.
+  return neutral("Sem referência", gland.state === "unlinked" ? "Vincule a um spot para registrar o engaxetamento" : "Registre o engaxetamento em Detalhes", {
+    value: fmtNum(raw), unit: "% da escala", scale: rawScale, sub: "posição do sensor, sem relação com a gaxeta",
+  });
 }
 // A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.
 async function exportCsvFile(t, e) {
@@ -1581,13 +1632,16 @@ const state = {
   lastContextCheck: 0,
   sensors: { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 },
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
+  gland: new Map(), // resumo do ciclo de gaxeta e cadência por sensor (gaxeta_gland_summary)
+  glandMissing: false, // o banco ainda não tem as funções do ciclo (migração 09 não aplicada)
 };
 const assetIndex = new Map();
 // Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
 const equipTypeIndex = new Map();
 let equipTypesMissing = false; // a tabela da ficha ainda não existe no banco (migração não aplicada)
 
-const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset);
+const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, state.gland.get(device.sensor_id)?.interval_s);
+const deviceCycle = (device) => cycleView(state.glandMissing ? null : state.gland.get(device.sensor_id) || null, device);
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
 // O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
@@ -1755,12 +1809,26 @@ function mergeDevices(rows) {
 function setServerTime(serverTime, observedAt) {
   if (serverTime) state.clockOffset = new Date(serverTime).getTime() - observedAt;
 }
+// Resumo do ciclo de gaxeta e da cadência dos sensores indicados (uma chamada para todos).
+async function loadGlandSummary(ids) {
+  const wanted = [...new Set((ids || []).filter(Boolean))];
+  if (!wanted.length || state.glandMissing) return;
+  try {
+    const result = await callRpc("gaxeta_gland_summary", { p_sensor_ids: wanted });
+    for (const id of wanted) state.gland.delete(id);
+    for (const item of result.items || []) state.gland.set(item.sensor_id, item);
+  } catch (error) {
+    // Banco sem a migração do ciclo: a tela segue com a apresentação anterior.
+    if (isMissingFeature(error)) state.glandMissing = true;
+    else throw error;
+  }
+}
 // Atualiza só os sensores em uso (selecionado e painel aberto): uma chamada por ciclo.
 async function refreshKnownDevices() {
   const ids = [...new Set([state.sensorId, state.drawer.open ? state.drawer.sensorId : ""].filter(Boolean))];
   if (!ids.length) return;
   const startedAt = Date.now();
-  const result = await callRpc("gaxeta_devices_status", { p_sensor_ids: ids });
+  const [result] = await Promise.all([callRpc("gaxeta_devices_status", { p_sensor_ids: ids }), loadGlandSummary(ids)]);
   setServerTime(result.server_time, startedAt);
   mergeDevices(result.devices);
   if (state.sensorId && !result.devices.some((device) => device.sensor_id === state.sensorId) && state.page === "telemetry") {
@@ -1874,6 +1942,7 @@ async function refreshData(manual = false) {
     if (state.drawer.open) {
       if (state.page !== "telemetry") await refreshKnownDevices();
       updateDrawerLive();
+      await refreshGlandPanel();
     }
     setConnection(true);
     $id("lastSync").textContent = `Última consulta ${fmtDateTime(new Date())}`;
@@ -1901,6 +1970,8 @@ function clearSessionData() {
   Object.assign(telem, { matchIds: null, listed: false, period: 36e5, custom: false, range: presetRange(36e5) });
   equipTypeIndex.clear();
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
+  state.gland.clear();
+  state.glandMissing = false;
   assetIndex.clear();
   resetTree();
   closeDrawer(false);
@@ -2158,14 +2229,19 @@ async function loadSensors({ quiet = false } = {}) {
     view.offset = Math.max(0, view.offset - CONFIG.pageSize);
     return loadSensors({ quiet });
   }
-  await ensureAssets(page.items.map((device) => device.measurement_point_id));
+  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadGlandSummary(view.ids)]);
   if (run !== view.request) return;
   if (!state.assetId && !view.search && view.filter === "all") {
+    // Com todos os sensores na página, a contagem usa a cadência de cada um (placa que
+    // hiberna conta como transmitindo dentro do próprio intervalo). Acima disso, vale a
+    // contagem do servidor para os últimos 25 s.
+    const onlineNow = page.total <= page.items.length ? page.items.filter((device) => deviceStatus(device).online).length : online.count;
     $id("sensorCount").textContent = page.total;
-    $id("onlineCount").textContent = online.count ?? "—";
-    $id("offlineCount").textContent = online.count == null ? "—" : Math.max(0, page.total - online.count);
+    $id("onlineCount").textContent = onlineNow ?? "—";
+    $id("offlineCount").textContent = onlineNow == null ? "—" : Math.max(0, page.total - onlineNow);
     view.allTotal = page.total;
-  } else if (online.count != null && view.allTotal != null) {
+    view.allOnPage = page.total <= page.items.length;
+  } else if (online.count != null && view.allTotal != null && !view.allOnPage) {
     $id("onlineCount").textContent = online.count;
     $id("offlineCount").textContent = Math.max(0, view.allTotal - online.count);
   }
@@ -2190,8 +2266,8 @@ function renderSensorGrid() {
     devices
       .map((device) => {
         const status = deviceStatus(device);
-        const health = adjustmentInfo(device.stable_percent);
-        const scale = Math.max(0, Math.min(100, Number(device.stable_percent) || 0));
+        // Ajuste pelo ciclo de gaxeta (referência do engaxetamento); sem referência, só a posição do sensor.
+        const health = deviceCycle(device);
         // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
         const identity = deviceIdentity(device);
         const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
@@ -2199,10 +2275,10 @@ function renderSensorGrid() {
           `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
           `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
-          `<div class="card-main"><div class="card-value">${fmtNum(device.stable_percent)}<small>%</small></div>` +
-          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small>${health.action}</small></div></div>` +
-          `<div class="mini-scale"><i style="width:${scale}%"></i></div>` +
-          `<div class="card-meta"><span>Bruto ${fmtNum(device.last_percent)} %</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<div class="card-main"><div class="card-value${health.unit === "%" ? "" : " small-unit"}">${health.value}<small>${health.unit}</small></div>` +
+          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small title="${esc(health.warn || health.action)}">${esc(health.warn || health.action)}</small></div></div>` +
+          `<div class="mini-scale${health.scale == null ? " idle" : ""}"><i style="width:${health.scale ?? 0}%"></i></div>` +
+          `<div class="card-meta"><span title="${esc(health.nominal ? "Escala nominal do firmware, ainda não conferida com o paquímetro" : "")}">${esc(health.sub || "Sensor " + fmtNum(device.last_percent) + " % da escala")}${health.nominal ? " · escala nominal" : ""}</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
           `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
           (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
           `</footer></article>`
@@ -2342,12 +2418,13 @@ function updateDrawerLive() {
   const device = findDevice(state.drawer.sensorId);
   if (!device) return;
   const status = deviceStatus(device);
-  const health = adjustmentInfo(device.stable_percent);
+  const health = deviceCycle(device);
+  const gland = state.gland.get(device.sensor_id);
   $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
-  $id("detailStable").textContent = fmtNum(device.stable_percent) + " %";
-  $id("detailRaw").textContent = fmtNum(device.last_percent) + " %";
-  $id("detailVolt").textContent = fmtNum(device.last_voltage_v, 3) + " V";
-  $id("detailHealth").textContent = health.label + " · " + health.action;
+  $id("detailStable").textContent = health.mode === "cycle" ? health.value + " %" : "—";
+  $id("detailRaw").textContent = gland?.state === "active" ? fmtMm(gland.distance_mm) : "—";
+  $id("detailVolt").textContent = `${fmtNum(device.last_percent)} % · ${fmtNum(device.last_voltage_v, 3)} V`;
+  $id("detailHealth").textContent = health.label + " · " + (health.warn || health.action);
   $id("detailHealth").className = "health-banner health-" + health.key;
   if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
   if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
@@ -2366,7 +2443,7 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values"><div><span>Estabilizado</span><strong id="detailStable"></strong></div><div><span>Bruto</span><strong id="detailRaw"></strong></div><div><span>Tensão est.</span><strong id="detailVolt"></strong></div></div>` +
+    `<div class="drawer-values"><div><span>Ajuste do ciclo</span><strong id="detailStable"></strong></div><div><span>Distância atual</span><strong id="detailRaw"></strong></div><div><span>Sensor (escala · tensão est.)</span><strong id="detailVolt" class="compact-value"></strong></div></div>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
   if (mode === "edit") {
@@ -2447,13 +2524,16 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
-      `</div><dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
+      `</div><section id="glandPanel" class="gland-panel" aria-live="polite"></section>` +
+      `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Posição e tensão são estimadas. Curso de referência: 50 mm.</small></div>`;
+      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A distância e o percentual valem a partir da referência registrada no engaxetamento; a tensão é estimada.</small></div>`;
+    glandPanelState.key = "";
+    refreshGlandPanel(true).catch((error) => showMessage(errorText(error), "error"));
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);
@@ -2478,6 +2558,335 @@ async function renderDrawer() {
   (mode === "edit" ? $id("sensorName") : $id("drawerClose")).focus({ preventScroll: true });
 }
 
+// ---- 62-gland.js ----
+// =============================================================================
+// Ciclo de gaxeta: referência individual registrada depois do engaxetamento.
+//
+// O técnico mede com o paquímetro a distância entre as referências mecânicas da
+// montagem e registra. O servidor associa essa distância à primeira leitura válida
+// seguinte do sensor (ADC bruto): esse ponto vira 100 % daquele ciclo, só para
+// aquele sensor e aquela instalação. A placa não recebe nada: continua enviando o
+// valor bruto, e distância e percentual são calculados na consulta, com a referência
+// que valia na época de cada leitura.
+//
+// O sensor é um potenciômetro rotativo de uma volta (Metaltex PR20-10K). Quantos
+// milímetros de avanço correspondem a uma contagem do ADC depende do acoplamento
+// mecânico de cada montagem. Enquanto ninguém confere, vale a escala nominal do
+// firmware; uma "Conferência de medida" (segunda leitura de paquímetro em outra
+// posição) passa a medir essa escala.
+// =============================================================================
+const glandPanelState = { key: "", status: null };
+const glandForm = { mode: "cycle", sensorId: "", requestId: "", linkId: null, expected: null };
+const newRequestId = () =>
+  crypto.randomUUID
+    ? crypto.randomUUID()
+    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (ch) => (Number(ch) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(ch) / 4)))).toString(16));
+
+const GLAND_STATE_TEXT = {
+  unlinked: () => "Vincule o sensor a um spot para registrar o engaxetamento.",
+  no_reference: () =>
+    "Nenhum engaxetamento registrado nesta instalação. Depois de montar a gaxeta e reposicionar o sensor, meça a distância com o paquímetro e registre.",
+  maintenance: (status) => `Manutenção iniciada em ${fmtDateTime(status.recorded_at)}. As leituras deste período não contam para o ajuste.`,
+  waiting: (status, interval) =>
+    `Referência de ${fmtMm(status.initial_mm, 2)} registrada em ${fmtDateTime(status.recorded_at)}. Ela passa a valer na próxima leitura válida da placa` +
+    (Number(interval) > 12 ? ` (envio a cada ${fmtInterval(interval)}).` : "."),
+  unusable: () => "A última leitura não serve para o cálculo: sinal ruidoso, no fim da escala do sensor ou recebida com atraso.",
+  active: () => "",
+};
+
+function glandScaleText(status) {
+  const scale = status.scale;
+  if (!scale) return "—";
+  if (scale.source === "measured")
+    return `Medida em ${fmtDateTime(scale.recorded_at)}: ${fmtNum(scale.mm_per_count, 5)} mm por contagem (${fmtNum(scale.delta_mm, 2)} mm em ${fmtNum(scale.delta_adc, 0)} contagens)`;
+  const anchor = status.anchor;
+  const course = anchor && Number(anchor.adc) > 0 ? Math.round((Number(anchor.mm) / Number(anchor.adc)) * 4095) : null;
+  return `Nominal do firmware${course ? ` (${course} mm na escala inteira do ADC)` : ""}. Ainda não conferida nesta montagem`;
+}
+function glandLiveFields(status) {
+  const active = status.state === "active";
+  return {
+    now: active ? fmtMm(status.distance_mm, 2) : "—",
+    percent: active && status.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(status.percent)))) + " %" + (Number(status.percent) > 100 || Number(status.percent) < 0 ? ` (calculado ${fmtNum(status.percent)} %)` : "") : "—",
+    adc: active ? `ADC ${fmtNum(status.current_adc, 0)} · ${Number(status.delta_adc) > 0 ? "+" : ""}${fmtNum(status.delta_adc, 0)} contagens desde a referência` : "—",
+    warn: [
+      status.out_of_range ? "O valor calculado saiu da faixa do ciclo (abaixo de 0 % ou acima de 100 %). O sensor pode ter sido movido ou a medida informada não corresponde: confira a montagem e registre de novo." : "",
+      status.near_limit ? "O potenciômetro está a menos de 5 % do fim do curso elétrico. Perto do batente ele deixa de acompanhar o movimento: reposicione o sensor e registre de novo." : "",
+      active && status.scale?.source === "nominal" ? "Distância e percentual usam a escala nominal do firmware. Faça uma Conferência de medida para a plataforma medir a escala desta montagem." : "",
+    ].filter(Boolean),
+  };
+}
+function renderGlandPanel(status, device) {
+  const panel = $id("glandPanel");
+  if (!panel) return;
+  const view = cycleView(status, device);
+  const interval = state.gland.get(device.sensor_id)?.interval_s;
+  const live = glandLiveFields(status);
+  const cycleEvent = (status.events || []).find((event) => event.id === status.cycle_event_id);
+  const rows = [];
+  if (status.initial_mm != null) {
+    rows.push(["Referência (100 %)", `${fmtMm(status.initial_mm, 2)} · ${GLAND_KIND[status.kind] || ""} em ${fmtDateTime(status.recorded_at)}${cycleEvent?.actor ? " · " + cycleEvent.actor : ""}`]);
+    rows.push(["Fim de ajuste (0 %)", status.end_mm == null ? "Não informado: sem percentual" : fmtMm(status.end_mm, 2)]);
+    rows.push(["Distância atual", `<span id="glandNow">${esc(live.now)}</span>`, true]);
+    rows.push(["Ajuste do ciclo", `<span id="glandPct">${esc(live.percent)}</span>`, true]);
+    if (status.anchor) rows.push(["Sensor na referência", `ADC ${fmtNum(status.anchor.adc, 0)} (${fmtNum((Number(status.anchor.adc) / 4095) * 100)} % da escala) em ${fmtDateTime(status.anchor.sampled_at)}`]);
+    rows.push(["Sensor agora", `<span id="glandAdc">${esc(live.adc)}</span>`, true]);
+    if (status.anchor) rows.push(["Escala", glandScaleText(status)]);
+  }
+  const actions = [];
+  if (status.can_operate && status.state !== "unlinked") {
+    actions.push(`<button class="primary" data-gland="cycle">${glyph("ruler")}Registrar engaxetamento</button>`);
+    if (["active", "waiting", "unusable"].includes(status.state)) actions.push(`<button class="secondary" data-gland="check">Conferir medida</button>`);
+    if (status.state !== "maintenance") actions.push(`<button class="secondary" data-gland="maintenance">${glyph("wrench")}Iniciar manutenção</button>`);
+  }
+  const events = (status.events || [])
+    .map((event) => {
+      const measure = event.initial_mm == null ? "" : ` · ${fmtMm(event.initial_mm, 2)}${event.end_mm == null ? "" : ` (fim de ajuste ${fmtMm(event.end_mm, 2)})`}`;
+      const anchor = event.kind === "maintenance" ? "" : event.anchor ? ` · sensor no ADC ${fmtNum(event.anchor.adc, 0)}` : " · sem leitura válida associada";
+      return `<li><b>${esc(GLAND_KIND[event.kind] || event.kind)}</b>${esc(measure)}<small>${esc(fmtDateTime(event.recorded_at))}${event.actor ? " · " + esc(event.actor) : ""}${esc(anchor)}</small></li>`;
+    })
+    .join("");
+  const stateText = (GLAND_STATE_TEXT[status.state] || (() => ""))(status, interval);
+  panel.innerHTML =
+    `<h3>Ciclo da gaxeta <span class="adjustment-badge health-${view.key}">${esc(view.label)}</span></h3>` +
+    (stateText ? `<p class="form-help">${esc(stateText)}</p>` : "") +
+    (rows.length ? `<dl class="detail-fields">${rows.map(([name, value, raw]) => `<dt>${esc(name)}</dt><dd>${raw ? value : esc(value)}</dd>`).join("")}</dl>` : "") +
+    `<div id="glandWarn">${live.warn.map((text) => `<p class="path-note">${esc(text)}</p>`).join("")}</div>` +
+    (actions.length ? `<div class="drawer-actions gland-actions">${actions.join("")}</div>` : status.state !== "unlinked" && !status.can_operate ? '<p class="form-help">Sua conta consulta o ciclo, sem registrar.</p>' : "") +
+    (events ? `<details class="technical-detail"><summary>Histórico do ciclo (${status.events.length}${status.events.length >= 20 ? "+" : ""})</summary><ol class="gland-events">${events}</ol></details>` : "");
+}
+// Lê o estado do ciclo do sensor aberto no painel. Redesenha só quando algo estrutural
+// muda (estado, evento, permissão); entre uma leitura e outra atualiza apenas os números.
+async function refreshGlandPanel(force = false) {
+  if (!state.drawer.open || state.drawer.mode !== "detail" || !$id("glandPanel") || state.glandMissing) return;
+  if (document.querySelector("dialog[open]") && !force) return;
+  const sensorId = state.drawer.sensorId;
+  let status;
+  try {
+    status = await callRpc("gaxeta_gland_status", { p_sensor_id: sensorId });
+  } catch (error) {
+    if (isMissingFeature(error)) {
+      state.glandMissing = true;
+      $id("glandPanel")?.replaceChildren();
+      return;
+    }
+    if (error?.code === "42501") {
+      const panel = $id("glandPanel");
+      if (panel) panel.innerHTML = '<h3>Ciclo da gaxeta</h3><p class="form-help">Sua conta não tem acesso ao ciclo deste sensor.</p>';
+      return;
+    }
+    throw error;
+  }
+  const device = findDevice(sensorId);
+  if (state.drawer.sensorId !== sensorId || !$id("glandPanel") || !device) return;
+  glandPanelState.status = status;
+  state.gland.set(sensorId, {
+    ...state.gland.get(sensorId), sensor_id: sensorId, state: status.state, percent: status.percent, distance_mm: status.distance_mm,
+    initial_mm: status.initial_mm, end_mm: status.end_mm, recorded_at: status.recorded_at, scale_source: status.scale?.source ?? null,
+    out_of_range: status.out_of_range, near_limit: status.near_limit,
+  });
+  const key = JSON.stringify([sensorId, status.state, status.event_id, status.link_id, status.can_operate, status.scale?.source, status.scale?.event_id, status.anchor?.id, (status.events || []).length]);
+  if (force || key !== glandPanelState.key) {
+    glandPanelState.key = key;
+    renderGlandPanel(status, device);
+  } else {
+    const live = glandLiveFields(status);
+    if ($id("glandNow")) $id("glandNow").textContent = live.now;
+    if ($id("glandPct")) $id("glandPct").textContent = live.percent;
+    if ($id("glandAdc")) $id("glandAdc").textContent = live.adc;
+    if ($id("glandWarn")) $id("glandWarn").innerHTML = live.warn.map((text) => `<p class="path-note">${esc(text)}</p>`).join("");
+  }
+  updateDrawerLive();
+}
+
+// ----- Registro (engaxetamento, conferência, manutenção) -----
+function glandContextLine(device) {
+  const identity = deviceIdentity(device);
+  return `${deviceLabel(device)}${identity.linked ? ` · ${identity.title} · ${identity.spot}` : ""}`;
+}
+function glandLiveLine(device) {
+  const status = deviceStatus(device);
+  const noise = Number(device.adc_noise);
+  return (
+    `Sensor agora: ${fmtNum(device.last_percent)} % da escala · ${status.label}` +
+    (status.online ? "" : ". A referência só passa a valer quando a placa enviar a próxima leitura válida") +
+    (Number.isFinite(noise) && noise > 25 ? `. Sinal instável (ruído de ${fmtNum(noise, 0)} contagens): confira a fixação antes de registrar` : "") +
+    "."
+  );
+}
+function openGlandDialog(mode) {
+  const status = glandPanelState.status;
+  const device = findDevice(state.drawer.sensorId);
+  if (!status || !device || !status.can_operate) return;
+  Object.assign(glandForm, { mode, sensorId: device.sensor_id, requestId: newRequestId(), linkId: status.link_id, expected: status.event_id ?? null });
+  const check = mode === "check";
+  $id("glandTitle").textContent = check ? "Conferir medida" : "Registrar engaxetamento";
+  $id("glandSubmit").textContent = check ? "Registrar conferência" : "Registrar engaxetamento";
+  $id("glandContext").textContent = glandContextLine(device);
+  $id("glandKindField").hidden = check;
+  $id("glandEndField").hidden = check;
+  $id("glandMm").value = "";
+  $id("glandEnd").value = check || status.end_mm == null ? "" : String(status.end_mm).replace(".", ",");
+  document.querySelector('input[name="glandKind"][value="replacement"]').checked = true;
+  $id("glandHelp").textContent = check
+    ? `Meça agora, com o paquímetro, a mesma distância usada na referência (${fmtMm(status.initial_mm, 2)} em ${fmtDateTime(status.recorded_at)}). Com pelo menos 100 contagens de diferença no sensor, a plataforma passa a usar a escala medida nesta montagem. A conferência não abre um ciclo novo.`
+    : "Com a gaxeta montada e o sensor reposicionado, meça a distância entre as duas referências mecânicas desta montagem. Essa medida passa a ser 100 % deste sensor. O fim de ajuste é a mesma distância quando não resta aperto (use 0 quando a medida é a folga até o encosto). Sem ele, a plataforma mostra milímetros, sem percentual.";
+  $id("glandLive").textContent = glandLiveLine(device);
+  $id("glandMessage").textContent = "";
+  $id("glandDialog").showModal();
+  $id("glandMm").focus();
+}
+async function sendGlandEvent(kind, initialMm, endMm) {
+  const saved = await callRpc("gaxeta_record_gland_event", {
+    p_sensor_id: glandForm.sensorId, p_link_id: glandForm.linkId, p_expected_event: glandForm.expected, p_request_id: glandForm.requestId,
+    p_kind: kind, p_initial_mm: initialMm, p_end_mm: endMm,
+  });
+  await refreshGlandPanel(true);
+  await afterSensorChange();
+  return saved;
+}
+// Depois de um conflito, o estado mostrado ficou velho: relê e exige nova confirmação.
+async function glandConflict() {
+  await refreshGlandPanel(true).catch(() => {});
+  const status = glandPanelState.status;
+  Object.assign(glandForm, { requestId: newRequestId(), linkId: status?.link_id ?? null, expected: status?.event_id ?? null });
+}
+$id("glandForm").onsubmit = async (event) => {
+  event.preventDefault();
+  const message = $id("glandMessage");
+  const check = glandForm.mode === "check";
+  const measured = parseMm($id("glandMm").value);
+  const endText = $id("glandEnd").value.trim();
+  const end = check || !endText ? null : parseMm(endText);
+  if (measured == null || measured <= 0) return void (message.textContent = "Informe a distância medida em milímetros, maior que zero, com até três casas decimais.");
+  if (!check && endText && (end == null || end >= measured)) return void (message.textContent = "O fim de ajuste deve ser um número menor que a distância medida (0 é aceito).");
+  const kind = check ? "check" : document.querySelector('input[name="glandKind"]:checked').value;
+  message.textContent = "Registrando…";
+  await withBusy($id("glandSubmit"), async () => {
+    try {
+      const saved = await sendGlandEvent(kind, measured, end);
+      $id("glandDialog").close();
+      const status = glandPanelState.status;
+      showMessage(
+        check
+          ? "Conferência registrada. A escala é recalculada com a próxima leitura válida do sensor."
+          : `${GLAND_KIND[kind]} registrada${saved.duplicate ? " (já estava gravada)" : ""}: ${fmtMm(measured, 2)} é a nova referência de 100 % deste sensor` +
+              (status?.state === "waiting" ? ", a partir da próxima leitura válida." : "."),
+        "success",
+      );
+    } catch (error) {
+      if (isNetworkError(error)) message.textContent = "Sem conexão. Tente de novo: o mesmo registro não será duplicado.";
+      else if (error?.code === "PT409") {
+        await glandConflict();
+        message.textContent = errorText(error) + " Confira os dados e confirme de novo.";
+      } else message.textContent = errorText(error);
+    }
+  });
+};
+$id("detailPane").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-gland]");
+  if (!button) return;
+  const mode = button.dataset.gland;
+  if (mode !== "maintenance") return openGlandDialog(mode);
+  const status = glandPanelState.status;
+  const device = findDevice(state.drawer.sensorId);
+  if (!status || !device) return;
+  const confirmed = await askConfirm({
+    title: "Iniciar manutenção",
+    html: `<p>Sensor <b>${esc(glandContextLine(device))}</b>.</p><p>Use antes de desacoplar ou movimentar o sensor. Enquanto a manutenção estiver aberta, as leituras continuam gravadas, mas não contam para o ajuste da gaxeta. Ao terminar, use <b>Registrar engaxetamento</b>.</p>`,
+    okLabel: "Iniciar manutenção",
+    danger: false,
+  });
+  if (!confirmed) return;
+  Object.assign(glandForm, { mode: "maintenance", sensorId: device.sensor_id, requestId: newRequestId(), linkId: status.link_id, expected: status.event_id ?? null });
+  await withBusy(button, async () => {
+    try {
+      await sendGlandEvent("maintenance", null, null);
+      showMessage("Manutenção iniciada. As leituras deste período não contam para o ajuste.", "success");
+    } catch (error) {
+      if (error?.code === "PT409") await glandConflict();
+      throw error;
+    }
+  });
+});
+
+// ----- Telemetria: ajuste pelo ciclo no período exibido -----
+// Cada ponto é calculado no servidor com a referência e a escala que valiam na época da
+// leitura (gaxeta_gland_history). Um ciclo novo não redesenha o passado.
+async function loadCycleHistory(sensorId, range, token) {
+  const panel = $id("cyclePanel");
+  if (state.glandMissing) return void (panel.hidden = true);
+  let data;
+  try {
+    data = await callRpc("gaxeta_gland_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() });
+  } catch (error) {
+    if (isMissingFeature(error)) state.glandMissing = true;
+    panel.hidden = true; // complemento da tela: o gráfico principal continua valendo
+    return;
+  }
+  if (token !== telem.request || sensorId !== state.sensorId || !state.authorized) return;
+  renderCycleChart(data, range);
+}
+function renderCycleChart(data, range) {
+  const panel = $id("cyclePanel");
+  const events = data?.events || [];
+  // A unidade segue o ciclo mais recente do período: percentual quando ele tem fim de ajuste, milímetros quando não tem.
+  const all = data?.points || [];
+  const usePercent = all.length > 0 && all[all.length - 1].percent != null;
+  const points = (data?.points || [])
+    .map((point) => ({ at: new Date(point.received_at).getTime(), value: Number(usePercent ? point.percent : point.distance_mm), raw: point }))
+    .filter((point) => Number.isFinite(point.value) && (!usePercent || point.raw.percent != null));
+  if (!points.length && !events.length) return void (panel.hidden = true);
+  panel.hidden = false;
+  const fromAt = range.from.getTime();
+  const span = Math.max(1, range.to.getTime() - fromAt);
+  const values = points.map((point) => point.value);
+  let low = usePercent ? Math.min(0, ...values) : Math.min(...values);
+  let high = usePercent ? Math.max(100, ...values) : Math.max(...values);
+  if (!points.length) [low, high] = [0, 100];
+  if (high - low < 1e-6) [low, high] = [low - 1, high + 1];
+  const px = (at) => (((at - fromAt) / span) * 1000).toFixed(1);
+  const py = (value) => (112 - ((value - low) / (high - low)) * 104).toFixed(1);
+  // Quebra a linha a cada evento que muda o ciclo e em lacunas longas (placa parada ou em manutenção).
+  const cuts = events.filter((event) => event.kind !== "check").map((event) => new Date(event.recorded_at).getTime());
+  const gapMs = Math.max(3 * (Number(data.bucket_seconds) || 1) * 1000, 90e3);
+  const paths = [];
+  let current = [];
+  points.forEach((point, index) => {
+    const previous = points[index - 1];
+    if (previous && (point.at - previous.at > gapMs || cuts.some((cut) => cut > previous.at && cut <= point.at))) {
+      paths.push(current);
+      current = [];
+    }
+    current.push(point);
+  });
+  if (current.length) paths.push(current);
+  const lines = paths
+    .map((path) =>
+      path.length === 1
+        ? `<circle class="cycle-dot" cx="${px(path[0].at)}" cy="${py(path[0].value)}" r="3"/>`
+        : `<path class="cycle-line" d="M${path.map((point) => `${px(point.at)} ${py(point.value)}`).join("L")}"/>`,
+    )
+    .join("");
+  const marks = events
+    .filter((event) => new Date(event.recorded_at).getTime() >= fromAt)
+    .map((event) => {
+      const x = px(new Date(event.recorded_at).getTime());
+      const text = `${GLAND_KIND[event.kind] || event.kind}${event.initial_mm == null ? "" : " · " + fmtMm(event.initial_mm, 2)} · ${fmtDateTime(event.recorded_at)}`;
+      return `<path class="chart-riser${event.kind === "check" ? " cycle-check" : ""}" d="M${x} 4V116"><title>${esc(text)}</title></path>`;
+    })
+    .join("");
+  $id("cycleChart").innerHTML = marks + lines;
+  // O eixo tem a mesma largura do gráfico principal (os dois compartilham o eixo do tempo); a unidade fica na legenda.
+  $id("cycleAxis").innerHTML = [high, (high + low) / 2, low].map((value) => `<span>${fmtNum(value, usePercent || high - low >= 20 ? 0 : 1)}</span>`).join("");
+  const last = points[points.length - 1];
+  $id("cycleShown").textContent = !points.length
+    ? "Ciclo de gaxeta: eventos no período, sem leitura válida depois da referência."
+    : usePercent
+      ? `Ajuste pelo ciclo de gaxeta (% da referência do engaxetamento) · último ${fmtNum(last.raw.percent)} % · ${fmtMm(last.raw.distance_mm, 2)}`
+      : `Distância pelo ciclo de gaxeta (mm). Fim de ajuste não informado, sem percentual · última ${fmtMm(last.raw.distance_mm, 2)}`;
+}
+
 // ---- 65-assets.js ----
 // =============================================================================
 // Ativos: ficha do nível selecionado, formulários persistentes (RPCs com
@@ -2487,6 +2896,8 @@ async function renderDrawer() {
 //   * Ao selecionar um TAG: TAG · tipo, contagem e lista de spots com sensor,
 //     condição e transmissão, lidos do banco numa chamada (gaxeta_equipment_overview).
 //   * Spot: nome por seleção (LOA, LA, UNICO); posição de montagem em texto livre.
+//   * Excluir equipamento: nome e TAG na confirmação; bloqueio explicado quando há
+//     spots, sensores ou histórico (o servidor valida permissão e dependências).
 // =============================================================================
 const HIERARCHY_GUIDE =
   '<ol class="hierarchy-guide"><li>Corporação</li><li>Empresa</li><li>Área</li><li>Subárea <em>(opcional)</em></li><li>TAG (equipamento)</li><li>Spot → sensor</li></ol>' +
@@ -2502,9 +2913,10 @@ const MISSING_FEATURE_TEXT = "Esta função depende da atualização do banco de
 // "Corporação gravada", "TAG gravado": concordância com o nível.
 const kindDone = (kind, verb) => verb + (["corporation", "company", "area", "subarea"].includes(kind) ? "a" : "o");
 const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && access === "full");
-const healthBadge = (percent) => {
-  const health = adjustmentInfo(percent);
-  return `<span class="adjustment-badge health-${health.key}">${health.label}</span>`;
+// Leitura e condição do sensor pelo ciclo de gaxeta (ou "Sem referência" quando não há engaxetamento registrado).
+const cycleReading = (device) => {
+  const view = deviceCycle(device);
+  return `<span class="spot-reading">${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);
@@ -2517,7 +2929,11 @@ function inspectorActions(asset, childKinds) {
     childKinds.map((kind) => `<button class="primary compact" data-act="add" data-kind="${kind}">${icon("plus")}${KIND_LABEL[kind]}</button>`).join("") +
     (canEditAsset(asset) ? `<button class="secondary compact" data-act="edit">Editar</button>` : "") +
     (asset.kind === "company" ? `<button class="secondary compact" data-act="gateways">Gateways da empresa</button>` : "") +
-    (hasCap("delete_records") && !isNativeApp() ? `<button class="text-button danger-text" data-act="delete">Excluir…</button>` : "") +
+    (hasCap("delete_records") && !isNativeApp()
+      ? asset.kind === "equipment"
+        ? `<button class="secondary compact danger-outline" data-act="delete">${glyph("trash")}Excluir equipamento</button>`
+        : `<button class="text-button danger-text" data-act="delete">Excluir…</button>`
+      : "") +
     `</div>`
   );
 }
@@ -2542,7 +2958,7 @@ function equipmentInspector(asset, overview, problem) {
         `<button class="spot-name" data-act="open-spot" data-spot="${spot.id}" title="Abrir o spot na árvore">${icon("map-pin")}<b>${esc(spot.name)}</b>${spot.standard_name ? "" : '<em class="legacy-flag" title="Nome anterior à padronização (LOA, LA, UNICO)">nome anterior</em>'}</button>` +
         `<span class="spot-position">${esc(spot.position || "Posição não informada")}</span>` +
         (sensor
-          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b><span class="spot-reading">${fmtNum(sensor.stable_percent)} %</span>${healthBadge(sensor.stable_percent)}${connBadge(sensor)}</span>` +
+          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${cycleReading(sensor)}${connBadge(sensor)}</span>` +
             `<span class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></span>`
           : `<span class="spot-sensor none">Sem sensor vinculado</span>` +
             `<span class="row-actions">${linkable ? `<button class="primary compact" data-act="spot-link" data-spot="${spot.id}">Vincular sensor</button>` : ""}</span>`) +
@@ -2593,7 +3009,10 @@ async function renderInspector() {
   let problem = "";
   if (asset.kind === "point") {
     sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
-    if (sensor) mergeDevices([sensor]);
+    if (sensor) {
+      mergeDevices([sensor]);
+      await loadGlandSummary([sensor.sensor_id]).catch(() => {});
+    }
   } else if (asset.kind === "equipment") {
     // Spots, sensores e ficha vêm do banco numa chamada: a contagem não depende do que a grade já carregou.
     const startedAt = Date.now();
@@ -2603,6 +3022,7 @@ async function renderInspector() {
       mergeDevices(overview.spots.map((spot) => spot.sensor).filter(Boolean));
       rememberAssets(overview.spots.map((spot) => ({ id: spot.id, parent_id: assetId, kind: "point", name: spot.name, position: spot.position })));
       equipTypeIndex.set(assetId, overview.details?.equipment_type || null);
+      await loadGlandSummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
     } catch (error) {
       problem = isMissingFeature(error) ? MISSING_FEATURE_TEXT : "Não foi possível carregar spots e ficha deste TAG: " + errorText(error);
     }
@@ -2619,7 +3039,7 @@ async function renderInspector() {
     asset.kind !== "point"
       ? ""
       : sensor
-        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${fmtNum(sensor.stable_percent)} % ${healthBadge(sensor.stable_percent)} ${connBadge(sensor)}</span></div>` +
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${cycleReading(sensor)} ${connBadge(sensor)}</span></div>` +
           `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
         : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
@@ -2829,29 +3249,73 @@ $id("assetForm").onsubmit = async (event) => {
 };
 
 // ----- Exclusão definitiva (nível 1), sempre com as dependências à vista -----
-async function deleteAsset(asset) {
-  const deps = await callRpc("gaxeta_asset_dependencies", { p_id: asset.id });
-  const lines = [
-    ["children", "níveis diretamente abaixo"],
-    ["linked_sensors", "sensores vinculados"],
-    ["gateways", "gateways"],
-    ["link_history", "registros de instalação (histórico de vínculos)"],
-    ["users", "usuários vinculados à corporação"],
-  ]
-    .filter(([key]) => deps[key] > 0)
-    .map(([key, label]) => `<li><b>${deps[key]}</b> ${label}</li>`);
-  if (lines.length) {
-    await askConfirm({
-      title: "Não é possível excluir",
-      html: `<p><b>${esc(assetLabel(asset))}</b> possui dependências:</p><ul>${lines.join("")}</ul><p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados.</p>`,
-      allowOk: false,
-    });
-    return;
+// O servidor decide (gaxeta_delete_asset): só nível 1, e nunca com filhos, sensores,
+// gateways, histórico de instalação ou usuários. A tela explica o motivo do bloqueio.
+const DELETE_BLOCKERS = [
+  ["children", "níveis diretamente abaixo", "spots cadastrados neste equipamento"],
+  ["linked_sensors", "sensores vinculados", "sensores vinculados aos spots"],
+  ["gateways", "gateways", "gateways"],
+  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos, a telemetria e os ciclos de gaxeta desses spots são preservados"],
+  ["users", "usuários vinculados à corporação", "usuários vinculados"],
+];
+// Identificação do equipamento no diálogo: nome e TAG sempre à vista.
+function equipmentSummaryHtml(asset) {
+  const rows = [
+    ["TAG", equipTag(asset)],
+    ["Nome", asset.name || "—"],
+    ["Tipo", equipTypeLabel(asset.id) || TYPE_UNKNOWN],
+    ["Local", assetPathLabel(asset.parent_id) || "—"],
+  ];
+  return `<dl class="detail-fields">${rows.map(([name, value]) => `<dt>${name}</dt><dd>${esc(value)}</dd>`).join("")}</dl>`;
+}
+async function showDeleteBlocked(asset, deps) {
+  const equip = asset.kind === "equipment";
+  const lines = DELETE_BLOCKERS.filter(([key]) => deps[key] > 0).map(([key, label, equipLabel]) => `<li><b>${deps[key]}</b> ${equip ? equipLabel : label}</li>`);
+  let spots = "";
+  if (equip && deps.children > 0) {
+    // Nomeia os spots e o que há em cada um, para a pessoa saber por onde começar.
+    const overview = await callRpc("gaxeta_equipment_overview", { p_id: asset.id }).catch(() => null);
+    if (overview?.spots?.length)
+      spots = `<p>Spots deste equipamento:</p><ul>${overview.spots.map((spot) => `<li><b>${esc(spot.name)}</b>${spot.position ? " · " + esc(spot.position) : ""}: ${spot.sensor ? "sensor " + esc(deviceLabel(spot.sensor)) + " vinculado" : "sem sensor vinculado"}</li>`).join("")}</ul>`;
   }
+  await askConfirm({
+    title: equip ? "Não é possível excluir o equipamento" : "Não é possível excluir",
+    html:
+      (equip ? equipmentSummaryHtml(asset) : `<p><b>${esc(assetLabel(asset))}</b></p>`) +
+      `<p>A exclusão foi bloqueada porque existem dependências:</p><ul>${lines.join("")}</ul>${spots}` +
+      (equip
+        ? "<p>Para excluir, desvincule os sensores e exclua os spots vazios. Um spot que já teve sensor instalado guarda o histórico e não pode ser excluído; nesse caso o equipamento permanece cadastrado. Nada foi alterado.</p>"
+        : "<p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados. Nada foi alterado.</p>"),
+    allowOk: false,
+  });
+}
+async function deleteAsset(asset) {
+  const equip = asset.kind === "equipment";
+  if (equip) await ensureEquipTypes([asset.id]);
+  const deps = await callRpc("gaxeta_asset_dependencies", { p_id: asset.id });
+  if (DELETE_BLOCKERS.some(([key]) => deps[key] > 0)) return showDeleteBlocked(asset, deps);
   const grants = deps.access_grants > 0 ? `<p>${deps.access_grants} concessão(ões) de acesso apontam para este nível e serão removidas.</p>` : "";
-  const sheet = asset.kind === "equipment" ? "<p>A ficha técnica deste TAG é excluída junto.</p>" : "";
-  if (!(await askConfirm({ title: "Excluir " + KIND_LABEL[asset.kind].toLowerCase(), html: `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}${sheet}<p>A exclusão fica registrada na auditoria.</p>`, okLabel: "Excluir" }))) return;
-  await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
+  const confirmed = await askConfirm({
+    title: equip ? "Excluir equipamento" : "Excluir " + KIND_LABEL[asset.kind].toLowerCase(),
+    html: equip
+      ? `<p>Excluir definitivamente este equipamento?</p>${equipmentSummaryHtml(asset)}${grants}<p>A ficha técnica do TAG é excluída junto. Não há spots, sensores nem histórico de instalação neste equipamento. A exclusão fica registrada na auditoria e não pode ser desfeita.</p>`
+      : `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}<p>A exclusão fica registrada na auditoria.</p>`,
+    okLabel: equip ? "Excluir equipamento" : "Excluir",
+  });
+  if (!confirmed) return;
+  try {
+    await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
+  } catch (error) {
+    // Alguém criou uma dependência entre a conferência e a confirmação: o servidor recusa e devolve o motivo.
+    if (error?.code === "23503") {
+      let fresh = null;
+      try {
+        fresh = JSON.parse(error.details);
+      } catch {}
+      return showDeleteBlocked(asset, fresh || (await callRpc("gaxeta_asset_dependencies", { p_id: asset.id })));
+    }
+    throw error;
+  }
   forgetAsset(asset.id);
   equipTypeIndex.delete(asset.id);
   tree.kids.delete(kidsKey(asset.id));
@@ -3062,8 +3526,10 @@ async function loadHistory({ auto = false } = {}) {
   if (!sensorId) {
     resetTelemetryData();
     renderHistory();
+    $id("cyclePanel").hidden = true;
     return;
   }
+  if (telem.loaded?.sensorId !== sensorId) $id("cyclePanel").hidden = true; // não mostra o ciclo de outro sensor
   // A atualização automática nunca compete com um pedido de quem está usando.
   if (auto && telem.pending) return;
   // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
@@ -3094,6 +3560,8 @@ async function loadHistory({ auto = false } = {}) {
     };
     telem.error = "";
     telem.lastLoadAt = Date.now();
+    // Ajuste pelo ciclo de gaxeta no mesmo período: consulta separada, sem atrasar o gráfico principal.
+    loadCycleHistory(sensorId, range, token);
   } catch (error) {
     if (token !== telem.request) return; // pedido substituído: o erro dele não interessa mais
     telem.error = historyErrorText(error);
@@ -3162,7 +3630,8 @@ function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
 function renderTelemetryLive() {
   const device = currentDevice();
   const identity = deviceIdentity(device);
-  const health = adjustmentInfo(device?.stable_percent);
+  // Condição pelo ciclo de gaxeta; o gráfico abaixo continua na escala do sensor (ADC).
+  const health = device ? deviceCycle(device) : cycleView(null, null);
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
   $id("historyTitle").title = identity.path || "";
   $id("historyContext").textContent = !device
@@ -3171,12 +3640,18 @@ function renderTelemetryLive() {
       ? `Sensor: ${identity.sensor} · Spot: ${identity.spot}`
       : `Sensor sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
-  $id("historyCurrent").textContent = `${fmtNum(device?.stable_percent)} %`;
+  const gland = device && !state.glandMissing ? state.gland.get(device.sensor_id) : null;
+  $id("historyCurrentLabel").textContent = health.mode === "cycle" ? "Ajuste do ciclo" : health.mode === "distance" ? "Distância atual" : health.mode === "legacy" ? "Ajuste estabilizado" : "Posição do sensor";
+  $id("historyCurrent").textContent = health.mode === "cycle" || health.mode === "distance" || health.mode === "legacy" ? `${health.value} ${health.unit}` : `${fmtNum(device?.stable_percent)} %`;
   $id("historyHealthBox").className = "summary-main health-" + health.key;
   $id("historyHealth").textContent = health.label;
-  $id("historyAction").textContent = health.action;
+  $id("historyAction").textContent = health.warn || health.action;
   $id("historyRawNow").textContent = `${fmtNum(device?.last_percent)} %`;
-  $id("historySince").textContent = device?.stable_since ? "Referência desde " + fmtDateTime(device.stable_since) : "";
+  $id("historySince").textContent = gland?.recorded_at
+    ? `${health.sub ? health.sub + " · " : ""}referência de ${fmtDateTime(gland.recorded_at)}`
+    : device?.stable_since
+      ? "Sensor estável desde " + fmtDateTime(device.stable_since)
+      : "";
   $id("historyEdit").disabled = !device;
 }
 // O que está em tela e o que está sendo carregado, sempre explícito.

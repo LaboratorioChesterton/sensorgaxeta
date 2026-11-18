@@ -28,6 +28,7 @@
         <li><a href="#spot" data-section="spot">Spot</a></li>
         <li><a href="#vinculo" data-section="vinculo">Vincular sensor</a></li>
         <li><a href="#sensores" data-section="sensores">Sensores</a></li>
+        <li><a href="#ciclo" data-section="ciclo">Ciclo da gaxeta</a></li>
         <li><a href="#telemetria" data-section="telemetria">Telemetria e CSV</a></li>
         <li><a href="#gateways" data-section="gateways">Gateways</a></li>
         <li><a href="#usuarios" data-section="usuarios">Usuários e acesso</a></li>
@@ -102,6 +103,7 @@
         <li>Em <b>Sensores</b>, o botão <b>Árvore</b> recolhe e reabre a árvore sem perder a seleção, os ramos abertos nem o filtro.</li>
         <li>Cada gravação mostra uma confirmação. O que aparece na árvore é o que está gravado no servidor.</li>
         <li>Exclusão é definitiva e só do nível 1. Itens com níveis abaixo, sensores, gateways ou histórico de instalação não são excluídos.</li>
+        <li><b>Excluir equipamento</b> fica na ficha do TAG. A confirmação mostra o TAG, o nome, o tipo e o local. Se houver spots, sensores vinculados ou histórico de instalação, a plataforma explica o motivo e nada é alterado: desvincule os sensores e exclua os spots vazios primeiro. Um spot que já teve sensor instalado guarda o histórico e permanece.</li>
         <li>A estrutura é criada e editada na versão web, em qualquer tamanho de janela. No aplicativo, a árvore serve para navegar e escolher o destino.</li>
       </ul>
     </section>
@@ -147,17 +149,42 @@
     <section id="sensores">
       <h2>Sensores</h2>
       <ul>
-        <li>Cada cartão mostra o nome do sensor, <b>TAG · tipo · spot</b>, ajuste estabilizado, condição, transmissão, leitura bruta, tensão e horário da última atualização.</li>
+        <li>Cada cartão mostra o nome do sensor, <b>TAG · tipo · spot</b>, o ajuste do ciclo da gaxeta, a condição, a transmissão, a tensão e o horário da última leitura.</li>
+        <li>Sem engaxetamento registrado, o cartão diz <b>Sem referência</b> e mostra só a posição do sensor em % da escala, que não tem relação com a gaxeta. Veja <a href="#ciclo">Ciclo da gaxeta</a>.</li>
+        <li>Placa que hiberna entre envios aparece como <b>Transmitindo · a cada N</b> enquanto estiver dentro do próprio intervalo. O intervalo é observado nas últimas leituras recebidas.</li>
         <li>A busca encontra por nome do sensor, TAG, ID ou MAC. Selecione um ramo na árvore para filtrar; <b>Todos</b> remove o filtro.</li>
         <li><b>Histórico</b> abre a Telemetria já no sensor escolhido. <b>Detalhes</b> e <b>Editar</b> abrem o painel lateral, que só abre por essas ações e não é alterado pela atualização automática.</li>
       </ul>
-      <div class="table-wrap"><table><thead><tr><th>Ajuste estabilizado</th><th>Condição</th><th>Ação</th></tr></thead><tbody>
+      <div class="table-wrap"><table><thead><tr><th>Ajuste do ciclo</th><th>Condição</th><th>Ação</th></tr></thead><tbody>
         <tr><td>70 % ou mais</td><td>Alto ajuste</td><td>Sem necessidade de intervenção</td></tr>
         <tr><td>45 % a menos de 70 %</td><td>Médio ajuste</td><td>Sem necessidade de intervenção</td></tr>
         <tr><td>Acima de 20 % e abaixo de 45 %</td><td>Baixo ajuste</td><td>Planejar intervenção</td></tr>
         <tr><td>20 % ou menos</td><td>Sem ajuste</td><td>Substituir a gaxeta</td></tr>
       </tbody></table></div>
-      <p>O ajuste estabilizado só muda quando a leitura varia 5 pontos percentuais ou mais em relação à referência. Essa regra é independente das faixas de condição acima.</p>
+      <p>As faixas valem para o percentual do ciclo: 100 % é a distância medida no engaxetamento e 0 % é a distância de fim de ajuste informada. São as mesmas faixas usadas antes; os limites ainda não foram confrontados com a especificação de cada equipamento.</p>
+      <p>No gráfico da Telemetria, a posição do sensor (% da escala) continua com a regra de estabilização: só muda quando a leitura varia 5 pontos percentuais ou mais.</p>
+    </section>
+
+    <section id="ciclo">
+      <h2>Ciclo da gaxeta</h2>
+      <p>Cada bomba e cada montagem tem a sua distância inicial. Por isso a referência é registrada sensor a sensor, depois de cada engaxetamento. O sensor é um potenciômetro rotativo de uma volta: ele informa a posição, e a plataforma transforma essa posição em distância a partir da medida que você informa.</p>
+      <ol>
+        <li><b>Antes de mexer no sensor</b>, abra <b>Sensores → Detalhes</b> e use <b>Iniciar manutenção</b>. As leituras continuam gravadas, mas não contam para o ajuste enquanto a manutenção estiver aberta. O passo é recomendado, não obrigatório.</li>
+        <li>Troque ou reajuste a gaxeta e reposicione o sensor. Deixe o potenciômetro longe dos batentes: abaixo de 5 % ou acima de 95 % da escala a plataforma avisa que ele está perto do fim do curso.</li>
+        <li>Meça com o paquímetro a distância entre as duas referências mecânicas da montagem.</li>
+        <li>Use <b>Registrar engaxetamento</b>, escolha <b>Troca completa</b> ou <b>Reajuste</b>, informe a distância medida e, se souber, a <b>distância no fim de ajuste</b> (a mesma medida quando não resta aperto; use 0 quando a medida é a folga até o encosto).</li>
+        <li>A primeira leitura válida depois do registro vira a referência: 100 % naquela distância. Até ela chegar, o estado é <b>Aguardando leitura</b>.</li>
+      </ol>
+      <ul>
+        <li><b>Sem fim de ajuste</b>, a plataforma mostra a distância em milímetros e não calcula percentual.</li>
+        <li><b>Conferir medida</b>: em qualquer momento do ciclo, meça de novo com o paquímetro e registre. Com pelo menos 100 contagens de diferença no sensor, a plataforma passa a usar a escala medida naquela montagem (mm por contagem). Até lá vale a escala nominal do firmware, e a tela avisa que ela ainda não foi conferida.</li>
+        <li>Um registro novo abre um ciclo novo. Os anteriores ficam no <b>Histórico do ciclo</b> e as leituras antigas continuam calculadas com a referência da época.</li>
+        <li>A referência vale só para aquele sensor naquela instalação. Se o sensor for desvinculado e vinculado de novo, registre o engaxetamento outra vez.</li>
+        <li><b>Leitura instável</b> significa sinal ruidoso, no fim da escala ou recebido com atraso. <b>Fora da faixa do ciclo</b> significa valor abaixo de 0 % ou acima de 100 %: confira a montagem e registre de novo.</li>
+        <li>A placa não recebe a referência: ela continua enviando o valor bruto. Com a placa hibernando, o registro passa a valer no próximo envio dela (até um intervalo de espera).</li>
+        <li>Registram: níveis 1 e 2, e o usuário de corporação com edição no ramo do sensor. Os demais só consultam. Cada registro fica na auditoria.</li>
+        <li>Na <b>Telemetria</b>, o painel <b>Ajuste pelo ciclo de gaxeta</b> mostra a evolução no período, com uma marca em cada engaxetamento, reajuste, conferência ou manutenção.</li>
+      </ul>
     </section>
 
     <section id="telemetria">
@@ -166,7 +193,7 @@
         <li>O cabeçalho mostra primeiro <b>TAG · tipo de equipamento</b> e, abaixo, o sensor e o spot. O caminho completo aparece ao passar o cursor e em <b>Detalhes</b>.</li>
         <li>Troque de sensor pelo seletor, que lista <b>TAG · tipo · spot</b>. A busca ao lado filtra por TAG, nome do sensor, ID ou MAC.</li>
         <li>Períodos: 5 min, 1 hora, 6 horas, 1 dia, 7 dias, 1 mês, 3 meses ou <b>Personalizado</b> (de/até). Um intervalo personalizado fica fixo depois de aplicado.</li>
-        <li>A linha do ajuste estabilizado é desenhada em degraus e colorida pela condição de cada trecho (legenda acima do gráfico). <b>Variação bruta</b> exibe a faixa entre mínimo e máximo.</li>
+        <li>O gráfico principal mostra a <b>posição do sensor em % da escala</b>, em degraus (regra de 5 pontos) e colorida por faixa. <b>Variação bruta</b> exibe a faixa entre mínimo e máximo. O ajuste da gaxeta pela referência do engaxetamento fica no painel logo abaixo e no topo da tela.</li>
         <li>Arraste sobre o gráfico para ampliar um trecho. <b>Voltar ao período anterior</b> desfaz a ampliação, inclusive para um intervalo personalizado.</li>
         <li>A linha “Em tela” diz qual período está sendo exibido. Enquanto outro período carrega, os botões de CSV ficam desabilitados.</li>
         <li><b>CSV</b> baixa os intervalos do período em tela. <b>CSV de mudanças</b> baixa as mudanças de 5 pontos ou mais.</li>

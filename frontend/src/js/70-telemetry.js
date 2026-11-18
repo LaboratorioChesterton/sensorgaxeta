@@ -139,8 +139,10 @@ async function loadHistory({ auto = false } = {}) {
   if (!sensorId) {
     resetTelemetryData();
     renderHistory();
+    $id("cyclePanel").hidden = true;
     return;
   }
+  if (telem.loaded?.sensorId !== sensorId) $id("cyclePanel").hidden = true; // não mostra o ciclo de outro sensor
   // A atualização automática nunca compete com um pedido de quem está usando.
   if (auto && telem.pending) return;
   // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
@@ -171,6 +173,8 @@ async function loadHistory({ auto = false } = {}) {
     };
     telem.error = "";
     telem.lastLoadAt = Date.now();
+    // Ajuste pelo ciclo de gaxeta no mesmo período: consulta separada, sem atrasar o gráfico principal.
+    loadCycleHistory(sensorId, range, token);
   } catch (error) {
     if (token !== telem.request) return; // pedido substituído: o erro dele não interessa mais
     telem.error = historyErrorText(error);
@@ -239,7 +243,8 @@ function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
 function renderTelemetryLive() {
   const device = currentDevice();
   const identity = deviceIdentity(device);
-  const health = adjustmentInfo(device?.stable_percent);
+  // Condição pelo ciclo de gaxeta; o gráfico abaixo continua na escala do sensor (ADC).
+  const health = device ? deviceCycle(device) : cycleView(null, null);
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
   $id("historyTitle").title = identity.path || "";
   $id("historyContext").textContent = !device
@@ -248,12 +253,18 @@ function renderTelemetryLive() {
       ? `Sensor: ${identity.sensor} · Spot: ${identity.spot}`
       : `Sensor sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
-  $id("historyCurrent").textContent = `${fmtNum(device?.stable_percent)} %`;
+  const gland = device && !state.glandMissing ? state.gland.get(device.sensor_id) : null;
+  $id("historyCurrentLabel").textContent = health.mode === "cycle" ? "Ajuste do ciclo" : health.mode === "distance" ? "Distância atual" : health.mode === "legacy" ? "Ajuste estabilizado" : "Posição do sensor";
+  $id("historyCurrent").textContent = health.mode === "cycle" || health.mode === "distance" || health.mode === "legacy" ? `${health.value} ${health.unit}` : `${fmtNum(device?.stable_percent)} %`;
   $id("historyHealthBox").className = "summary-main health-" + health.key;
   $id("historyHealth").textContent = health.label;
-  $id("historyAction").textContent = health.action;
+  $id("historyAction").textContent = health.warn || health.action;
   $id("historyRawNow").textContent = `${fmtNum(device?.last_percent)} %`;
-  $id("historySince").textContent = device?.stable_since ? "Referência desde " + fmtDateTime(device.stable_since) : "";
+  $id("historySince").textContent = gland?.recorded_at
+    ? `${health.sub ? health.sub + " · " : ""}referência de ${fmtDateTime(gland.recorded_at)}`
+    : device?.stable_since
+      ? "Sensor estável desde " + fmtDateTime(device.stable_since)
+      : "";
   $id("historyEdit").disabled = !device;
 }
 // O que está em tela e o que está sendo carregado, sempre explícito.

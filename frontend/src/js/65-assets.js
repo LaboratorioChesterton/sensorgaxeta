@@ -6,6 +6,8 @@
 //   * Ao selecionar um TAG: TAG · tipo, contagem e lista de spots com sensor,
 //     condição e transmissão, lidos do banco numa chamada (gaxeta_equipment_overview).
 //   * Spot: nome por seleção (LOA, LA, UNICO); posição de montagem em texto livre.
+//   * Excluir equipamento: nome e TAG na confirmação; bloqueio explicado quando há
+//     spots, sensores ou histórico (o servidor valida permissão e dependências).
 // =============================================================================
 const HIERARCHY_GUIDE =
   '<ol class="hierarchy-guide"><li>Corporação</li><li>Empresa</li><li>Área</li><li>Subárea <em>(opcional)</em></li><li>TAG (equipamento)</li><li>Spot → sensor</li></ol>' +
@@ -21,9 +23,10 @@ const MISSING_FEATURE_TEXT = "Esta função depende da atualização do banco de
 // "Corporação gravada", "TAG gravado": concordância com o nível.
 const kindDone = (kind, verb) => verb + (["corporation", "company", "area", "subarea"].includes(kind) ? "a" : "o");
 const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && access === "full");
-const healthBadge = (percent) => {
-  const health = adjustmentInfo(percent);
-  return `<span class="adjustment-badge health-${health.key}">${health.label}</span>`;
+// Leitura e condição do sensor pelo ciclo de gaxeta (ou "Sem referência" quando não há engaxetamento registrado).
+const cycleReading = (device) => {
+  const view = deviceCycle(device);
+  return `<span class="spot-reading">${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);
@@ -36,7 +39,11 @@ function inspectorActions(asset, childKinds) {
     childKinds.map((kind) => `<button class="primary compact" data-act="add" data-kind="${kind}">${icon("plus")}${KIND_LABEL[kind]}</button>`).join("") +
     (canEditAsset(asset) ? `<button class="secondary compact" data-act="edit">Editar</button>` : "") +
     (asset.kind === "company" ? `<button class="secondary compact" data-act="gateways">Gateways da empresa</button>` : "") +
-    (hasCap("delete_records") && !isNativeApp() ? `<button class="text-button danger-text" data-act="delete">Excluir…</button>` : "") +
+    (hasCap("delete_records") && !isNativeApp()
+      ? asset.kind === "equipment"
+        ? `<button class="secondary compact danger-outline" data-act="delete">${glyph("trash")}Excluir equipamento</button>`
+        : `<button class="text-button danger-text" data-act="delete">Excluir…</button>`
+      : "") +
     `</div>`
   );
 }
@@ -61,7 +68,7 @@ function equipmentInspector(asset, overview, problem) {
         `<button class="spot-name" data-act="open-spot" data-spot="${spot.id}" title="Abrir o spot na árvore">${icon("map-pin")}<b>${esc(spot.name)}</b>${spot.standard_name ? "" : '<em class="legacy-flag" title="Nome anterior à padronização (LOA, LA, UNICO)">nome anterior</em>'}</button>` +
         `<span class="spot-position">${esc(spot.position || "Posição não informada")}</span>` +
         (sensor
-          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b><span class="spot-reading">${fmtNum(sensor.stable_percent)} %</span>${healthBadge(sensor.stable_percent)}${connBadge(sensor)}</span>` +
+          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${cycleReading(sensor)}${connBadge(sensor)}</span>` +
             `<span class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></span>`
           : `<span class="spot-sensor none">Sem sensor vinculado</span>` +
             `<span class="row-actions">${linkable ? `<button class="primary compact" data-act="spot-link" data-spot="${spot.id}">Vincular sensor</button>` : ""}</span>`) +
@@ -112,7 +119,10 @@ async function renderInspector() {
   let problem = "";
   if (asset.kind === "point") {
     sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
-    if (sensor) mergeDevices([sensor]);
+    if (sensor) {
+      mergeDevices([sensor]);
+      await loadGlandSummary([sensor.sensor_id]).catch(() => {});
+    }
   } else if (asset.kind === "equipment") {
     // Spots, sensores e ficha vêm do banco numa chamada: a contagem não depende do que a grade já carregou.
     const startedAt = Date.now();
@@ -122,6 +132,7 @@ async function renderInspector() {
       mergeDevices(overview.spots.map((spot) => spot.sensor).filter(Boolean));
       rememberAssets(overview.spots.map((spot) => ({ id: spot.id, parent_id: assetId, kind: "point", name: spot.name, position: spot.position })));
       equipTypeIndex.set(assetId, overview.details?.equipment_type || null);
+      await loadGlandSummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
     } catch (error) {
       problem = isMissingFeature(error) ? MISSING_FEATURE_TEXT : "Não foi possível carregar spots e ficha deste TAG: " + errorText(error);
     }
@@ -138,7 +149,7 @@ async function renderInspector() {
     asset.kind !== "point"
       ? ""
       : sensor
-        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${fmtNum(sensor.stable_percent)} % ${healthBadge(sensor.stable_percent)} ${connBadge(sensor)}</span></div>` +
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${cycleReading(sensor)} ${connBadge(sensor)}</span></div>` +
           `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
         : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
@@ -348,29 +359,73 @@ $id("assetForm").onsubmit = async (event) => {
 };
 
 // ----- Exclusão definitiva (nível 1), sempre com as dependências à vista -----
-async function deleteAsset(asset) {
-  const deps = await callRpc("gaxeta_asset_dependencies", { p_id: asset.id });
-  const lines = [
-    ["children", "níveis diretamente abaixo"],
-    ["linked_sensors", "sensores vinculados"],
-    ["gateways", "gateways"],
-    ["link_history", "registros de instalação (histórico de vínculos)"],
-    ["users", "usuários vinculados à corporação"],
-  ]
-    .filter(([key]) => deps[key] > 0)
-    .map(([key, label]) => `<li><b>${deps[key]}</b> ${label}</li>`);
-  if (lines.length) {
-    await askConfirm({
-      title: "Não é possível excluir",
-      html: `<p><b>${esc(assetLabel(asset))}</b> possui dependências:</p><ul>${lines.join("")}</ul><p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados.</p>`,
-      allowOk: false,
-    });
-    return;
+// O servidor decide (gaxeta_delete_asset): só nível 1, e nunca com filhos, sensores,
+// gateways, histórico de instalação ou usuários. A tela explica o motivo do bloqueio.
+const DELETE_BLOCKERS = [
+  ["children", "níveis diretamente abaixo", "spots cadastrados neste equipamento"],
+  ["linked_sensors", "sensores vinculados", "sensores vinculados aos spots"],
+  ["gateways", "gateways", "gateways"],
+  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos, a telemetria e os ciclos de gaxeta desses spots são preservados"],
+  ["users", "usuários vinculados à corporação", "usuários vinculados"],
+];
+// Identificação do equipamento no diálogo: nome e TAG sempre à vista.
+function equipmentSummaryHtml(asset) {
+  const rows = [
+    ["TAG", equipTag(asset)],
+    ["Nome", asset.name || "—"],
+    ["Tipo", equipTypeLabel(asset.id) || TYPE_UNKNOWN],
+    ["Local", assetPathLabel(asset.parent_id) || "—"],
+  ];
+  return `<dl class="detail-fields">${rows.map(([name, value]) => `<dt>${name}</dt><dd>${esc(value)}</dd>`).join("")}</dl>`;
+}
+async function showDeleteBlocked(asset, deps) {
+  const equip = asset.kind === "equipment";
+  const lines = DELETE_BLOCKERS.filter(([key]) => deps[key] > 0).map(([key, label, equipLabel]) => `<li><b>${deps[key]}</b> ${equip ? equipLabel : label}</li>`);
+  let spots = "";
+  if (equip && deps.children > 0) {
+    // Nomeia os spots e o que há em cada um, para a pessoa saber por onde começar.
+    const overview = await callRpc("gaxeta_equipment_overview", { p_id: asset.id }).catch(() => null);
+    if (overview?.spots?.length)
+      spots = `<p>Spots deste equipamento:</p><ul>${overview.spots.map((spot) => `<li><b>${esc(spot.name)}</b>${spot.position ? " · " + esc(spot.position) : ""}: ${spot.sensor ? "sensor " + esc(deviceLabel(spot.sensor)) + " vinculado" : "sem sensor vinculado"}</li>`).join("")}</ul>`;
   }
+  await askConfirm({
+    title: equip ? "Não é possível excluir o equipamento" : "Não é possível excluir",
+    html:
+      (equip ? equipmentSummaryHtml(asset) : `<p><b>${esc(assetLabel(asset))}</b></p>`) +
+      `<p>A exclusão foi bloqueada porque existem dependências:</p><ul>${lines.join("")}</ul>${spots}` +
+      (equip
+        ? "<p>Para excluir, desvincule os sensores e exclua os spots vazios. Um spot que já teve sensor instalado guarda o histórico e não pode ser excluído; nesse caso o equipamento permanece cadastrado. Nada foi alterado.</p>"
+        : "<p>Remova ou mova as dependências primeiro. Itens com histórico de instalação ficam preservados. Nada foi alterado.</p>"),
+    allowOk: false,
+  });
+}
+async function deleteAsset(asset) {
+  const equip = asset.kind === "equipment";
+  if (equip) await ensureEquipTypes([asset.id]);
+  const deps = await callRpc("gaxeta_asset_dependencies", { p_id: asset.id });
+  if (DELETE_BLOCKERS.some(([key]) => deps[key] > 0)) return showDeleteBlocked(asset, deps);
   const grants = deps.access_grants > 0 ? `<p>${deps.access_grants} concessão(ões) de acesso apontam para este nível e serão removidas.</p>` : "";
-  const sheet = asset.kind === "equipment" ? "<p>A ficha técnica deste TAG é excluída junto.</p>" : "";
-  if (!(await askConfirm({ title: "Excluir " + KIND_LABEL[asset.kind].toLowerCase(), html: `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}${sheet}<p>A exclusão fica registrada na auditoria.</p>`, okLabel: "Excluir" }))) return;
-  await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
+  const confirmed = await askConfirm({
+    title: equip ? "Excluir equipamento" : "Excluir " + KIND_LABEL[asset.kind].toLowerCase(),
+    html: equip
+      ? `<p>Excluir definitivamente este equipamento?</p>${equipmentSummaryHtml(asset)}${grants}<p>A ficha técnica do TAG é excluída junto. Não há spots, sensores nem histórico de instalação neste equipamento. A exclusão fica registrada na auditoria e não pode ser desfeita.</p>`
+      : `<p>Excluir definitivamente <b>${esc(assetPathLabel(asset.id))}</b>?</p>${grants}<p>A exclusão fica registrada na auditoria.</p>`,
+    okLabel: equip ? "Excluir equipamento" : "Excluir",
+  });
+  if (!confirmed) return;
+  try {
+    await callRpc("gaxeta_delete_asset", { p_id: asset.id, p_reason: "exclusão pela interface" });
+  } catch (error) {
+    // Alguém criou uma dependência entre a conferência e a confirmação: o servidor recusa e devolve o motivo.
+    if (error?.code === "23503") {
+      let fresh = null;
+      try {
+        fresh = JSON.parse(error.details);
+      } catch {}
+      return showDeleteBlocked(asset, fresh || (await callRpc("gaxeta_asset_dependencies", { p_id: asset.id })));
+    }
+    throw error;
+  }
   forgetAsset(asset.id);
   equipTypeIndex.delete(asset.id);
   tree.kids.delete(kidsKey(asset.id));

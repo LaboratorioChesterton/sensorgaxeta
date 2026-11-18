@@ -32,14 +32,19 @@ async function loadSensors({ quiet = false } = {}) {
     view.offset = Math.max(0, view.offset - CONFIG.pageSize);
     return loadSensors({ quiet });
   }
-  await ensureAssets(page.items.map((device) => device.measurement_point_id));
+  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadGlandSummary(view.ids)]);
   if (run !== view.request) return;
   if (!state.assetId && !view.search && view.filter === "all") {
+    // Com todos os sensores na página, a contagem usa a cadência de cada um (placa que
+    // hiberna conta como transmitindo dentro do próprio intervalo). Acima disso, vale a
+    // contagem do servidor para os últimos 25 s.
+    const onlineNow = page.total <= page.items.length ? page.items.filter((device) => deviceStatus(device).online).length : online.count;
     $id("sensorCount").textContent = page.total;
-    $id("onlineCount").textContent = online.count ?? "—";
-    $id("offlineCount").textContent = online.count == null ? "—" : Math.max(0, page.total - online.count);
+    $id("onlineCount").textContent = onlineNow ?? "—";
+    $id("offlineCount").textContent = onlineNow == null ? "—" : Math.max(0, page.total - onlineNow);
     view.allTotal = page.total;
-  } else if (online.count != null && view.allTotal != null) {
+    view.allOnPage = page.total <= page.items.length;
+  } else if (online.count != null && view.allTotal != null && !view.allOnPage) {
     $id("onlineCount").textContent = online.count;
     $id("offlineCount").textContent = Math.max(0, view.allTotal - online.count);
   }
@@ -64,8 +69,8 @@ function renderSensorGrid() {
     devices
       .map((device) => {
         const status = deviceStatus(device);
-        const health = adjustmentInfo(device.stable_percent);
-        const scale = Math.max(0, Math.min(100, Number(device.stable_percent) || 0));
+        // Ajuste pelo ciclo de gaxeta (referência do engaxetamento); sem referência, só a posição do sensor.
+        const health = deviceCycle(device);
         // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
         const identity = deviceIdentity(device);
         const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
@@ -73,10 +78,10 @@ function renderSensorGrid() {
           `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
           `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
-          `<div class="card-main"><div class="card-value">${fmtNum(device.stable_percent)}<small>%</small></div>` +
-          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small>${health.action}</small></div></div>` +
-          `<div class="mini-scale"><i style="width:${scale}%"></i></div>` +
-          `<div class="card-meta"><span>Bruto ${fmtNum(device.last_percent)} %</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<div class="card-main"><div class="card-value${health.unit === "%" ? "" : " small-unit"}">${health.value}<small>${health.unit}</small></div>` +
+          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small title="${esc(health.warn || health.action)}">${esc(health.warn || health.action)}</small></div></div>` +
+          `<div class="mini-scale${health.scale == null ? " idle" : ""}"><i style="width:${health.scale ?? 0}%"></i></div>` +
+          `<div class="card-meta"><span title="${esc(health.nominal ? "Escala nominal do firmware, ainda não conferida com o paquímetro" : "")}">${esc(health.sub || "Sensor " + fmtNum(device.last_percent) + " % da escala")}${health.nominal ? " · escala nominal" : ""}</span><span>${fmtNum(device.last_voltage_v, 3)} V</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
           `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
           (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
           `</footer></article>`
@@ -216,12 +221,13 @@ function updateDrawerLive() {
   const device = findDevice(state.drawer.sensorId);
   if (!device) return;
   const status = deviceStatus(device);
-  const health = adjustmentInfo(device.stable_percent);
+  const health = deviceCycle(device);
+  const gland = state.gland.get(device.sensor_id);
   $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
-  $id("detailStable").textContent = fmtNum(device.stable_percent) + " %";
-  $id("detailRaw").textContent = fmtNum(device.last_percent) + " %";
-  $id("detailVolt").textContent = fmtNum(device.last_voltage_v, 3) + " V";
-  $id("detailHealth").textContent = health.label + " · " + health.action;
+  $id("detailStable").textContent = health.mode === "cycle" ? health.value + " %" : "—";
+  $id("detailRaw").textContent = gland?.state === "active" ? fmtMm(gland.distance_mm) : "—";
+  $id("detailVolt").textContent = `${fmtNum(device.last_percent)} % · ${fmtNum(device.last_voltage_v, 3)} V`;
+  $id("detailHealth").textContent = health.label + " · " + (health.warn || health.action);
   $id("detailHealth").className = "health-banner health-" + health.key;
   if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
   if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
@@ -240,7 +246,7 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values"><div><span>Estabilizado</span><strong id="detailStable"></strong></div><div><span>Bruto</span><strong id="detailRaw"></strong></div><div><span>Tensão est.</span><strong id="detailVolt"></strong></div></div>` +
+    `<div class="drawer-values"><div><span>Ajuste do ciclo</span><strong id="detailStable"></strong></div><div><span>Distância atual</span><strong id="detailRaw"></strong></div><div><span>Sensor (escala · tensão est.)</span><strong id="detailVolt" class="compact-value"></strong></div></div>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
   if (mode === "edit") {
@@ -321,13 +327,16 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
-      `</div><dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
+      `</div><section id="glandPanel" class="gland-panel" aria-live="polite"></section>` +
+      `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Posição e tensão são estimadas. Curso de referência: 50 mm.</small></div>`;
+      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A distância e o percentual valem a partir da referência registrada no engaxetamento; a tensão é estimada.</small></div>`;
+    glandPanelState.key = "";
+    refreshGlandPanel(true).catch((error) => showMessage(errorText(error), "error"));
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);

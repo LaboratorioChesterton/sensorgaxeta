@@ -70,6 +70,9 @@ label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; col
 .text-button { color: var(--blue); font-weight: 600; font-size: 13px; padding: 4px 2px; }
 .text-button:hover { text-decoration: underline; }
 .danger-text { color: var(--red) !important; }
+.danger-outline { color: var(--red); border-color: #e3b5ba; margin-left: auto; }
+.danger-outline:hover { background: #ffe7e9; }
+.danger-outline .glyph { width: 15px; height: 15px; }
 .icon-button { width: 32px; height: 32px; border-radius: 6px; display: inline-grid; place-items: center; font-size: 18px; color: var(--muted); }
 .icon-button:hover { background: #e6edf2; }
 .search { position: relative; display: block; }
@@ -307,6 +310,24 @@ body.tree-collapsed[data-page="sensors"] .sensor-grid { grid-template-columns: r
 .technical-detail summary, .raw-details summary { cursor: pointer; font-weight: 600; color: var(--blue); font-size: 13px; padding: 4px 0; }
 .technical-detail { display: grid; gap: 6px; }
 
+/* Ciclo de gaxeta: seção do painel do sensor e diálogo de registro */
+.gland-panel { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: #f8fafb; }
+.gland-panel:empty { display: none; }
+.gland-panel h3 { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--navy); }
+.gland-panel .detail-fields { grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); }
+.gland-panel .path-note { font-size: 12px; line-height: 1.35; }
+.gland-actions .primary, .gland-actions .secondary { flex: 1 1 auto; }
+.gland-events { display: grid; gap: 6px; padding: 0; list-style: none; font-size: 13px; }
+.gland-events li { padding: 5px 8px; border-left: 3px solid var(--line); background: #fff; border-radius: 0 5px 5px 0; }
+.gland-events small { display: block; color: var(--muted); font-size: 12px; }
+.choice-row { display: grid; gap: 6px; border: 0; padding: 0; }
+.choice-row legend { font-size: 13px; font-weight: 600; color: var(--muted); padding: 0 0 4px; }
+.card-value.small-unit small { display: block; margin: 3px 0 0; font-size: 11px; font-weight: 500; font-family: Barlow, sans-serif; }
+.mini-scale.idle { background: repeating-linear-gradient(90deg, #e3eaef 0 6px, #f2f5f7 6px 12px); }
+.drawer-values .compact-value { font-size: 15px; line-height: 1.5; }
+.card-meta span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.confirm-body dl.detail-fields { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafb; }
+
 /* ----- Telemetria ----- */
 .telemetry-page { display: grid; gap: 8px; min-width: 0; }
 .telemetry-page > * { min-width: 0; }
@@ -364,6 +385,13 @@ body.tree-collapsed[data-page="sensors"] .sensor-grid { grid-template-columns: r
 .chart-riser { fill: none; stroke: #7b8d98; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .chart-legend .legend-change i { width: 2px; height: 12px; background: #7b8d98; }
 .chart-band { fill: #91aabc44; }
+.cycle-layout { height: clamp(90px, 14vh, 130px); }
+.cycle-layout .y-axis { font-size: 10px; }
+.cycle-line { fill: none; stroke: var(--navy); stroke-width: 2.25; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cycle-dot { fill: var(--navy); }
+.chart-riser.cycle-check { stroke-dasharray: 3 3; }
+.chart-legend .legend-cycle i { background: var(--navy); }
+.chart-scale-note { font-weight: 600; color: var(--ink); border-bottom: 1px dotted var(--muted); cursor: help; }
 .chart-selection { fill: #d4b60030; stroke: #baa500; vector-effect: non-scaling-stroke; }
 .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; pointer-events: none; }
 .chart-tooltip { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); background: #062a3fee; color: #fff; padding: 6px 8px; border-radius: 6px; font-size: 12px; white-space: pre-line; pointer-events: none; }

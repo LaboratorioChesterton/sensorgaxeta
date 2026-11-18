@@ -29,7 +29,8 @@ frontend/
         ├── 40-shell     estado, permissões, navegação, atualização periódica
         ├── 50-tree      árvore de ativos por ramo, busca
         ├── 60-sensors   lista paginada e painel lateral
-        ├── 65-assets    ficha do nível, TAG + ficha técnica, spots do TAG, exclusão, vínculo sensor–spot
+        ├── 62-gland     ciclo de gaxeta: estado, registro do engaxetamento, conferência, manutenção, painel na Telemetria
+        ├── 65-assets    ficha do nível, TAG + ficha técnica, spots do TAG, Excluir equipamento, vínculo sensor–spot
         ├── 70-telemetry identidade, histórico por contexto, gráfico por condição, CSV
         ├── 75-gateways  cadastro e edição
         ├── 80-users     usuários, três escolhas de escopo, regra por ramo, convites, auditoria
@@ -60,6 +61,14 @@ O servidor valida papéis e escopos nos dois casos; a diferença acima é só de
 - Nome de spot: `SPOT_NAMES` (`10-core.js`) e o gatilho `gaxeta_asset_point_name` (migração 07).
 - Tipos de equipamento: tabela `gaxeta_equipment_types`. A cópia em `equipCatalog` é o catálogo inicial e é substituída pela leitura do servidor ao entrar.
 - Campos da ficha técnica: `EQUIP_GROUPS` (`10-core.js`) e a tabela `gaxeta_equipment_details`.
+
+## Ciclo de gaxeta (migrações 08 e 09)
+
+- O percentual mostrado nos cartões, no painel e no topo da Telemetria vem do servidor: `gaxeta_gland_summary` (lista) e `gaxeta_gland_status` (painel). A tela só aplica as faixas de `adjustmentInfo` e limita a exibição a 0–100 %.
+- `cycleView()` em `10-core.js` decide o que mostrar por estado (`active`, `waiting`, `maintenance`, `unusable`, `no_reference`, `unlinked`). Sem referência, o número é rotulado como posição do sensor em % da escala.
+- O registro usa `gaxeta_record_gland_event` com um identificador de solicitação gerado ao abrir o diálogo: reenviar depois de uma queda de rede não duplica. Conflito (`PT409`) relê o estado e pede nova confirmação.
+- Se o banco ainda não tiver as funções (`PGRST202`), `state.glandMissing` liga e a tela volta à apresentação anterior, sem erro.
+- Situação de transmissão: `connectionStatus()` usa a cadência observada (`interval_s` do resumo). Até 12 s vale a regra original de 25 s / 65 s.
 
 ## Manual
 

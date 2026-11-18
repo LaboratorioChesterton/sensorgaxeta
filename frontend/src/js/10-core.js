@@ -133,6 +133,8 @@ const GLYPHS = {
   back: '<path d="M10 6l-6 6 6 6M4 12h16"/>',
   subfolder: '<path d="M3.5 6.5h6l2 2h9v10h-17z"/><path d="M8 13.5h8"/>',
   list: '<path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/>',
+  ruler: '<path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l1.5 1.5M10 9l1.5 1.5M13 6l1.5 1.5"/>',
+  wrench: '<path d="M14.5 6.5a4 4 0 0 0-5.2 5.2L4 17l3 3 5.3-5.3a4 4 0 0 0 5.2-5.2l-2.5 2.5-2-2z"/>',
 };
 // Ícone do nível: os do pacote, mais um próprio para distinguir subárea de área.
 const kindIcon = (kind) => (kind === "subarea" ? glyph("subfolder") : icon(KIND_ICON[kind]));
@@ -140,15 +142,23 @@ const glyph = (name) =>
   `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
 
 // ----- Regras de domínio herdadas do pacote publicado (sem alteração de comportamento) -----
-function connectionStatus(t, e = Date.now()) {
+// Cadência observada de cada sensor (gaxeta_gland_summary → interval_s). Até 12 s vale a
+// regra original (25 s / 65 s). Placa que hiberna entre envios é avaliada pelo próprio
+// intervalo: transmitindo até 1,5 intervalo + 15 s; atraso até 3 intervalos + 15 s.
+const fmtInterval = (seconds) =>
+  seconds < 90 ? `${Math.round(seconds)} s` : seconds < 5400 ? `${Math.round(seconds / 60)} min` : `${fmtNum(seconds / 3600, 1)} h`;
+function connectionStatus(t, e = Date.now(), intervalS = null) {
   const r = e - new Date(t.last_received_at || 0).getTime();
-  return r < 25e3
+  const slow = Number(intervalS) > 12;
+  const onlineMs = slow ? intervalS * 1500 + 15e3 : 25e3;
+  const lateMs = slow ? intervalS * 3000 + 15e3 : 65e3;
+  return r < onlineMs
     ? {
         online: !0,
-        label: "Transmitindo",
+        label: slow ? "Transmitindo · a cada " + fmtInterval(intervalS) : "Transmitindo",
         className: "green",
       }
-    : r < 65e3
+    : r < lateMs
       ? {
           online: !1,
           label: "Atraso na transmissão",
@@ -239,6 +249,47 @@ function adjustmentInfo(t) {
             label: "Sem ajuste",
             action: "Substituir a gaxeta",
           };
+}
+// ----- Ciclo de gaxeta (migrações 08 e 09) -----
+// O percentual do ciclo vem do servidor: 100 % na distância medida no engaxetamento,
+// 0 % na distância de fim de ajuste informada. As faixas são as mesmas de adjustmentInfo.
+const GLAND_KIND = { maintenance: "Manutenção iniciada", replacement: "Troca da gaxeta", adjustment: "Reajuste", check: "Conferência de medida" };
+const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
+// Lê um número digitado em pt-BR ("22,5") ou com ponto; devolve null quando não é número.
+function parseMm(text) {
+  const clean = String(text ?? "").trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
+  return Number(clean);
+}
+// Como apresentar o ajuste de um sensor. `gland` é o item do resumo do servidor (ou o estado
+// completo); sem ele (banco ainda sem a migração) vale a apresentação anterior.
+function cycleView(gland, device) {
+  const raw = device?.stable_percent;
+  const rawScale = Math.max(0, Math.min(100, Number(raw) || 0));
+  if (!gland) {
+    const info = adjustmentInfo(raw);
+    return { mode: "legacy", key: info.key, label: info.label, action: info.action, value: fmtNum(raw), unit: "%", scale: rawScale, sub: "" };
+  }
+  const neutral = (label, action, extra = {}) => ({ mode: gland.state, key: "unknown", label, action, value: "—", unit: "", scale: null, sub: "", ...extra });
+  if (gland.state === "active" && gland.percent != null) {
+    const percent = Math.max(0, Math.min(100, Number(gland.percent)));
+    const info = adjustmentInfo(percent);
+    return {
+      mode: "cycle", key: info.key, label: info.label, action: info.action, value: fmtNum(percent), unit: "%", scale: percent,
+      sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)}`,
+      warn: gland.out_of_range ? "Fora da faixa do ciclo: confira a montagem" : gland.near_limit ? "Sensor perto do fim do curso elétrico" : "",
+      nominal: gland.scale_source === "nominal" || gland.scale?.source === "nominal",
+    };
+  }
+  if (gland.state === "active")
+    return neutral("Sem fim de ajuste", "Informe o fim de ajuste para ver o percentual", { mode: "distance", value: fmtNum(gland.distance_mm), unit: "mm", sub: `referência ${fmtMm(gland.initial_mm)}` });
+  if (gland.state === "waiting") return neutral("Aguardando leitura", "Referência registrada; vale a partir da próxima leitura válida");
+  if (gland.state === "maintenance") return neutral("Em manutenção", "Registre o engaxetamento ao concluir o serviço");
+  if (gland.state === "unusable") return neutral("Leitura instável", "Sinal ruidoso ou no fim da escala: confira a montagem");
+  // Sem referência: o número disponível é só a posição do potenciômetro na escala do ADC.
+  return neutral("Sem referência", gland.state === "unlinked" ? "Vincule a um spot para registrar o engaxetamento" : "Registre o engaxetamento em Detalhes", {
+    value: fmtNum(raw), unit: "% da escala", scale: rawScale, sub: "posição do sensor, sem relação com a gaxeta",
+  });
 }
 // A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.
 async function exportCsvFile(t, e) {

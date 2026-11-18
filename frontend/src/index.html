@@ -171,7 +171,7 @@
     </div>
     <div class="telemetry-summary">
       <div id="historyHealthBox" class="summary-main health-unknown">
-        <div class="summary-value"><small>Ajuste estabilizado</small><strong id="historyCurrent">—</strong></div>
+        <div class="summary-value"><small id="historyCurrentLabel">Ajuste estabilizado</small><strong id="historyCurrent">—</strong></div>
         <div class="summary-condition"><span id="historyHealth" class="adjustment-badge">Sem leitura</span><small id="historyAction"></small><small id="historySince" class="summary-since"></small></div>
       </div>
       <dl class="summary-stats">
@@ -190,6 +190,7 @@
     <div class="chart-panel">
       <div class="chart-caption">
         <span id="historyShown" class="chart-shown" role="status" aria-live="polite"></span>
+        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala do ADC, com a regra de estabilização de 5 pontos. O ajuste da gaxeta pela referência do engaxetamento aparece no painel abaixo.">Posição do sensor (% da escala)</span>
         <ul class="chart-legend" aria-label="Cores da linha por condição">
           <li class="health-critical"><i></i>Sem ajuste · até 20 %</li><li class="health-low"><i></i>Baixo · acima de 20 %</li><li class="health-medium"><i></i>Médio · 45 % ou mais</li><li class="health-high"><i></i>Alto · 70 % ou mais</li><li class="legend-change"><i></i>Mudança</li>
         </ul>
@@ -199,6 +200,13 @@
       <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico do ajuste estabilizado. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
       <div class="x-axis"><span id="chartFrom">—</span><span id="chartTo">—</span></div>
       <div class="chart-footer"><span>Arraste sobre o gráfico para ampliar. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
+    </div>
+    <div id="cyclePanel" class="chart-panel cycle-panel" hidden>
+      <div class="chart-caption">
+        <span id="cycleShown" class="chart-shown" role="status"></span>
+        <ul class="chart-legend" aria-label="Legenda do ciclo de gaxeta"><li class="legend-cycle"><i></i>Ajuste pelo ciclo de gaxeta</li><li class="legend-change"><i></i>Engaxetamento, reajuste, conferência ou manutenção</li></ul>
+      </div>
+      <div class="chart-layout cycle-layout"><div class="y-axis" id="cycleAxis"><span>100</span><span>50</span><span>0</span></div><div class="chart-surface"><svg id="cycleChart" viewBox="0 0 1000 120" preserveAspectRatio="none" role="img" aria-label="Ajuste do ciclo de gaxeta no período"></svg></div></div>
     </div>
     <div class="movement-heading"><div><h3>Mudanças relevantes</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
     <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Referência anterior</th><th>Novo ajuste</th><th>Variação</th><th>Condição</th></tr></thead><tbody id="movementRows"></tbody></table></div>
@@ -313,6 +321,21 @@
   <div id="userStep3" class="step-body" hidden><div id="userReview" class="review"></div></div>
   <p id="userFormMessage" class="form-message" role="status"></p>
   <div class="dialog-actions"><button type="button" id="userBack" class="secondary">Voltar</button><button type="submit" id="userNext" class="primary">Avançar</button></div>
+</form></dialog>
+
+<dialog id="glandDialog"><form id="glandForm" novalidate>
+  <div class="dialog-heading"><h2 id="glandTitle">Registrar engaxetamento</h2><button type="button" data-close="glandDialog" class="icon-button" aria-label="Fechar">×</button></div>
+  <p id="glandContext" class="form-context"></p>
+  <fieldset id="glandKindField" class="choice-row"><legend>Serviço executado</legend>
+    <label class="check"><input type="radio" name="glandKind" value="replacement" checked> Troca completa da gaxeta</label>
+    <label class="check"><input type="radio" name="glandKind" value="adjustment"> Reajuste da gaxeta existente</label>
+  </fieldset>
+  <label>Distância medida com o paquímetro (mm)<input id="glandMm" inputmode="decimal" maxlength="14" required autocomplete="off" placeholder="ex.: 22,5"></label>
+  <label id="glandEndField">Distância no fim de ajuste (mm), opcional<input id="glandEnd" inputmode="decimal" maxlength="14" autocomplete="off" placeholder="ex.: 0"></label>
+  <p id="glandHelp" class="form-help"></p>
+  <p id="glandLive" class="form-context"></p>
+  <p id="glandMessage" class="form-message" role="status"></p>
+  <div class="dialog-actions"><button type="button" data-close="glandDialog" class="secondary">Cancelar</button><button class="primary" id="glandSubmit">Registrar engaxetamento</button></div>
 </form></dialog>
 
 <dialog id="confirmDialog"><form method="dialog">
