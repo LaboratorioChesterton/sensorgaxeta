@@ -157,7 +157,9 @@ begin; select t.anon();
 select t.throws($$select public.gaxeta_confirm_gland_anchor('ESP32-CALIB0000001', '1', '1', '1')$$, '42501', 'anônimo não confirma referência');
 commit;
 begin; select t.login(t.id('uA_campo'));
-select t.eq(t.confirm(:'c1') ->> 'duplicate', 'false', 'operador do ramo confirma a leitura com a marca superior mantida');
+-- Depois do registro o sensor chegou a encostar no teto do ADC: desde a migração 11 a confirmação de uma
+-- posição mais baixa pede a declaração do técnico (a recusa sem ela é verificada na suíte 77).
+select t.eq(public.gaxeta_confirm_gland_anchor(:'c1', t.gs(:'c1') ->> 'link_id', t.gs(:'c1') ->> 'cycle_event_id', :'r_a', true) ->> 'duplicate', 'false', 'operador do ramo confirma a leitura com a marca superior mantida');
 select t.eq(public.gaxeta_confirm_gland_anchor(:'c1', t.gs(:'c1') ->> 'link_id', t.gs(:'c1') ->> 'cycle_event_id', :'r_a') ->> 'duplicate', 'true', 'reenvio da mesma confirmação (toque duplo, rede instável) é idempotente');
 select t.eq(t.gs(:'c1') ->> 'candidate', null, 'depois de aprovada não há mais leitura candidata');
 commit;
@@ -404,4 +406,4 @@ commit;
 select t.eq(md5(pg_get_functiondef('public.gaxeta_ingest_v3(text,jsonb)'::regprocedure) || pg_get_functiondef('gaxeta_private.stabilize(numeric,numeric)'::regprocedure)), :'core_hash', 'gaxeta_ingest_v3 e estabilização sem alteração');
 select t.eq((select count(*) from pg_trigger tg where tg.tgrelid in ('public.gaxeta_readings'::regclass, 'public.gaxeta_movements'::regclass) and not tg.tgisinternal), 0::bigint, 'nenhum gatilho em leituras e movimentos');
 select t.ok(not has_table_privilege('authenticated', 'gaxeta_private.gland_anchors', 'select') and not has_table_privilege('authenticated', 'gaxeta_private.gland_profiles', 'select'), 'referências e perfis não são legíveis direto pela API');
-select t.ok(not has_function_privilege('anon', 'public.gaxeta_confirm_gland_anchor(text,text,text,text)', 'EXECUTE') and not has_function_privilege('anon', 'public.gaxeta_save_gland_profile(text,text,uuid,jsonb)', 'EXECUTE'), 'funções novas fechadas para anônimo');
+select t.ok(not has_function_privilege('anon', 'public.gaxeta_confirm_gland_anchor(text,text,text,text,boolean)', 'EXECUTE') and not has_function_privilege('anon', 'public.gaxeta_save_gland_profile(text,text,uuid,jsonb)', 'EXECUTE'), 'funções novas fechadas para anônimo');

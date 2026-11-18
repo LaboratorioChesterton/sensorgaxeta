@@ -1,8 +1,8 @@
 # Estado da produção — SensorGaxeta
 
-Conferido em 18/11/2026 às 10:45 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
+Conferido em 18/11/2026 às 14:05 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
 
-## Migrações: dez de dez aplicadas
+## Migrações: onze de onze aplicadas
 
 O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations/` (comparação feita no banco, coluna `statements`; para a 08, o arquivo foi escrito a partir do que está gravado, com fim de linha LF).
 
@@ -18,6 +18,35 @@ O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations
 | 08 | `20261117210000_ciclos_gaxeta.sql` | `20261117210000` | 17/11, antes da revisão de 17/11 |
 | 09 | `20261117222922_referencia_gaxeta.sql` | `20261117222922` | 17/11 19:29 |
 | 10 | `20261118132114_calibracao_tensao.sql` | `20261118132114` | 18/11 10:21 |
+| 11 | `20261118165547_comissionamento_dois_pontos.sql` | `20261118165547` | 18/11 13:55 |
+
+## Migração 11 (comissionamento em dois pontos, 18/11/2026) — aplicada
+
+Arquivo `supabase/migrations/20261118165547_comissionamento_dois_pontos.sql`, reversão em `supabase/rollback/`. Aditiva: não toca `gaxeta_ingest`, `gaxeta_ingest_v3`, a estabilização, `gaxeta_record_gland_event`, o histórico, as permissões nem dados existentes.
+
+| Objeto | O que é |
+|---|---|
+| `gaxeta_private.gland_profiles.origin` | Coluna nova (jsonb, nula nos perfis manuais): ciclo e conferência de origem, D100/V100, segunda medida e V0 de um comissionamento em dois pontos. |
+| `gaxeta_private.gland_block` | Diagnóstico do bloco: `ceiling` (bloco inteiro em 4095, limite do ADC), `touch_high`, `mixed_high` (4095 junto com amostras muito diferentes), `floor`, `touch_low`, `mixed_low`, `unstable`, `ok`. A elegibilidade para calibrar (`gland_quality`) não muda. |
+| `gaxeta_private.gland_cadence`, `gland_confirm_max_age` | Intervalo típico entre envios e idade máxima (chegada → agora) de uma leitura para o técnico confirmar: 1,25 × cadência + 15 s, entre 45 s e 240 s. |
+| `gaxeta_private.gland_peak` | Posição estável mais alta lida desde o registro (últimos 7 dias). |
+| `gaxeta_private.gland_commission_draft` | Rascunho do comissionamento do ciclo vigente: referência aprovada e conferência válida do mesmo ciclo. |
+| `gaxeta_private.gland_state` | **Corpo substituído.** A leitura atual ganha `block`, `at_ceiling`, `electric_percent`, `age_s` e `transport_s`; a candidata ganha idade, transporte, limite e `below_peak`/`peak`; motivo de espera novo `aged`. Os campos anteriores não mudam. |
+| `public.gaxeta_confirm_gland_anchor(text, text, text, text, boolean)` | Substitui a versão de quatro parâmetros (o quinto, `p_ack_lower`, é opcional: a chamada do site anterior continua válida). Recusa leitura mais velha que o limite (`PT409`) e, sem a declaração, leitura abaixo de uma posição já mostrada depois do registro. A auditoria `gland.anchor` guarda idade, transporte e a declaração. |
+| `public.gaxeta_commission_gland(text, text, uuid)` | Grava o comissionamento em dois pontos como nova versão do perfil (razão medida, faixa validada, marca superior). Níveis 1 e 2, idempotente, auditoria `gland.commission`. |
+| `public.gaxeta_gland_status`, `gaxeta_gland_summary` | **Corpos substituídos**, mesmas assinaturas. Novos e aditivos: `request_id` de cada evento só para o autor, `profile.origin`, `commission`; no resumo, `block`, `electric_percent`, `cycle_event_id` e `anchored`. |
+
+Compatibilidade conferida no banco local: o site publicado (build do commit anterior) passa as suas 32 verificações com a migração 11 aplicada; o site novo passa as mesmas 32 com o banco ainda na migração 10. A ordem entre aplicar a migração e publicar o site é livre.
+
+Conferido depois da aplicação (18/11, 13:55):
+
+- MD5 do SQL gravado no histórico igual ao do arquivo (`a0012b03883aa9c3810abd3f41fa6f2f`). Os corpos das 20 funções do ciclo e da ingestão em produção têm o mesmo hash do banco local em que as 539 verificações foram executadas; `gaxeta_ingest`, `gaxeta_ingest_v3`, `gaxeta_record_gland_event`, `gaxeta_gland_history`, `gland_model`, `gland_eval`, `gland_quality`, `gland_try_anchor` e `gland_window` ficaram com o hash de antes.
+- Funções novas fechadas para anônimo; as internas não são chamáveis pela API.
+- Estado do G1-432 logo depois da aplicação, lido no banco: cadastro de 16 mm (evento 9) aguardando; a leitura de 2,446 V aparece como candidata **marcada como abaixo de uma posição mais alta já mostrada depois do registro** (bloco no limite do ADC às 12:35). É o caso que motivou a mudança: sem a declaração do técnico, ela não vira marca superior.
+- Nenhum evento, referência ou perfil foi criado, alterado ou apagado: `gland_anchors` e `gland_profiles` continuam vazias; os cinco eventos da instalação 6 estão como estavam.
+- Firmware `4.3.1-cont30` gravado às 14:01: sete leituras seguidas (ids 104184 a 104190, sequências 1 a 37 de 6 em 6), uma a cada 29,7 a 30,3 s.
+
+Reversão: `supabase/rollback/20261118165547_comissionamento_dois_pontos.down.sql` devolve estado, consulta, resumo e confirmação à forma da migração 10 (catálogo idêntico, conferido). As versões de perfil gravadas ficam; a coluna `origin` é descartada.
 
 ## Migração 10 (tensão calibrada e marca superior validada, 18/11/2026)
 

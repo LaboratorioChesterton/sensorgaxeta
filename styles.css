@@ -692,3 +692,37 @@ body.manual-standalone .manual-layout { max-width: 1140px; margin: 0 auto; paddi
 .chart-legend .legend-off i { background: none; border: 2px solid var(--amber); border-radius: 50%; width: 9px; height: 9px; }
 .summary-stats dd[title]:not([title=""]) { cursor: help; }
 #glandTopField { align-items: flex-start; font-weight: 600; }
+
+/* ----- Migração 11: bloco fixo de leitura, cadastro vigente e comissionamento em dois pontos ----- */
+.drawer-values.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.drawer-values.four .volt-value small { text-transform: none; letter-spacing: 0; font-size: 11px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
+.live-reading, .live-cadastro { font-size: 12px; color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.live-cadastro { color: var(--ink); font-weight: 600; }
+.summary-reading { flex: 1 1 100%; font-size: 12px; color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.gland-current { padding: 6px 10px; border-left: 4px solid var(--navy); background: #fff; border-radius: 0 6px 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+.gland-ref { font-weight: 700; }
+.gland-ref.ok { color: var(--green); }
+.gland-ref.pending { color: var(--amber); }
+.gland-steps { display: grid; gap: 4px; padding: 0; list-style: none; font-size: 12.5px; }
+.gland-steps li { display: grid; grid-template-columns: minmax(118px, max-content) minmax(0, 1fr); gap: 2px 8px; padding: 4px 8px 4px 24px; border-radius: 5px; background: #fff; position: relative; }
+.gland-steps li::before { content: ""; position: absolute; left: 8px; top: 8px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--muted); }
+.gland-steps li.done::before { border-color: var(--green); background: var(--green); }
+.gland-steps li span { color: var(--muted); font-weight: 500; overflow-wrap: anywhere; }
+.gland-steps li.done span { color: var(--ink); }
+.gland-candidate { display: grid; gap: 4px; }
+.gland-alert { padding: 6px 10px; border-left: 4px solid var(--amber); background: #fff7e8; border-radius: 0 6px 6px 0; font-size: 13px; color: var(--ink); }
+.gland-course { padding: 6px 10px; border-radius: 6px; background: #eef3f6; font-size: 13px; font-weight: 600; color: var(--navy); }
+label.check.needs-check { padding: 6px 8px; border: 2px solid var(--red); border-radius: 6px; background: #fdf1f2; }
+label.check.needs-check input { outline: 2px solid var(--red); outline-offset: 2px; }
+.gland-events li.current { border-left-color: var(--navy); }
+.gland-events li em { margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--navy); color: #fff; font-size: 11px; font-style: normal; font-weight: 600; }
+.tree-electric small { font-weight: 500; color: var(--muted); }
+/* Série elétrica do gráfico principal: uma cor para a linha estabilizada, outra para a leitura atual. */
+.chart-line.chart-electric { stroke: #6f8594; stroke-width: 2.25; }
+.chart-raw { fill: none; stroke: var(--blue); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart-raw-dot { fill: var(--blue); }
+.chart-legend .legend-raw i { background: var(--blue); height: 2px; }
+.chart-legend .legend-stable i { background: #6f8594; }
+@media (max-width: 760px) {
+  .gland-steps li { grid-template-columns: 1fr; }
+}
