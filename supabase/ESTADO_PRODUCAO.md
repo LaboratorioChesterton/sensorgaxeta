@@ -1,10 +1,10 @@
 # Estado da produção — SensorGaxeta
 
-Conferido em 12/11/2026 às 11:37 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17.11. O ambiente hospedado é o piloto em uso e continua em teste.
+Conferido em 17/11/2026 às 19:49 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
 
-## Migrações: sete de sete aplicadas
+## Migrações: nove de nove aplicadas
 
-Aplicadas pelo conector do Supabase, em ordem. O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations/` (comparação feita no banco, coluna `statements`).
+O SQL gravado no histórico tem o mesmo MD5 dos arquivos de `supabase/migrations/` (comparação feita no banco, coluna `statements`; para a 08, o arquivo foi escrito a partir do que está gravado, com fim de linha LF).
 
 | # | Arquivo | Versão no histórico | Aplicada em |
 |---|---|---|---|
@@ -15,6 +15,45 @@ Aplicadas pelo conector do Supabase, em ordem. O SQL gravado no histórico tem o
 | 05 | `20261111175624_corte_acesso.sql` | `20261111175624` | 11/11 14:56 |
 | 06 | `20261111175658_telemetria_consultas.sql` | `20261111175658` | 11/11 14:56 |
 | 07 | `20261112143031_ficha_equipamento_spots.sql` | `20261112143031` | 12/11 11:30 |
+| 08 | `20261117210000_ciclos_gaxeta.sql` | `20261117210000` | 17/11, antes desta revisão |
+| 09 | `20261117222922_referencia_gaxeta.sql` | `20261117222922` | 17/11 19:29 |
+
+## Migrações 08 e 09 (ciclo de gaxeta, 17/11/2026)
+
+A 08 já estava no banco quando esta revisão começou e não tinha arquivo no repositório nem tela que a usasse. Ela criou os eventos do ciclo e a escolha da leitura de referência. A 09 completa o cálculo. As duas são aditivas.
+
+| Objeto | O que é |
+|---|---|
+| `gaxeta_private.gland_events` | Eventos imutáveis por instalação (vínculo sensor–spot): `maintenance`, `replacement`, `adjustment` e, na 09, `check` (conferência). Guarda a distância medida (`initial_mm`) e, na 09, a distância de fim de ajuste (`end_mm`). Sem acesso direto pela API. |
+| `gaxeta_private.gland_sample_ok`, `gland_anchor` | Leitura apta (ADC entre 1 e 4094, ruído até 25 contagens) e primeira leitura apta depois do evento, que vira a referência. Na 09 a referência traz também a posição nominal enviada pelo firmware. |
+| `gaxeta_private.gland_stop`, `gland_scale`, `gland_value`, `gland_state` (09) | Fim de validade de um evento; escala em mm por contagem medida por conferência (mínimo de 100 contagens de diferença) ou nominal do firmware; distância e percentual de uma leitura; estado atual do ciclo. |
+| `public.gaxeta_record_gland_event(...)` | Registro com autorização no servidor (`can_operate_point`), idempotente por solicitação e com controle de concorrência. A 09 substitui a versão de seis parâmetros pela de sete (`p_end_mm`), aceita `check`, deixa a manutenção prévia opcional e grava auditoria (`gland.*`). |
+| `public.gaxeta_gland_status(text, text)` | Estado e histórico de eventos de um sensor. Mesma assinatura da 08; a 09 acrescenta distância, percentual, escala e avisos. |
+| `public.gaxeta_gland_summary(text[])` (09) | Estado do ciclo e cadência observada de vários sensores numa chamada, para os cartões. |
+| `public.gaxeta_gland_history(text, timestamptz, timestamptz)` (09) | Distância e percentual por período, cada leitura com a referência e a escala da sua época. |
+
+Nenhum dado existente foi alterado. `gland_events` estava vazia antes e continua vazia: nenhum engaxetamento foi registrado em produção por esta revisão.
+
+Conferido logo depois da aplicação da 09 (17/11, 19:29):
+
+- `gaxeta_ingest`, `gaxeta_ingest_v3`, `gaxeta_private.stabilize`, `gaxeta_history` e `gaxeta_delete_asset` com o mesmo hash de antes.
+- As dez funções do ciclo com o mesmo corpo do banco local em que as 330 verificações foram executadas.
+- Leitura do sensor `ESP32-80D0BBE0F908` 5,6 s depois da aplicação, no ritmo de 10 s.
+- Consulta com a identidade de nível 1, sem gravar nada: `ESP32-54CE2CDC5194` (L2-955, LOA) em `no_reference`, com permissão de registro; `ESP32-80D0BBE0F908` em `unlinked` (sem vínculo). Com a identidade do usuário de corporação da Klabin: nenhum sensor devolvido.
+- Consultor de segurança do Supabase: nenhum aviso de tipo novo. As quatro RPCs do ciclo entram na lista das funções `SECURITY DEFINER` chamáveis por conta autenticada, como as demais (a autorização é feita dentro da função).
+
+Limite conhecido: enquanto um ciclo aguarda a primeira leitura apta, cada consulta percorre as leituras do sensor desde o registro. Com sinal ruidoso por semanas a 10 s de cadência, a consulta do painel fica mais lenta (tempo máximo de 5 s). Nenhum índice foi criado em `gaxeta_readings`.
+
+## Exclusão de equipamento
+
+`gaxeta_asset_dependencies` e `gaxeta_delete_asset` existem em produção desde a migração 03 e não foram alteradas. Só nível 1 exclui; a exclusão é recusada com filhos, sensores vinculados, gateways, histórico de instalação ou usuários. Em 17/11: `L2-956` não tem dependências; `L2-955` tem 1 spot, 1 sensor vinculado e 1 registro de instalação. Nada foi excluído em produção.
+
+## Sensores em 17/11/2026
+
+| Sensor | Firmware | Vínculo | Última leitura |
+|---|---|---|---|
+| `ESP32-80D0BBE0F908` (placa de reposição) | 4.1.0, contínuo, 10 s | Sem vínculo, na fila de associação | 17/11 19:48, transmitindo |
+| `ESP32-54CE2CDC5194` (placa anterior) | 4.0.0 | L2-955 / LOA (vínculo nº 1, preservado) | 16/11 22:15 |
 
 ## Migração 07 (refinamento de 12/11/2026)
 
