@@ -20,16 +20,24 @@ const state = {
   lastContextCheck: 0,
   sensors: { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 },
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
-  gland: new Map(), // resumo do ciclo de gaxeta e cadência por sensor (gaxeta_gland_summary)
-  glandMissing: false, // o banco ainda não tem as funções do ciclo (migração 09 não aplicada)
+  live: new Map(), // leitura elétrica atual e cadência por sensor (gaxeta_telemetry_summary)
+  liveMissing: false, // o banco ainda não tem o resumo de telemetria (migração 12 não aplicada)
 };
 const assetIndex = new Map();
 // Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
 const equipTypeIndex = new Map();
 let equipTypesMissing = false; // a tabela da ficha ainda não existe no banco (migração não aplicada)
 
-const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, state.gland.get(device.sensor_id)?.interval_s);
-const deviceCycle = (device) => cycleView(state.glandMissing ? null : state.gland.get(device.sensor_id) || null, device);
+// Cadência de cada sensor: a medida nos últimos envios (resumo de telemetria) ou, sem ela, a
+// declarada pelo firmware no sufixo da versão (-cont30, -hib180). É ela que decide o indicador
+// de conexão, de modo que placa de 180 s não aparece como atrasada entre dois envios.
+const deviceInterval = (device) => {
+  const measured = Number(state.live.get(device.sensor_id)?.interval_s);
+  return Number.isFinite(measured) && measured > 0 ? measured : firmwareCadence(device.firmware_version)?.seconds ?? null;
+};
+const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, deviceInterval(device));
+const deviceLive = (device) => state.live.get(device?.sensor_id) || null;
+const deviceView = (device) => electricView(device, deviceLive(device));
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
 // O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
@@ -216,17 +224,18 @@ function rawDeltaText(device) {
 function setServerTime(serverTime, observedAt) {
   if (serverTime) state.clockOffset = new Date(serverTime).getTime() - observedAt;
 }
-// Resumo do ciclo de gaxeta e da cadência dos sensores indicados (uma chamada para todos).
-async function loadGlandSummary(ids) {
+// Leitura elétrica atual e cadência dos sensores indicados (uma chamada para todos). É só
+// telemetria: não consulta nem cria ciclo, referência ou perfil de gaxeta.
+async function loadTelemetrySummary(ids) {
   const wanted = [...new Set((ids || []).filter(Boolean))];
-  if (!wanted.length || state.glandMissing) return;
+  if (!wanted.length || state.liveMissing) return;
   try {
-    const result = await callRpc("gaxeta_gland_summary", { p_sensor_ids: wanted });
-    for (const id of wanted) state.gland.delete(id);
-    for (const item of result.items || []) state.gland.set(item.sensor_id, item);
+    const result = await callRpc("gaxeta_telemetry_summary", { p_sensor_ids: wanted });
+    for (const id of wanted) state.live.delete(id);
+    for (const item of result.items || []) state.live.set(item.sensor_id, item);
   } catch (error) {
-    // Banco sem a migração do ciclo: a tela segue com a apresentação anterior.
-    if (isMissingFeature(error)) state.glandMissing = true;
+    // Banco sem a migração 12: a tela segue só com os campos do sensor e a cadência do firmware.
+    if (isMissingFeature(error)) state.liveMissing = true;
     else throw error;
   }
 }
@@ -235,7 +244,7 @@ async function refreshKnownDevices() {
   const ids = [...new Set([state.sensorId, state.drawer.open ? state.drawer.sensorId : ""].filter(Boolean))];
   if (!ids.length) return;
   const startedAt = Date.now();
-  const [result] = await Promise.all([callRpc("gaxeta_devices_status", { p_sensor_ids: ids }), loadGlandSummary(ids)]);
+  const [result] = await Promise.all([callRpc("gaxeta_devices_status", { p_sensor_ids: ids }), loadTelemetrySummary(ids)]);
   setServerTime(result.server_time, startedAt);
   mergeDevices(result.devices);
   if (state.sensorId && !result.devices.some((device) => device.sensor_id === state.sensorId) && state.page === "telemetry") {
@@ -349,7 +358,6 @@ async function refreshData(manual = false) {
     if (state.drawer.open) {
       if (state.page !== "telemetry") await refreshKnownDevices();
       updateDrawerLive();
-      await refreshGlandPanel();
     }
     setConnection(true);
     $id("lastSync").textContent = `Última consulta ${fmtDateTime(new Date())}`;
@@ -377,8 +385,8 @@ function clearSessionData() {
   Object.assign(telem, { matchIds: null, listed: false, period: 36e5, custom: false, range: presetRange(36e5) });
   equipTypeIndex.clear();
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
-  state.gland.clear();
-  state.glandMissing = false;
+  state.live.clear();
+  state.liveMissing = false;
   assetIndex.clear();
   resetTree();
   closeDrawer(false);

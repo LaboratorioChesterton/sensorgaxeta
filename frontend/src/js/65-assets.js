@@ -23,10 +23,10 @@ const MISSING_FEATURE_TEXT = "Esta função depende da atualização do banco de
 // "Corporação gravada", "TAG gravado": concordância com o nível.
 const kindDone = (kind, verb) => verb + (["corporation", "company", "area", "subarea"].includes(kind) ? "a" : "o");
 const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && access === "full");
-// Leitura e condição do sensor pelo ciclo de gaxeta (ou "Sem referência" quando não há engaxetamento registrado).
-const cycleReading = (device) => {
-  const view = deviceCycle(device);
-  return `<span class="spot-reading"${view.electric ? ' title="Posição elétrica do sensor (% da escala do ADC). Não é o ajuste da gaxeta."' : ""}>${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : view.electric && view.unit ? " % elétr." : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
+// Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
+const spotReading = (device) => {
+  const view = deviceView(device);
+  return `<span class="spot-reading" title="Posição elétrica do potenciômetro (leitura atual)">${esc(view.value)}${view.unit ? " %" : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);
@@ -68,7 +68,7 @@ function equipmentInspector(asset, overview, problem) {
         `<button class="spot-name" data-act="open-spot" data-spot="${spot.id}" title="Abrir o spot na árvore">${icon("map-pin")}<b>${esc(spot.name)}</b>${spot.standard_name ? "" : '<em class="legacy-flag" title="Nome anterior à padronização (LOA, LA, UNICO)">nome anterior</em>'}</button>` +
         `<span class="spot-position">${esc(spot.position || "Posição não informada")}</span>` +
         (sensor
-          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${cycleReading(sensor)}${connBadge(sensor)}</span>` +
+          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${spotReading(sensor)}${connBadge(sensor)}</span>` +
             `<span class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></span>`
           : `<span class="spot-sensor none">Sem sensor vinculado</span>` +
             `<span class="row-actions">${linkable ? `<button class="primary compact" data-act="spot-link" data-spot="${spot.id}">Vincular sensor</button>` : ""}</span>`) +
@@ -121,7 +121,7 @@ async function renderInspector() {
     sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
     if (sensor) {
       mergeDevices([sensor]);
-      await loadGlandSummary([sensor.sensor_id]).catch(() => {});
+      await loadTelemetrySummary([sensor.sensor_id]).catch(() => {});
     }
   } else if (asset.kind === "equipment") {
     // Spots, sensores e ficha vêm do banco numa chamada: a contagem não depende do que a grade já carregou.
@@ -132,7 +132,7 @@ async function renderInspector() {
       mergeDevices(overview.spots.map((spot) => spot.sensor).filter(Boolean));
       rememberAssets(overview.spots.map((spot) => ({ id: spot.id, parent_id: assetId, kind: "point", name: spot.name, position: spot.position })));
       equipTypeIndex.set(assetId, overview.details?.equipment_type || null);
-      await loadGlandSummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
+      await loadTelemetrySummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
     } catch (error) {
       problem = isMissingFeature(error) ? MISSING_FEATURE_TEXT : "Não foi possível carregar spots e ficha deste TAG: " + errorText(error);
     }
@@ -149,7 +149,7 @@ async function renderInspector() {
     asset.kind !== "point"
       ? ""
       : sensor
-        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${cycleReading(sensor)} ${connBadge(sensor)}</span></div>` +
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${spotReading(sensor)} ${connBadge(sensor)}</span></div>` +
           `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
         : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
@@ -365,7 +365,7 @@ const DELETE_BLOCKERS = [
   ["children", "níveis diretamente abaixo", "spots cadastrados neste equipamento"],
   ["linked_sensors", "sensores vinculados", "sensores vinculados aos spots"],
   ["gateways", "gateways", "gateways"],
-  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos, a telemetria e os ciclos de gaxeta desses spots são preservados"],
+  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos e a telemetria desses spots são preservados"],
   ["users", "usuários vinculados à corporação", "usuários vinculados"],
 ];
 // Identificação do equipamento no diálogo: nome e TAG sempre à vista.

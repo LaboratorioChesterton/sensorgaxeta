@@ -1300,7 +1300,7 @@ const glyph = (name) =>
   `<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GLYPHS[name] || ""}</svg>`;
 
 // ----- Regras de domínio herdadas do pacote publicado (sem alteração de comportamento) -----
-// Cadência observada de cada sensor (gaxeta_gland_summary → interval_s). Até 12 s vale a
+// Cadência observada de cada sensor (gaxeta_telemetry_summary → interval_s). Até 12 s vale a
 // regra original (25 s / 65 s). Placa que hiberna entre envios é avaliada pelo próprio
 // intervalo: transmitindo até 1,5 intervalo + 15 s; atraso até 3 intervalos + 15 s.
 const fmtInterval = (seconds) =>
@@ -1376,67 +1376,24 @@ function csvCell(t) {
   const e = String(t ?? "");
   return '"' + (/^[=+\-@\t\r]/.test(e) ? "'" : "") + e.replaceAll('"', '""') + '"';
 }
-function adjustmentInfo(t) {
-  if (t == null || !Number.isFinite(Number(t)))
-    return {
-      key: "unknown",
-      label: "Sem leitura",
-      action: "Aguardando medição",
-    };
-  const e = Number(t);
-  return e >= 70
-    ? {
-        key: "high",
-        label: "Alto ajuste",
-        action: "Sem necessidade de intervenção",
-      }
-    : e >= 45
-      ? {
-          key: "medium",
-          label: "Médio ajuste",
-          action: "Sem necessidade de intervenção",
-        }
-      : e > 20
-        ? {
-            key: "low",
-            label: "Baixo ajuste",
-            action: "Planejar intervenção",
-          }
-        : {
-            key: "critical",
-            label: "Sem ajuste",
-            action: "Substituir a gaxeta",
-          };
-}
-// ----- Ciclo de gaxeta (migrações 08 a 11) -----
-// Regra 2 (migração 10): o técnico reposiciona o potenciômetro na marca superior validada,
-// mede a distância inicial com o paquímetro e registra. Essa distância é o 100 % daquele
-// ciclo; 0 % é a distância de fim de ajuste. Distância, percentual e avanço vêm do
-// servidor, calculados da tensão calibrada e de uma inclinação comprovada na montagem.
-// Sem calibração válida a tela mostra o motivo e não classifica (nada de curso nominal).
-// Os ciclos anteriores (regra 1) continuam visíveis, identificados como estimativa.
-const GLAND_KIND = { maintenance: "Manutenção iniciada", replacement: "Troca da gaxeta", adjustment: "Reajuste", check: "Conferência de medida" };
-const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
-// Lê um número digitado em pt-BR ("22,5") ou com ponto; devolve null quando não é número.
-function parseMm(text) {
-  const clean = String(text ?? "").trim().replace(/\s/g, "").replace(",", ".");
-  if (!/^\d+(\.\d{1,3})?$/.test(clean)) return null;
-  return Number(clean);
-}
+// ----- Leitura elétrica do potenciômetro -----
+// A plataforma mostra uma única grandeza de posição: a posição ELÉTRICA do potenciômetro, em %
+// da escala elétrica da placa (0 % no mínimo útil, 100 % no máximo útil), e a tensão no pino,
+// em volts. Vale com ou sem vínculo a spot. Não há medida em mm, ciclo ou calibração mecânica.
 // Tensão em volts a partir de milivolts.
 const fmtVolt = (millivolts, digits = 3) => (millivolts == null || !Number.isFinite(Number(millivolts)) ? "—" : fmtNum(Number(millivolts) / 1000, digits) + " V");
 // Tensão atual de um sensor, sempre com a origem: calibrada pelo ADC da placa (firmware
 // 4.3.0 em diante) ou estimada pela conta ADC × 3,3 ÷ 4095 das versões anteriores.
-function voltageInfo(device, gland) {
-  const calibrated = device?.last_voltage_mv ?? (gland?.voltage_source === "calibrated" ? gland.voltage_mv : null);
+function voltageInfo(device, live) {
+  const calibrated = device?.last_voltage_mv ?? (live?.voltage_source === "calibrated" ? live.voltage_mv : null);
   if (calibrated != null && Number.isFinite(Number(calibrated)))
     return { text: fmtVolt(calibrated), source: "calibrada", short: "calibrada", calibrated: true, title: "Tensão no pino, calibrada pelo ADC da placa: média das mesmas amostras da leitura bruta" };
   if (device?.last_voltage_v == null) return { text: "—", source: "", short: "", calibrated: false, title: "" };
   return { text: fmtNum(device.last_voltage_v, 3) + " V", source: "estimada", short: "estimada", calibrated: false, title: "Estimativa ADC × 3,3 ÷ 4095 (firmware anterior ao 4.3.0, sem a calibração do ADC)" };
 }
-// Diagnóstico do bloco de amostras da leitura atual (mesma regra de gaxeta_private.gland_block,
-// migração 11). O servidor envia `block`; se o banco ainda estiver na migração 10, a tela chega
-// ao mesmo resultado pelos campos da leitura. Separa três situações que antes apareciam juntas:
+// Diagnóstico do bloco de amostras da leitura atual (mesma regra de gaxeta_private.adc_block,
+// migração 12). O servidor envia `block`; sem o resumo, a tela chega ao mesmo resultado pelos
+// campos da leitura. Separa três situações diferentes:
 //   ceiling    bloco inteiro em 4095: limite do ADC (100 % da escala elétrica);
 //   mixed_high amostras em 4095 junto com amostras muito diferentes: contato, movimento ou circuito;
 //   unstable   disperso sem tocar os limites.
@@ -1453,8 +1410,8 @@ function blockOf(adc, noise, min, max) {
   if (low != null && low <= 0 && wide) return "mixed_low";
   if ((high != null && high >= 4095) || value >= 4095) return "touch_high";
   if ((low != null && low <= 0) || value <= 0) return "touch_low";
-  if (spread == null) return "missing";
-  if (spread > 25 || (high != null && low != null && high - low > 400)) return "unstable";
+  if (spread == null && low == null) return "unknown";
+  if ((spread ?? 0) > 25 || (high != null && low != null && high - low > 400)) return "unstable";
   return "ok";
 }
 const BLOCK_TEXT = {
@@ -1466,50 +1423,67 @@ const BLOCK_TEXT = {
   touch_low: "encosta no limite inferior do ADC",
   mixed_low: "bloco misto: zeros junto com amostras muito diferentes",
   unstable: "instável (dispersão alta no bloco)",
-  missing: "sem dados de qualidade",
+  unknown: "sem diagnóstico do bloco (firmware anterior ao 4.3.0)",
+  missing: "sem leitura",
 };
 // O que cada condição permite concluir, e só isso.
 const BLOCK_HINT = {
   ceiling:
-    "O ADC chegou ao teto: acima dele toda tensão vira 4095 e deixa de ser distinguida (a tensão calibrada também para em cerca de 3,13 V). É o limite da medição; não indica escala invertida.",
-  touch_high: "Parte do bloco chegou a 4095: a posição está na borda da faixa mensurável e a leitura não serve de referência.",
+    "O ADC chegou ao teto: acima dele toda tensão vira 4095 e deixa de ser distinguida. A posição aparece como 100 % da escala elétrica; nessa região a resolução é limitada.",
+  touch_high: "Parte do bloco chegou a 4095: a posição está na borda superior da faixa que o ADC mede.",
   mixed_high:
-    "No mesmo bloco (60 ms) há amostras em 4095 e amostras muito diferentes. Com o eixo parado, investigue borne, fio do cursor, alimentação, GND e contato interno do potenciômetro; movimento durante a aquisição produz o mesmo efeito. O dado sozinho não prova a causa.",
+    "No mesmo bloco (60 ms) há amostras em 4095 e amostras muito diferentes. Com o eixo parado, confira borne, fio do cursor, alimentação, GND e contato interno do potenciômetro; giro durante a aquisição produz o mesmo efeito. O dado sozinho não prova a causa.",
   floor: "Bloco inteiro em zero: abaixo de cerca de 0,15 V o ADC não distingue a tensão. Confira o extremo baixo e o cursor.",
-  touch_low: "Parte do bloco chegou a zero: a posição está na borda inferior da faixa mensurável.",
+  touch_low: "Parte do bloco chegou a zero: a posição está na borda inferior da faixa que o ADC mede.",
   mixed_low: "No mesmo bloco há zeros e amostras muito diferentes: confira a ligação do cursor e o GND.",
-  unstable: "Dispersão alta sem tocar os limites: confira a fixação, o fio do cursor e se o eixo estava parado durante a leitura.",
+  unstable:
+    "Dispersão alta sem tocar os limites: cursor solto, entrada sem potenciômetro ligado ou giro durante a leitura. Enquanto durar, o percentual não representa uma posição.",
 };
 const BLOCK_SHORT = {
   ok: "bloco bom", ceiling: "limite do ADC", touch_high: "na borda do limite do ADC", mixed_high: "bloco misto", floor: "limite inferior do ADC",
-  touch_low: "na borda inferior do ADC", mixed_low: "bloco misto", unstable: "bloco instável", missing: "sem dados do bloco",
+  touch_low: "na borda inferior do ADC", mixed_low: "bloco misto", unstable: "bloco instável", unknown: "sem diagnóstico do bloco", missing: "sem leitura",
 };
-// Passo concreto que falta para a distância e para o percentual do ciclo ficarem disponíveis.
-function glandMissingStep(gland) {
-  if (!gland || gland.state === "unlinked") return { distance: "vincule o sensor a um spot", percent: "vincule o sensor a um spot" };
-  const both = (text) => ({ distance: text, percent: text });
-  if (gland.state === "no_reference") return both("registre o engaxetamento");
-  if (gland.state === "maintenance") return both("em manutenção: registre o engaxetamento");
-  if (gland.state === "waiting")
-    return both(
-      gland.wait_reason === "needs_confirmation" ? "confirme a leitura na marca superior"
-      : gland.wait_reason === "saturated_high" ? "o topo precisa ficar na faixa mensurável"
-      : gland.wait_reason === "outside_window" ? "reposicione na marca superior"
-      : "aguardando leitura apta no topo");
-  if (gland.state === "no_scale") return both(gland.reason === "none" || !gland.reason ? "falta o segundo ponto (Conferir medida)" : "calibração pendente: veja o ciclo abaixo");
-  if (gland.state === "unusable") return both("a leitura atual não serve para o cálculo");
-  if (gland.state === "no_end") return { distance: "", percent: gland.reason === "outside_validated" ? "confira a medida perto do fim de ajuste" : "informe o fim de ajuste" };
-  return both("");
+// Condição elétrica da leitura atual, como aparece nos cartões, na árvore e em Detalhes.
+// key escolhe a cor: electric (leitura boa), limit (saturação: limite do ADC), warn (bloco que
+// não representa posição) e unknown (sem leitura).
+const BLOCK_QUALITY = {
+  ok: { key: "electric", label: "Sinal estável", note: "Leitura atual do potenciômetro" },
+  unknown: { key: "electric", label: "Posição elétrica", note: "Firmware sem diagnóstico do bloco" },
+  ceiling: { key: "limit", label: "Limite do ADC", note: "100 % da escala elétrica · região saturada, resolução limitada" },
+  touch_high: { key: "limit", label: "Na borda do limite do ADC", note: "Parte das amostras chegou a 4095" },
+  floor: { key: "limit", label: "Limite inferior do ADC", note: "0 % da escala elétrica · confira o extremo baixo e o cursor" },
+  touch_low: { key: "limit", label: "Na borda inferior do ADC", note: "Parte das amostras chegou a zero" },
+  mixed_high: { key: "warn", label: "Bloco misto", note: "Amostras no limite junto com outras muito diferentes: confira o cursor e o GND" },
+  mixed_low: { key: "warn", label: "Bloco misto", note: "Zeros junto com amostras muito diferentes: confira o cursor e o GND" },
+  unstable: { key: "warn", label: "Sinal instável", note: "Cursor solto, sem potenciômetro ou giro durante a leitura: não é posição" },
+};
+// Escala elétrica do percentual informada pela placa (percent_scale). Sem ela: ADC bruto.
+function scaleText(scale) {
+  const fixed = /^(mv|adc)-(\d+)-(\d+)$/.exec(scale || "");
+  if (!fixed) return scale ? "escala " + scale : "escala do ADC (0 a 4095)";
+  return fixed[1] === "mv"
+    ? `limites fixos da placa: ${fmtNum(Number(fixed[2]) / 1000, 3)} V = 0 % e ${fmtNum(Number(fixed[3]) / 1000, 3)} V = 100 %`
+    : `limites fixos da placa: ${fixed[2]} contagens = 0 % e ${fixed[3]} contagens = 100 %`;
 }
-// Posição elétrica do sensor: a leitura atual na escala do ADC, em %. Não é o ajuste da gaxeta.
-// Bloco estável no teto aparece como 100 %, com o rótulo "Limite do ADC".
-function electricInfo(device, gland) {
-  const block = gland?.block || (device?.last_adc_raw != null ? blockOf(device.last_adc_raw, device.adc_noise, device.last_adc_min, device.last_adc_max) : null);
-  const raw = gland?.electric_percent ?? device?.last_percent;
-  if (raw == null || !Number.isFinite(Number(raw))) return { percent: null, text: "—", label: "", block, ceiling: false };
+// Posição elétrica do sensor: a leitura atual, em % da escala elétrica da placa. `live` é o item
+// do resumo de telemetria (opcional). Bloco estável no teto aparece como 100 %, "Limite do ADC".
+function electricInfo(device, live) {
+  const block = live?.block || (device?.last_adc_raw != null ? blockOf(device.last_adc_raw, device.adc_noise, device.last_adc_min, device.last_adc_max) : device?.last_percent != null ? "unknown" : null);
+  const raw = device?.last_percent ?? live?.percent;
+  const scale = device?.last_percent_scale ?? live?.percent_scale ?? null;
+  if (raw == null || !Number.isFinite(Number(raw))) return { percent: null, text: "—", label: "", block, ceiling: false, scale };
   const ceiling = block === "ceiling";
   const percent = ceiling ? 100 : Math.max(0, Math.min(100, Number(raw)));
-  return { percent, text: fmtNum(percent) + " %", label: ceiling ? "Limite do ADC" : block === "floor" ? "Limite inferior do ADC" : "", block, ceiling };
+  return { percent, text: fmtNum(percent) + " %", label: ceiling ? "Limite do ADC" : block === "floor" ? "Limite inferior do ADC" : "", block, ceiling, scale };
+}
+// Como apresentar um sensor em qualquer tela: o número é sempre a posição elétrica (%), com a
+// condição elétrica da leitura. Não há classificação mecânica nem recomendação de intervenção.
+function electricView(device, live) {
+  const electric = electricInfo(device, live);
+  if (!device || electric.percent == null)
+    return { key: "unknown", label: "Sem leitura", note: "Aguardando a primeira leitura da placa", value: "—", unit: "", scale: null, electric };
+  const quality = BLOCK_QUALITY[electric.block] || BLOCK_QUALITY.ok;
+  return { key: quality.key, label: quality.label, note: quality.note, value: fmtNum(electric.percent), unit: "%", scale: electric.percent, electric };
 }
 // Cadência declarada pelo firmware no sufixo da versão: -hib180 (hibernação, um envio a cada
 // 180 s) ou -cont30 (contínuo, sem hibernação, um envio a cada 30 s). Versão sem sufixo: contínuo, 10 s.
@@ -1520,108 +1494,6 @@ function firmwareCadence(version) {
     return { seconds, sleeps: match[1] === "hib", text: `${match[1] === "hib" ? "hibernação" : "contínuo, sem hibernação"} · um envio a cada ${fmtInterval(seconds)}` };
   }
   return /^4\.\d+\.\d+$/.test(version || "") ? { seconds: 10, sleeps: false, text: "contínuo, sem hibernação · um envio a cada 10 s" } : null;
-}
-// Medidas cadastradas no ciclo vigente, em uma linha.
-function glandCadastro(gland) {
-  if (gland?.initial_mm == null) return "";
-  const start = Number(gland.initial_mm);
-  if (gland.end_mm == null) return `cadastro: ${fmtMm(start)} (100 %), fim de ajuste não informado`;
-  return `cadastro: ${fmtMm(start)} (100 %) → ${fmtMm(gland.end_mm)} (0 %) · curso útil de ${fmtMm(start - Number(gland.end_mm))}`;
-}
-// Por que um ciclo espera a referência, e por que uma referência aprovada ainda não vira distância.
-const GLAND_WAIT = {
-  no_sample: "Medidas salvas. Mantenha o sensor na marca superior até a próxima leitura da placa",
-  needs_confirmation: "Leitura recebida: confirme em Detalhes com o sensor na marca superior",
-  outside_window: "Leitura fora da faixa esperada da marca superior: confira a posição do sensor",
-  saturated_high: "Medidas salvas. A leitura está no limite do ADC: para calibrar a distância, o topo precisa ficar na faixa mensurável",
-  aged: "A última leitura já é antiga para confirmar: mantenha o sensor na marca superior e aguarde a próxima",
-  saturated_low: "Leitura no limite inferior do ADC: confira a ligação do sensor",
-  unstable: "Leitura instável: confira o fio do cursor e a fixação",
-  stale: "A leitura chegou com atraso: aguardando a próxima",
-  missing: "Leitura sem dados de qualidade: aguardando a próxima",
-  method_changed: "O método de aquisição mudou: confirme a referência de novo",
-};
-// Motivo da espera, levando em conta o diagnóstico do bloco (teto estável × bloco misto).
-function glandWaitText(gland) {
-  const reason = gland?.wait_reason ?? gland?.reason;
-  if (gland?.block === "mixed_high" || gland?.block === "mixed_low") return "Bloco misto (limite do ADC junto com amostras muito diferentes): confira fio do cursor, GND e contato antes de calibrar";
-  if (gland?.block === "touch_high" && reason === "saturated_high")
-    return gland.state === "waiting" ? "Medidas salvas. A leitura encosta no limite do ADC: o topo precisa ficar um pouco abaixo, dentro da faixa mensurável" : "A leitura encosta no limite do ADC e não entra no cálculo";
-  return GLAND_WAIT[reason] || "";
-}
-const GLAND_SCALE_REASON = {
-  none: "Falta o segundo ponto: leve o conjunto ao fim de ajuste (ou a outra posição conhecida), meça com o paquímetro e use Conferir medida",
-  insufficient_span: "A conferência teve variação elétrica pequena demais: meça em uma posição mais distante da referência",
-  inverted: "Sentido invertido: a distância subiu quando a tensão caiu. Confira a montagem e a ligação",
-  nonlinear: "Os pontos medidos não fecham uma reta: é preciso calibração por vários pontos ou revisão mecânica",
-  incoherent: "A conferência não é coerente com o curso mecânico: repita a medição",
-  method_changed: "A leitura atual usa outro método de aquisição: a calibração anterior não é reaproveitada",
-  no_anchor: "Referência ainda não aprovada",
-};
-// Como apresentar o ajuste de um sensor. `gland` é o item do resumo do servidor (ou o estado
-// completo); sem ele (banco ainda sem a migração) vale a apresentação anterior. Só um ciclo
-// calibrado (`calibrated`) recebe as faixas de adjustmentInfo e a recomendação de ação.
-function cycleView(gland, device) {
-  const raw = device?.stable_percent;
-  const rawScale = Math.max(0, Math.min(100, Number(raw) || 0));
-  if (!gland) {
-    const info = adjustmentInfo(raw);
-    return { mode: "legacy", key: info.key, label: info.label, action: info.action, value: fmtNum(raw), unit: "%", scale: rawScale, sub: "" };
-  }
-  // Sem ciclo calculado, o número em destaque é a posição elétrica do sensor (leitura atual, em %
-  // da escala do ADC), identificada como elétrica. Ciclo e milímetros ficam indisponíveis, com o
-  // passo que falta. As medidas cadastradas aparecem como referência.
-  const electric = electricInfo(device, gland);
-  const neutral = (label, action, extra = {}) => ({
-    mode: "electric", key: "unknown", label, action, electric: true,
-    value: electric.percent == null ? "—" : fmtNum(electric.percent), unit: electric.percent == null ? "" : "% elétrico", scale: electric.percent, sub: "", ...extra,
-  });
-  const reference = [electric.label, glandCadastro(gland)].filter(Boolean).join(" · ");
-  const advance = gland.advance_mm != null ? ` · avanço ${fmtMm(gland.advance_mm)}` : "";
-  if (gland.state === "active" && Number(gland.rule) === 2 && gland.percent != null) {
-    const percent = Math.max(0, Math.min(100, Number(gland.percent)));
-    const info = adjustmentInfo(percent);
-    return {
-      mode: "cycle", key: info.key, label: info.label, action: info.action, value: fmtNum(percent), unit: "%", scale: percent, calibrated: true,
-      sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)}${advance}`,
-      warn: gland.near_limit ? "Sensor perto do fim do curso elétrico" : "",
-    };
-  }
-  if (gland.state === "active") {
-    // Regra 1: o número fica, identificado como estimativa, e não gera recomendação.
-    const hasPercent = gland.percent != null;
-    const percent = Math.max(0, Math.min(100, Number(gland.percent)));
-    return neutral("Estimativa nominal", "Ciclo da regra anterior: registre o engaxetamento com o sensor na marca superior", {
-      electric: false, mode: hasPercent ? "cycle" : "distance", value: fmtNum(hasPercent ? percent : gland.distance_mm), unit: hasPercent ? "%" : "mm",
-      scale: hasPercent ? percent : null, sub: `${fmtMm(gland.distance_mm)} de ${fmtMm(gland.initial_mm)} · estimativa`, nominal: true,
-    });
-  }
-  if (gland.state === "no_end")
-    return neutral(
-      gland.reason === "outside_validated" ? "Fim de ajuste fora da faixa" : "Fim de ajuste não informado",
-      gland.reason === "outside_validated" ? "O fim de ajuste informado cai fora da faixa medida: confira a medida perto do fim de ajuste" : "Informe o fim de ajuste para ver o percentual",
-      { mode: "distance", electric: false, scale: null, value: fmtNum(gland.distance_mm), unit: "mm", sub: reference + advance },
-    );
-  if (gland.state === "out_of_range")
-    return neutral(
-      "Fora da faixa calibrada",
-      gland.reason === "above" ? "Tensão acima da faixa validada: confira a posição do sensor" : "Tensão abaixo da faixa validada: amplie a calibração com outra conferência",
-      { mode: "distance", electric: false, scale: null, value: fmtNum(gland.distance_mm), unit: "mm", sub: "valor fora da faixa validada, sem classificação", warn: "Fora da faixa calibrada: valor calculado, sem classificação" },
-    );
-  if (gland.state === "no_scale") return neutral("Sem calibração de distância", GLAND_SCALE_REASON[gland.reason] || GLAND_SCALE_REASON.none, { sub: reference });
-  if (gland.state === "waiting")
-    return neutral(Number(gland.rule) === 2 ? "Aguardando leitura apta" : "Aguardando leitura", glandWaitText(gland) || "Medidas salvas; a referência vale a partir da próxima leitura válida", { sub: reference, saved: Number(gland.rule) === 2 });
-  if (gland.state === "maintenance") return neutral("Em manutenção", "Registre o engaxetamento ao concluir o serviço");
-  if (gland.state === "unusable")
-    return neutral(
-      gland.block === "ceiling" ? "Limite do ADC" : gland.block === "mixed_high" || gland.block === "mixed_low" ? "Bloco misto" : String(gland.reason || "").startsWith("saturated") ? "Leitura no limite do ADC" : gland.reason === "stale" ? "Leitura atrasada" : "Leitura instável",
-      glandWaitText(gland) || "Sinal ruidoso ou no limite da escala: confira a montagem",
-      { sub: reference },
-    );
-  // Sem referência: o número disponível é só a posição elétrica do potenciômetro.
-  return neutral("Sem referência", gland.state === "unlinked" ? "Vincule a um spot para registrar o engaxetamento" : "Registre o engaxetamento em Detalhes", {
-    sub: [electric.label, "posição elétrica do sensor (diagnóstico), sem relação com a gaxeta"].filter(Boolean).join(" · "),
-  });
 }
 // A linha estabilizada do gráfico é montada em 70-telemetry.js (buildStableSegments), por condição.
 async function exportCsvFile(t, e) {
@@ -1806,16 +1678,24 @@ const state = {
   lastContextCheck: 0,
   sensors: { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 },
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
-  gland: new Map(), // resumo do ciclo de gaxeta e cadência por sensor (gaxeta_gland_summary)
-  glandMissing: false, // o banco ainda não tem as funções do ciclo (migração 09 não aplicada)
+  live: new Map(), // leitura elétrica atual e cadência por sensor (gaxeta_telemetry_summary)
+  liveMissing: false, // o banco ainda não tem o resumo de telemetria (migração 12 não aplicada)
 };
 const assetIndex = new Map();
 // Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
 const equipTypeIndex = new Map();
 let equipTypesMissing = false; // a tabela da ficha ainda não existe no banco (migração não aplicada)
 
-const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, state.gland.get(device.sensor_id)?.interval_s);
-const deviceCycle = (device) => cycleView(state.glandMissing ? null : state.gland.get(device.sensor_id) || null, device);
+// Cadência de cada sensor: a medida nos últimos envios (resumo de telemetria) ou, sem ela, a
+// declarada pelo firmware no sufixo da versão (-cont30, -hib180). É ela que decide o indicador
+// de conexão, de modo que placa de 180 s não aparece como atrasada entre dois envios.
+const deviceInterval = (device) => {
+  const measured = Number(state.live.get(device.sensor_id)?.interval_s);
+  return Number.isFinite(measured) && measured > 0 ? measured : firmwareCadence(device.firmware_version)?.seconds ?? null;
+};
+const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, deviceInterval(device));
+const deviceLive = (device) => state.live.get(device?.sensor_id) || null;
+const deviceView = (device) => electricView(device, deviceLive(device));
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
 // O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
@@ -2002,17 +1882,18 @@ function rawDeltaText(device) {
 function setServerTime(serverTime, observedAt) {
   if (serverTime) state.clockOffset = new Date(serverTime).getTime() - observedAt;
 }
-// Resumo do ciclo de gaxeta e da cadência dos sensores indicados (uma chamada para todos).
-async function loadGlandSummary(ids) {
+// Leitura elétrica atual e cadência dos sensores indicados (uma chamada para todos). É só
+// telemetria: não consulta nem cria ciclo, referência ou perfil de gaxeta.
+async function loadTelemetrySummary(ids) {
   const wanted = [...new Set((ids || []).filter(Boolean))];
-  if (!wanted.length || state.glandMissing) return;
+  if (!wanted.length || state.liveMissing) return;
   try {
-    const result = await callRpc("gaxeta_gland_summary", { p_sensor_ids: wanted });
-    for (const id of wanted) state.gland.delete(id);
-    for (const item of result.items || []) state.gland.set(item.sensor_id, item);
+    const result = await callRpc("gaxeta_telemetry_summary", { p_sensor_ids: wanted });
+    for (const id of wanted) state.live.delete(id);
+    for (const item of result.items || []) state.live.set(item.sensor_id, item);
   } catch (error) {
-    // Banco sem a migração do ciclo: a tela segue com a apresentação anterior.
-    if (isMissingFeature(error)) state.glandMissing = true;
+    // Banco sem a migração 12: a tela segue só com os campos do sensor e a cadência do firmware.
+    if (isMissingFeature(error)) state.liveMissing = true;
     else throw error;
   }
 }
@@ -2021,7 +1902,7 @@ async function refreshKnownDevices() {
   const ids = [...new Set([state.sensorId, state.drawer.open ? state.drawer.sensorId : ""].filter(Boolean))];
   if (!ids.length) return;
   const startedAt = Date.now();
-  const [result] = await Promise.all([callRpc("gaxeta_devices_status", { p_sensor_ids: ids }), loadGlandSummary(ids)]);
+  const [result] = await Promise.all([callRpc("gaxeta_devices_status", { p_sensor_ids: ids }), loadTelemetrySummary(ids)]);
   setServerTime(result.server_time, startedAt);
   mergeDevices(result.devices);
   if (state.sensorId && !result.devices.some((device) => device.sensor_id === state.sensorId) && state.page === "telemetry") {
@@ -2135,7 +2016,6 @@ async function refreshData(manual = false) {
     if (state.drawer.open) {
       if (state.page !== "telemetry") await refreshKnownDevices();
       updateDrawerLive();
-      await refreshGlandPanel();
     }
     setConnection(true);
     $id("lastSync").textContent = `Última consulta ${fmtDateTime(new Date())}`;
@@ -2163,8 +2043,8 @@ function clearSessionData() {
   Object.assign(telem, { matchIds: null, listed: false, period: 36e5, custom: false, range: presetRange(36e5) });
   equipTypeIndex.clear();
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
-  state.gland.clear();
-  state.glandMissing = false;
+  state.live.clear();
+  state.liveMissing = false;
   assetIndex.clear();
   resetTree();
   closeDrawer(false);
@@ -2227,14 +2107,10 @@ function canEditAsset(asset) {
   if (role === "adm2") return asset.kind !== "corporation";
   return role === "corp" && state.ctx.can_write && ["area", "subarea", "equipment", "point"].includes(asset.kind) && asset.access === "full";
 }
-// Valor ao lado do sensor na árvore: o ajuste do ciclo quando há ciclo calculado; senão a posição
-// elétrica (leitura atual), sempre identificada como elétrica e sem classificação mecânica.
+// Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
-  const view = deviceCycle(sensor);
-  if (view.mode === "cycle" || view.mode === "distance")
-    return `<strong title="${esc(view.label + (view.sub ? " · " + view.sub : ""))}">${esc(view.value)}${view.unit === "%" ? "%" : " " + esc(view.unit)}</strong>`;
-  const electric = electricInfo(sensor, state.glandMissing ? null : state.gland.get(sensor.sensor_id));
-  return `<strong class="tree-electric" title="Posição elétrica do sensor (leitura atual, % da escala do ADC)${electric.label ? " · " + electric.label : ""}. Não é o ajuste da gaxeta.">${esc(electric.percent == null ? "—" : fmtNum(electric.percent))}% <small>elétr.</small></strong>`;
+  const view = deviceView(sensor);
+  return `<strong class="tree-electric" title="Posição elétrica: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${view.unit ? "%" : ""}</strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));
@@ -2431,7 +2307,7 @@ async function loadSensors({ quiet = false } = {}) {
     view.offset = Math.max(0, view.offset - CONFIG.pageSize);
     return loadSensors({ quiet });
   }
-  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadGlandSummary(view.ids)]);
+  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadTelemetrySummary(view.ids)]);
   if (run !== view.request) return;
   if (!state.assetId && !view.search && view.filter === "all") {
     // Com todos os sensores na página, a contagem usa a cadência de cada um (placa que
@@ -2468,21 +2344,24 @@ function renderSensorGrid() {
     devices
       .map((device) => {
         const status = deviceStatus(device);
-        // Ajuste pelo ciclo de gaxeta (referência do engaxetamento); sem referência, só a posição do sensor.
-        const health = deviceCycle(device);
+        // Um único número: a posição elétrica do potenciômetro (%), com a condição do sinal.
+        const view = deviceView(device);
         // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
         const identity = deviceIdentity(device);
         const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
         // Tensão sempre com a origem: calibrada pelo ADC (firmware 4.3.0+) ou estimada.
-        const volt = voltageInfo(device, state.gland.get(device.sensor_id));
+        const volt = voltageInfo(device, deviceLive(device));
+        const name = deviceLabel(device);
         return (
-          `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
-          `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
-          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
-          `<div class="card-main"><div class="card-value${health.unit === "%" ? "" : " small-unit"}">${health.value}<small>${health.unit}</small></div>` +
-          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small title="${esc(health.warn || health.action)}">${esc(health.warn || health.action)}</small></div></div>` +
-          `<div class="mini-scale${health.scale == null ? " idle" : ""}"><i style="width:${health.scale ?? 0}%"></i></div>` +
-          `<div class="card-meta"><span title="${esc(health.nominal ? "Ciclo registrado na regra anterior: estimativa pelo curso nominal do firmware, sem classificação" : health.electric ? "O número em destaque é a posição elétrica do sensor (leitura atual, em % da escala do ADC). Não é o ajuste da gaxeta." : "")}">${esc(health.sub || "Posição elétrica " + electricInfo(device, state.gland.get(device.sensor_id)).text)}</span><span class="volt" title="${esc(volt.title)}">${esc(volt.text)}${volt.short ? `<small>${esc(volt.short)}</small>` : ""}</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<article class="sensor-card health-${view.key}" data-card="${esc(device.sensor_id)}">` +
+          `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
+          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
+          `<div class="card-main"><div class="card-value" title="Posição elétrica do potenciômetro: leitura atual, em % da ${esc(scaleText(view.electric.scale))}">${view.value}<small>${view.unit}</small></div>` +
+          `<div class="card-side"><span class="card-kicker">Posição elétrica</span><span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+          `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="Posição elétrica: ${esc(view.value)} ${view.unit}"><i style="width:${view.scale ?? 0}%"></i></div>` +
+          `<div class="card-meta"><span class="volt" title="${esc(volt.title)}">Tensão ${esc(volt.text)}${volt.short ? `<small>${esc(volt.short)}</small>` : ""}</span>` +
+          `<span title="Linha estabilizada: só muda com variação de 5 pontos percentuais ou mais">Estável ${fmtNum(device.stable_percent)} %</span>` +
+          `<span title="Última leitura recebida">${fmtDateTime(device.last_received_at)}</span></div>` +
           `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
           (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
           `</footer></article>`
@@ -2622,55 +2501,48 @@ function updateDrawerLive() {
   const device = findDevice(state.drawer.sensorId);
   if (!device) return;
   const status = deviceStatus(device);
-  const health = deviceCycle(device);
-  const gland = state.gland.get(device.sensor_id);
-  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
-  // Bloco fixo, também com o ciclo pendente: posição elétrica, tensão (origem e condição),
-  // distância e ajuste do ciclo, todos da mesma leitura, mais o horário e as medidas cadastradas.
-  // O que não pode ser calculado aparece como indisponível, com o passo que falta.
-  const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
-  const volt = voltageInfo(device, gland);
-  const electric = electricInfo(device, gland);
-  const missing = glandMissingStep(gland);
+  const live = deviceLive(device);
+  const view = deviceView(device);
+  const electric = view.electric;
+  const volt = voltageInfo(device, live);
+  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
+  // Bloco fixo, igual para sensor com ou sem vínculo: posição elétrica e tensão da mesma leitura,
+  // a linha estabilizada (5 p.p.) e a condição do sinal.
   const tile = (id, value, note) => ($id(id).innerHTML = `${esc(value)}<small>${esc(note)}</small>`);
   tile("detailElectric", electric.text, electric.label || "leitura atual");
-  tile("detailVolt", volt.text, [volt.source, electric.block && electric.block !== "ok" ? BLOCK_SHORT[electric.block] : electric.block === "ok" ? "bloco bom" : ""].filter(Boolean).join(" · "));
+  tile("detailVolt", volt.text, volt.source || "sem leitura");
   $id("detailVolt").title = volt.title;
-  tile("detailRaw", computed ? fmtMm(gland.distance_mm, 2) : "indisponível", computed ? (gland.state === "out_of_range" ? "fora da faixa calibrada" : Number(gland.rule) !== 2 ? "estimativa (regra anterior)" : gland.advance_mm != null ? "avanço " + fmtMm(gland.advance_mm, 2) : "") : missing.distance);
-  tile("detailStable", computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" : "indisponível", computed && gland.percent != null ? (Number(gland.rule) !== 2 ? "estimativa (regra anterior)" : "do ciclo vigente") : missing.percent);
+  tile("detailStableLine", device.stable_percent == null ? "—" : fmtNum(device.stable_percent) + " %", "muda com 5 p.p. ou mais");
+  tile("detailSignal", view.label, BLOCK_SHORT[electric.block] && electric.block !== "ok" ? BLOCK_SHORT[electric.block] : "bloco de amostras bom");
   const delta = rawDeltaText(device);
   const cadence = firmwareCadence(device.firmware_version);
   $id("detailReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` +
-    (delta ? ` · variação bruta desde o envio anterior: ${delta}` : "") +
+    (delta ? ` · variação desde o envio anterior: ${delta}` : "") +
     (cadence ? ` · ${cadence.text}` : "");
-  const cadastro = glandCadastro(gland);
-  $id("detailCadastro").textContent = !cadastro
-    ? gland?.state === "maintenance" ? "Em manutenção: sem ciclo vigente." : "Nenhum engaxetamento cadastrado nesta instalação."
-    : `Ciclo vigente${gland.cycle_event_id ? " · registro nº " + gland.cycle_event_id : ""} de ${fmtDateTime(gland.recorded_at)} · ${cadastro}` +
-      (Number(gland.rule) !== 2 ? " · regra anterior" : gland.anchored === false || gland.state === "waiting" ? " · referência elétrica pendente" : " · referência elétrica aprovada");
-  $id("detailHealth").textContent = health.label + " · " + (health.warn || health.action);
+  $id("detailHealth").textContent = view.label + " · " + view.note;
+  $id("detailHealth").className = "health-banner health-" + view.key;
   if ($id("detailDiag")) {
     const block = device.last_adc_min != null && device.last_adc_max != null ? ` (bloco de ${fmtNum(device.last_adc_min, 0)} a ${fmtNum(device.last_adc_max, 0)})` : "";
-    const measured = Number(gland?.interval_s);
+    const measured = Number(live?.interval_s);
     const rows = [
-      ["Posição elétrica (leitura atual)", electric.text + (electric.label ? " · " + electric.label : "") + " da escala do ADC"],
-      ["Posição elétrica (linha estabilizada)", `${fmtNum(device.stable_percent)} % · muda só com variação de 5 p.p. ou mais`],
-      ["Variação bruta desde o envio anterior", delta || "aguardando o próximo envio"],
-      ["ADC bruto", device.last_adc_raw != null || gland?.adc != null ? fmtNum(device.last_adc_raw ?? gland.adc, 1) + " contagens" + block : "—"],
+      ["Posição elétrica (leitura atual)", electric.text + (electric.label ? " · " + electric.label : "")],
+      ["Escala do percentual", scaleText(electric.scale)],
+      ["Posição elétrica (linha estabilizada)", `${fmtNum(device.stable_percent)} % · muda só com variação de 5 p.p. ou mais` + (device.stable_since ? ` · desde ${fmtDateTime(device.stable_since)}` : "")],
+      ["Variação desde o envio anterior", delta || "aguardando o próximo envio"],
+      ["Tensão calibrada", device.last_voltage_mv != null ? fmtVolt(device.last_voltage_mv) : "não enviada por este firmware"],
+      ["Tensão estimada", device.last_voltage_v != null ? fmtNum(device.last_voltage_v, 3) + " V (ADC × 3,3 ÷ 4095)" : "—"],
+      ["ADC bruto", device.last_adc_raw != null || live?.adc != null ? fmtNum(device.last_adc_raw ?? live.adc, 1) + " contagens" + block : "—"],
       ["Dispersão do bloco", device.adc_noise != null ? fmtNum(device.adc_noise, 1) + " contagens" : "—"],
       ["Condição do bloco", BLOCK_TEXT[electric.block] || "—"],
       ...(BLOCK_HINT[electric.block] ? [["O que os dados indicam", BLOCK_HINT[electric.block]]] : []),
       ["Cadência", [cadence ? "declarada pelo firmware: " + cadence.text : "", Number.isFinite(measured) && measured > 0 ? "medida nos últimos envios: " + fmtInterval(measured) : ""].filter(Boolean).join(" · ") || "—"],
-      ["Tensão calibrada", device.last_voltage_mv != null ? fmtVolt(device.last_voltage_mv) : "não enviada por este firmware"],
-      ["Tensão estimada", device.last_voltage_v != null ? fmtNum(device.last_voltage_v, 3) + " V (ADC × 3,3 ÷ 4095)" : "—"],
       ["Método de aquisição", device.last_acq_method || "anterior ao 4.3.0"],
       ["Amostra colhida", fmtDateTime(device.last_sampled_at)],
       ["Recebida no servidor", fmtDateTime(device.last_received_at)],
     ];
     $id("detailDiag").innerHTML = rows.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("");
   }
-  $id("detailHealth").className = "health-banner health-" + health.key;
   if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
   if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
 }
@@ -2688,8 +2560,8 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica do sensor (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Distância atual (mm)</span><strong id="detailRaw" class="volt-value"></strong></div><div><span>Ajuste do ciclo (%)</span><strong id="detailStable" class="volt-value"></strong></div></div>` +
-    `<p id="detailReading" class="live-reading"></p><p id="detailCadastro" class="live-cadastro"></p>` +
+    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>` +
+    `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
   if (mode === "edit") {
@@ -2770,18 +2642,16 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
-      `</div><section id="glandPanel" class="gland-panel" aria-live="polite"></section>` +
+      `</div>` +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
       // Dados elétricos da leitura atual: servem para diagnosticar ligação, ruído e saturação.
-      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro na escala do ADC (0 a 4095). Ela não é o ajuste da gaxeta. Os avisos de limite vêm dessa escala e não medem a distância até o batente do potenciômetro.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
+      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A posição elétrica e a tensão valem sempre. Distância e percentual do ciclo valem depois da referência aprovada na marca superior e do segundo ponto medido. A tensão traz a origem: calibrada pelo ADC da placa ou estimada.</small></div>`;
-    glandPanelState.key = "";
-    refreshGlandPanel(true).catch((error) => showMessage(errorText(error), "error"));
+      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`;
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);
@@ -2804,758 +2674,6 @@ async function renderDrawer() {
   updateDrawerLive();
   renderIcons();
   (mode === "edit" ? $id("sensorName") : $id("drawerClose")).focus({ preventScroll: true });
-}
-
-// ---- 62-gland.js ----
-// =============================================================================
-// Ciclo de gaxeta: referência individual registrada depois do engaxetamento.
-//
-// Procedimento (regra 2, migrações 10 e 11): depois da troca ou do reajuste, o técnico
-// reposiciona o potenciômetro na MARCA SUPERIOR da montagem, mede com o paquímetro a
-// distância inicial (D100, o 100 % do ciclo) e, se souber, a distância de fim de ajuste
-// (D0, o 0 % do ciclo; pode ser 3 mm, não precisa ser zero) e registra.
-//
-// Salvar as medidas e aprovar a leitura são passos diferentes:
-//   1. O cadastro é gravado com a caixa de confirmação marcada e valores válidos, mesmo
-//      que a leitura atual esteja no limite do ADC. A tela mostra o número e o horário do
-//      registro e "Medidas salvas · aguardando leitura apta".
-//   2. O servidor só aprova como referência elétrica (V100) uma leitura posterior ao
-//      registro, de agora, estável, fora do limite do ADC e, com a marca já caracterizada,
-//      dentro da faixa esperada. No primeiro comissionamento o técnico confirma a leitura.
-//   3. Comissionamento em dois pontos: com o topo aprovado, uma Conferência de medida no
-//      fim de ajuste (ou em outra posição conhecida) dá V0/D0 e a inclinação. Gravado no
-//      perfil da instalação, os ciclos seguintes dispensam repetir o comissionamento.
-//
-// Distância, percentual e avanço são calculados no servidor. A placa não recebe nada.
-// Sem escala validada a tela mostra a posição elétrica (%) e a tensão, e deixa ciclo e
-// milímetros como indisponíveis, com o passo que falta.
-//
-// Os ciclos registrados antes da migração 10 (regra 1) continuam com o cálculo da
-// época, identificados como estimativa nominal.
-// =============================================================================
-const glandPanelState = { key: "", status: null };
-const glandForm = { mode: "cycle", sensorId: "", requestId: "", linkId: null, expected: null };
-// Rascunho do formulário por sensor e modo: fechar o diálogo sem enviar não perde o que foi digitado.
-const glandDraft = new Map();
-const newRequestId = () =>
-  crypto.randomUUID
-    ? crypto.randomUUID()
-    : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (ch) => (Number(ch) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(ch) / 4)))).toString(16));
-
-// Valor elétrico na grandeza da calibração do ciclo: volts quando a placa envia tensão
-// calibrada, contagens do ADC quando o firmware é anterior ao 4.3.0.
-const glandUnitIsVolt = (status, quantity) => (quantity ? quantity === "mv" : status.unit !== "contagens");
-const fmtElectric = (status, value, quantity) =>
-  value == null ? "—" : glandUnitIsVolt(status, quantity) ? fmtVolt(value) : fmtNum(value, 0) + " contagens";
-const glandNextReading = (interval) => (Number(interval) > 12 ? `A placa envia a cada ${fmtInterval(interval)}: a próxima leitura pode levar esse tempo, mais o transporte.` : "");
-const ANCHOR_MODE = { window: "aprovada sozinha, dentro da faixa esperada", confirmed: "confirmada pelo técnico", check: "leitura da conferência" };
-// Milímetros sem casas desnecessárias: 15 mm, 3 mm, 12,5 mm.
-const fmtMmShort = (value) => (value == null || !Number.isFinite(Number(value)) ? "—" : Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 3 }) + " mm");
-const fmtSeconds = (seconds) => (seconds == null || !Number.isFinite(Number(seconds)) ? "—" : Number(seconds) < 90 ? `${Math.round(Number(seconds))} s` : `${Math.round(Number(seconds) / 60)} min`);
-// "15 mm e 3 mm" (ou só "15 mm" quando o fim de ajuste não foi informado).
-const glandPair = (initial, end) => fmtMmShort(initial) + (end == null ? "" : " e " + fmtMmShort(end));
-// Frase curta do cadastro: "Começa em 15 mm. Quando chegar a 3 mm, acaba o ajuste. Curso útil de 12 mm."
-function glandCourseText(initial, end) {
-  if (initial == null || !(initial > 0)) return "";
-  if (end == null) return `Começa em ${fmtMmShort(initial)}. Sem a distância de fim de ajuste a plataforma mostra milímetros, sem percentual.`;
-  if (!(end < initial)) return "";
-  return `Começa em ${fmtMmShort(initial)}. Quando chegar a ${fmtMmShort(end)}, acaba o ajuste. Curso útil de ${fmtMmShort(Math.round((initial - end) * 1000) / 1000)}.`;
-}
-// Identificação do registro vigente: número, horário e medidas (só o que o servidor gravou).
-function glandSavedLine(status) {
-  const event = (status.events || []).find((item) => item.id === status.cycle_event_id);
-  return `Registro nº ${status.cycle_event_id} de ${fmtDateTime(status.recorded_at)}${event?.actor ? " (" + event.actor + ")" : ""}.`;
-}
-
-const GLAND_STATE_TEXT = {
-  unlinked: () => "Vincule o sensor a um spot para registrar o engaxetamento.",
-  no_reference: () =>
-    "Nenhum engaxetamento registrado nesta instalação. Depois de montar a gaxeta, coloque o potenciômetro na marca superior, meça a distância inicial com o paquímetro e registre.",
-  maintenance: (status) => `Manutenção iniciada em ${fmtDateTime(status.recorded_at)}. As leituras deste período não contam para o ajuste.`,
-  waiting: (status, interval) => {
-    if (Number(status.rule) !== 2)
-      return `Distância inicial de ${fmtMm(status.initial_mm, 2)} registrada em ${fmtDateTime(status.recorded_at)}. Ela passa a valer na próxima leitura válida da placa. ` + glandNextReading(interval);
-    const base = `Medidas salvas · aguardando leitura apta. ${glandSavedLine(status)} ${glandPair(status.initial_mm, status.end_mm)} salvos. `;
-    const reason = status.wait_reason;
-    const block = status.current?.block;
-    if (reason === "needs_confirmation")
-      return base + "A marca superior desta instalação ainda não tem faixa elétrica caracterizada: a primeira confirmação define a faixa esperada para os próximos ciclos. Com o potenciômetro mantido na marca superior, confira a leitura abaixo e confirme.";
-    if (reason === "outside_window")
-      return base + `A leitura atual (${fmtElectric(status, status.value)}) está fora da faixa esperada da marca superior (${fmtElectric(status, status.window?.lo)} a ${fmtElectric(status, status.window?.hi)}). Reposicione o potenciômetro na marca superior e aguarde a próxima leitura.`;
-    if (reason === "saturated_high")
-      return base + (block === "mixed_high" || block === "touch_high"
-        ? BLOCK_HINT[block]
-        : `Para calibrar a distância, o topo precisa ficar na faixa mensurável. ${BLOCK_HINT.ceiling}`);
-    if (reason === "unstable") return base + BLOCK_HINT.unstable + " " + glandNextReading(interval);
-    if (reason === "aged")
-      return base + `A última leitura chegou há ${fmtSeconds(status.current?.age_s)} e não é mais oferecida para confirmação (limite de ${fmtSeconds(status.confirm_max_age_s)} para esta placa). Mantenha o sensor na marca superior e aguarde a próxima. ` + glandNextReading(interval);
-    if (reason === "stale")
-      return base + `A última leitura levou ${fmtSeconds(status.current?.transport_s)} da amostra até o servidor (limite de 30 s) e não serve de referência. Aguarde a próxima. ` + glandNextReading(interval);
-    if (reason === "no_sample") return base + "Mantenha o potenciômetro na marca superior até a plataforma receber uma leitura posterior ao registro. " + glandNextReading(interval);
-    return base + (glandWaitText({ wait_reason: reason, block }) || "Aguardando uma leitura válida") + ". " + glandNextReading(interval);
-  },
-  no_scale: (status) =>
-    `Referência aprovada: ${fmtMm(status.initial_mm, 2)} em ${fmtElectric(status, status.anchor?.value, status.anchor?.quantity)}. Sem calibração de distância: ${(GLAND_SCALE_REASON[status.reason] || GLAND_SCALE_REASON.none).replace(/^./, (ch) => ch.toLowerCase())}. Até lá valem a posição elétrica (%) e a tensão.`,
-  no_end: (status) =>
-    status.reason === "outside_validated"
-      ? "A distância está calibrada no trecho já conferido. O percentual aparece quando o fim de ajuste for validado: faça uma Conferência de medida no fim de ajuste, ou perto dele."
-      : "A distância está calibrada. Informe a distância de fim de ajuste (em um novo registro) para a plataforma mostrar o percentual.",
-  out_of_range: (status) =>
-    `A tensão atual está ${status.reason === "above" ? "acima" : "abaixo"} da faixa validada (${fmtElectric(status, status.scale?.valid_lo)} a ${fmtElectric(status, status.scale?.valid_hi)}). O valor calculado é mostrado, sem classificação.`,
-  unusable: (status) =>
-    `A última leitura não serve para o cálculo: ${(BLOCK_HINT[status.current?.block] || glandWaitText({ reason: status.reason, block: status.current?.block }) || "sinal ruidoso, no limite da escala do ADC ou recebido com atraso").replace(/^./, (ch) => ch.toLowerCase())}`,
-  active: (status) => (Number(status.rule) === 2 ? "" : "Ciclo registrado na regra anterior (referência em qualquer posição do sensor). Os números abaixo são estimativa e não geram recomendação. Para calibrar, registre o engaxetamento com o potenciômetro na marca superior."),
-};
-
-function glandScaleText(status) {
-  const scale = status.scale;
-  if (!scale) return "—";
-  if (Number(status.rule) !== 2) {
-    if (scale.source === "measured")
-      return `Regra anterior · medida em ${fmtDateTime(scale.recorded_at)}: ${fmtNum(scale.mm_per_count, 5)} mm por contagem (${fmtNum(scale.delta_mm, 2)} mm em ${fmtNum(scale.delta_adc, 0)} contagens)`;
-    const anchor = status.anchor;
-    const course = anchor && Number(anchor.adc) > 0 ? Math.round((Number(anchor.mm) / Number(anchor.adc)) * 4095) : null;
-    return `Regra anterior · curso nominal do firmware${course ? ` (${course} mm na escala inteira do ADC)` : ""}. Estimativa`;
-  }
-  if (scale.source === "none") return "Sem calibração de distância";
-  const volt = scale.unit !== "contagens";
-  const slope = volt ? `${fmtNum(Number(scale.mm_per_unit) * 1000, 3)} mm por volt` : `${fmtNum(scale.mm_per_unit, 5)} mm por contagem`;
-  const origin =
-    scale.source === "measured"
-      ? `Medida por conferência em ${fmtDateTime(scale.recorded_at)}` + (Number(scale.points) > 1 ? ` (${scale.points} pontos, maior desvio ${fmtNum(scale.max_residual_mm, 2)} mm)` : "")
-      : scale.source === "endpoints"
-        ? `Extremos do perfil da instalação (versão ${scale.profile_version})`
-        : `Razão medida, gravada no perfil da instalação (versão ${scale.profile_version})`;
-  const range = `faixa validada de ${fmtElectric(status, scale.valid_lo)} a ${fmtElectric(status, scale.valid_hi)}`;
-  const resolution = scale.resolution_mm != null ? ` · menor movimento distinguível ≈ ${fmtNum(scale.resolution_mm, 2)} mm` : "";
-  return `${origin}: ${slope} · ${range}${resolution}`;
-}
-function glandLiveFields(status) {
-  const computed = status.distance_mm != null && ["active", "no_end", "out_of_range"].includes(status.state);
-  const ruleTwo = Number(status.rule) === 2;
-  const current = status.current;
-  const percent = Number(status.percent);
-  const block = current?.block;
-  return {
-    now: computed ? fmtMm(status.distance_mm, 2) + (status.state === "out_of_range" ? " (fora da faixa calibrada)" : "") : "Indisponível",
-    percent:
-      computed && status.percent != null
-        ? fmtNum(Math.max(0, Math.min(100, percent))) + " %" + (percent > 100 || percent < 0 ? ` (calculado ${fmtNum(percent)} %)` : "") + (ruleTwo ? "" : " · estimativa")
-        : "Indisponível",
-    advance: computed && status.advance_mm != null ? fmtMm(status.advance_mm, 2) : "Indisponível",
-    electric: !current ? "—" : `${fmtNum(current.electric_percent ?? (Number(current.adc) / 4095) * 100)} % da escala do ADC${current.at_ceiling ? " · Limite do ADC" : ""}`,
-    volt: !current
-      ? "—"
-      : `${fmtVolt(current.voltage_mv)} ${current.voltage_source === "calibrated" ? "calibrada" : "estimada"} · ${BLOCK_SHORT[block] || QUALITY_FALLBACK[current.quality] || "—"} · ADC ${fmtNum(current.adc, 0)}` +
-        (current.adc_min != null ? ` (${fmtNum(current.adc_min, 0)} a ${fmtNum(current.adc_max, 0)})` : "") +
-        ` · dispersão ${fmtNum(current.noise, 1)} · ${fmtDateTime(current.sampled_at)}`,
-    warn: [
-      // O aviso de 5 % vem de um limiar sobre a escala do ADC: não mede a distância até o batente físico.
-      block && block !== "ok" && BLOCK_HINT[block]
-        ? ""
-        : status.near_limit
-          ? "A leitura está nos 5 % finais da escala do ADC (abaixo de 205 ou acima de 3.890 contagens). O aviso vem da escala elétrica: não mede a distância até o batente do potenciômetro. Perto do limite o ADC pode saturar e a leitura deixa de servir para calibrar."
-          : "",
-      ruleTwo && current && current.voltage_source !== "calibrated" ? "A placa ainda não envia tensão calibrada (firmware anterior ao 4.3.0). O cálculo deste ciclo usa as contagens do ADC." : "",
-      status.scale?.source === "none" && status.scale?.reason === "inverted" ? "Sentido invertido: a distância medida subiu enquanto a tensão caiu. Confira se o sensor está montado no sentido certo e a ligação dos extremos do potenciômetro." : "",
-    ].filter(Boolean),
-  };
-}
-const QUALITY_FALLBACK = { ok: "bloco bom", unstable: "bloco instável", saturated_high: "limite superior do ADC", saturated_low: "limite inferior do ADC", missing: "sem dados do bloco" };
-
-// Passos do comissionamento em dois pontos do ciclo vigente (regra 2).
-function glandSteps(status) {
-  if (Number(status.rule) !== 2 || status.initial_mm == null || status.state === "maintenance") return "";
-  const scale = status.scale;
-  const hasSlope = scale && scale.source && scale.source !== "none";
-  const origin = status.profile?.origin;
-  const step = (done, title, detail) => `<li class="${done ? "done" : "todo"}"><b>${esc(title)}</b><span>${esc(detail)}</span></li>`;
-  const top = status.anchor
-    ? `${fmtMmShort(status.initial_mm)} em ${fmtElectric(status, status.anchor.value, status.anchor.quantity)} (V100), ${ANCHOR_MODE[status.anchor.mode] || "aprovada"}`
-    : `${fmtMmShort(status.initial_mm)} salvos; leitura elétrica pendente`;
-  const second = hasSlope
-    ? scale.source === "measured"
-      ? scale.end_ok && status.end_mm != null
-        ? `${fmtMmShort(status.end_mm)} em ${fmtElectric(status, scale.v0)} (V0)`
-        : "segundo ponto medido; o fim de ajuste ainda não foi validado"
-      : `reaproveitado do perfil da instalação (versão ${scale.profile_version})` + (scale.v0 != null && status.end_mm != null ? `: ${fmtMmShort(status.end_mm)} em ${fmtElectric(status, scale.v0)} (V0)` : "")
-    : status.anchor
-      ? `leve o conjunto ${status.end_mm != null ? "a " + fmtMmShort(status.end_mm) : "a uma posição conhecida"} (ou a outra distância medida), meça com o paquímetro e use Conferir medida`
-      : "depois da referência no topo";
-  const verify = hasSlope
-    ? Number(scale.points) > 1
-      ? `${scale.points} pontos medidos, maior desvio ${fmtNum(scale.max_residual_mm, 2)} mm`
-      : "recomendado: confira um ponto intermediário com o paquímetro (Conferir medida)"
-    : "depois do segundo ponto";
-  const profile = scale?.source === "ratio" || scale?.source === "endpoints"
-    ? `versão ${scale.profile_version} em uso` + (origin ? ` (comissionada no registro nº ${origin.cycle_event_id})` : "")
-    : status.commission
-      ? status.can_profile ? "pronto para gravar: os próximos ciclos dispensam repetir o comissionamento" : "pronto; um administrador de nível 1 ou 2 grava no perfil"
-      : "depois dos dois pontos";
-  return (
-    `<ol class="gland-steps" aria-label="Comissionamento em dois pontos">` +
-    step(!!status.anchor, "1 · Topo (100 %)", top) +
-    step(hasSlope && (scale.source !== "measured" || !!scale.end_ok || status.end_mm == null), `2 · ${status.end_mm != null ? "Fim de ajuste (0 %)" : "Segundo ponto"}`, second) +
-    step(hasSlope && (Number(scale.points) > 1 || scale.source !== "measured"), "3 · Ponto intermediário", verify) +
-    step(scale?.source === "ratio" || scale?.source === "endpoints", "4 · Perfil da instalação", profile) +
-    `</ol>`
-  );
-}
-function glandCandidateHtml(status, candidate) {
-  const peak = candidate.below_peak ? candidate.peak : null;
-  return (
-    `<div class="gland-candidate"><p>Leitura para confirmar: <b>${esc(fmtElectric(status, candidate.value, candidate.quantity))}</b>` +
-    (candidate.electric_percent != null ? ` · ${esc(fmtNum(candidate.electric_percent))} % da escala elétrica` : "") +
-    ` · ADC ${esc(fmtNum(candidate.adc, 0))} · dispersão ${esc(fmtNum(candidate.noise, 1))}</p>` +
-    `<p>Amostra de ${esc(fmtDateTime(candidate.sampled_at))}` +
-    (candidate.age_s != null ? ` · recebida há ${esc(fmtSeconds(candidate.age_s))} (pode ser confirmada até ${esc(fmtSeconds(candidate.max_age_s))}) · transporte de ${esc(fmtSeconds(candidate.transport_s))}` : "") +
-    `</p>` +
-    (peak
-      ? `<p class="gland-alert"><b>Atenção:</b> depois do registro o sensor já mostrou uma posição mais alta (${esc(peak.block === "ceiling" ? "limite do ADC, 100 %" : fmtNum(peak.electric_percent) + " %")} em ${esc(fmtDateTime(peak.sampled_at))}). Se o potenciômetro saiu do topo, esta leitura é intermediária e não deve ser confirmada como máximo.</p>`
-      : "") +
-    `</div>`
-  );
-}
-function renderGlandPanel(status, device) {
-  const panel = $id("glandPanel");
-  if (!panel) return;
-  const view = cycleView({ ...status, block: status.current?.block, electric_percent: status.current?.electric_percent }, device);
-  const interval = state.gland.get(device.sensor_id)?.interval_s;
-  const live = glandLiveFields(status);
-  const ruleTwo = Number(status.rule) === 2;
-  const cycleEvent = (status.events || []).find((event) => event.id === status.cycle_event_id);
-  const rows = [];
-  if (status.initial_mm != null) {
-    rows.push(["Distância inicial (100 %)", `${fmtMm(status.initial_mm, 2)} · ${GLAND_KIND[status.kind] || ""} em ${fmtDateTime(status.recorded_at)}${cycleEvent?.actor ? " · " + cycleEvent.actor : ""}`]);
-    rows.push(["Fim de ajuste (0 %)", status.end_mm == null ? "Não informado: sem percentual" : `${fmtMm(status.end_mm, 2)} · curso útil de ${fmtMm(Number(status.initial_mm) - Number(status.end_mm), 2)}`]);
-    rows.push(["Posição elétrica", `<span id="glandElec">${esc(live.electric)}</span>`, true]);
-    rows.push(["Tensão atual", `<span id="glandAdc">${esc(live.volt)}</span>`, true]);
-    rows.push(["Distância atual", `<span id="glandNow">${esc(live.now)}</span>`, true]);
-    rows.push(["Ajuste do ciclo", `<span id="glandPct">${esc(live.percent)}</span>`, true]);
-    rows.push(["Avanço", `<span id="glandAdv">${esc(live.advance)}</span>`, true]);
-    if (status.anchor && ruleTwo)
-      rows.push(["Tensão na referência", `${fmtElectric(status, status.anchor.value, status.anchor.quantity)} · ${ANCHOR_MODE[status.anchor.mode] || ""}${status.anchor.actor ? " (" + status.anchor.actor + ")" : ""} · amostra de ${fmtDateTime(status.anchor.sampled_at)}`]);
-    else if (status.anchor) rows.push(["Sensor na referência", `ADC ${fmtNum(status.anchor.adc, 0)} (${fmtNum((Number(status.anchor.adc) / 4095) * 100)} % da escala) em ${fmtDateTime(status.anchor.sampled_at)}`]);
-    if (ruleTwo && status.scale?.v0 != null) rows.push(["Tensão no fim de ajuste", fmtElectric(status, status.scale.v0) + (status.scale.end_ok ? "" : " · fora da faixa validada")]);
-    if (status.anchor) rows.push(["Calibração", glandScaleText(status)]);
-    if (ruleTwo)
-      rows.push([
-        "Marca superior",
-        status.window
-          ? `Esperada de ${fmtElectric(status, status.window.lo, status.window.quantity)} a ${fmtElectric(status, status.window.hi, status.window.quantity)} (${status.window.source === "profile" ? "perfil da instalação, versão " + status.window.profile_version : "última referência confirmada pelo técnico"})`
-          : "Ainda não caracterizada nesta instalação: a primeira confirmação do técnico define a faixa esperada",
-      ]);
-  }
-  const actions = [];
-  const candidate = status.state === "waiting" && status.candidate && status.can_operate ? status.candidate : null;
-  if (candidate)
-    actions.push(`<button class="primary" data-gland="confirm">${glyph("ruler")}Confirmar leitura na marca superior</button>`);
-  if (status.can_operate && status.state !== "unlinked") {
-    const needsSecond = ruleTwo && status.state === "no_scale";
-    if (needsSecond) actions.push(`<button class="primary" data-gland="check">${glyph("ruler")}Conferir medida (segundo ponto)</button>`);
-    actions.push(`<button class="${candidate || needsSecond ? "secondary" : "primary"}" data-gland="cycle">${candidate || needsSecond ? "" : glyph("ruler")}Registrar engaxetamento</button>`);
-    if (!needsSecond && (["active", "no_end", "out_of_range", "unusable"].includes(status.state) || (status.state === "waiting" && !ruleTwo)))
-      actions.push(`<button class="secondary" data-gland="check">Conferir medida</button>`);
-    if (status.commission && status.can_profile) actions.push(`<button class="secondary" data-gland="commission">Gravar no perfil da instalação</button>`);
-    if (status.state !== "maintenance") actions.push(`<button class="secondary" data-gland="maintenance">${glyph("wrench")}Iniciar manutenção</button>`);
-  }
-  const events = (status.events || [])
-    .map((event) => {
-      const measure = event.initial_mm == null ? "" : ` · ${fmtMm(event.initial_mm, 2)}${event.end_mm == null ? "" : ` (fim de ajuste ${fmtMm(event.end_mm, 2)})`}`;
-      const current = event.id === status.cycle_event_id;
-      const anchor =
-        event.kind === "maintenance"
-          ? ""
-          : !event.anchor
-            ? event.kind === "check"
-              ? " · aguardando a leitura da conferência"
-              : current
-                ? " · referência elétrica pendente"
-                : " · substituído sem referência aprovada (o registro fica no histórico)"
-            : event.anchor.value != null
-              ? ` · ${fmtElectric(status, event.anchor.value, event.anchor.quantity)}, ${ANCHOR_MODE[event.anchor.mode] || "leitura associada"}`
-              : ` · sensor no ADC ${fmtNum(event.anchor.adc, 0)}`;
-      return `<li${current ? ' class="current"' : ""}><b>${esc(GLAND_KIND[event.kind] || event.kind)}</b>${esc(measure)}${current ? " <em>ciclo vigente</em>" : ""}<small>nº ${esc(event.id)} · ${esc(fmtDateTime(event.recorded_at))}${event.actor ? " · " + esc(event.actor) : ""}${esc(anchor)}${Number(event.rule) === 1 ? " · regra anterior" : ""}</small></li>`;
-    })
-    .join("");
-  const stateText = (GLAND_STATE_TEXT[status.state] || (() => ""))(status, interval);
-  // Ciclo vigente em destaque, sempre com o que o servidor gravou (nunca com o que só foi digitado).
-  const currentLine =
-    status.initial_mm != null
-      ? `<p class="gland-current"><b>Ciclo vigente</b> · registro nº ${esc(status.cycle_event_id)} · ${esc(fmtDateTime(status.recorded_at))} · ${esc(glandCadastro(status).replace(/^cadastro: /, ""))} · ` +
-        `<span class="gland-ref ${status.anchor ? "ok" : "pending"}">${ruleTwo ? (status.anchor ? "referência elétrica aprovada" : "referência elétrica pendente") : "regra anterior (estimativa)"}</span></p>`
-      : "";
-  panel.innerHTML =
-    `<h3>Ciclo da gaxeta <span class="adjustment-badge health-${view.key}">${esc(status.state === "waiting" && ruleTwo ? "Medidas salvas · aguardando leitura apta" : view.label)}</span></h3>` +
-    currentLine +
-    (stateText ? `<p class="form-help">${esc(stateText)}</p>` : "") +
-    (candidate ? glandCandidateHtml(status, candidate) : "") +
-    glandSteps(status) +
-    (rows.length ? `<dl class="detail-fields">${rows.map(([name, value, raw]) => `<dt>${esc(name)}</dt><dd>${raw ? value : esc(value)}</dd>`).join("")}</dl>` : "") +
-    `<div id="glandWarn">${live.warn.map((text) => `<p class="path-note">${esc(text)}</p>`).join("")}</div>` +
-    (actions.length ? `<div class="drawer-actions gland-actions">${actions.join("")}</div>` : status.state !== "unlinked" && !status.can_operate ? '<p class="form-help">Sua conta consulta o ciclo, sem registrar.</p>' : "") +
-    (events ? `<details class="technical-detail"><summary>Histórico do ciclo (${status.events.length}${status.events.length >= 20 ? "+" : ""})</summary><ol class="gland-events">${events}</ol></details>` : "");
-}
-// Lê o estado do ciclo do sensor aberto no painel. Redesenha só quando algo estrutural
-// muda (estado, evento, permissão); entre uma leitura e outra atualiza apenas os números.
-async function refreshGlandPanel(force = false) {
-  if (!state.drawer.open || state.drawer.mode !== "detail" || !$id("glandPanel") || state.glandMissing) return;
-  if (document.querySelector("dialog[open]") && !force) return;
-  const sensorId = state.drawer.sensorId;
-  let status;
-  try {
-    status = await callRpc("gaxeta_gland_status", { p_sensor_id: sensorId });
-  } catch (error) {
-    if (isMissingFeature(error)) {
-      state.glandMissing = true;
-      $id("glandPanel")?.replaceChildren();
-      return;
-    }
-    if (error?.code === "42501") {
-      const panel = $id("glandPanel");
-      if (panel) panel.innerHTML = '<h3>Ciclo da gaxeta</h3><p class="form-help">Sua conta não tem acesso ao ciclo deste sensor.</p>';
-      return;
-    }
-    throw error;
-  }
-  const device = findDevice(sensorId);
-  if (state.drawer.sensorId !== sensorId || !$id("glandPanel") || !device) return;
-  glandPanelState.status = status;
-  state.gland.set(sensorId, {
-    ...state.gland.get(sensorId), sensor_id: sensorId, state: status.state, percent: status.percent, distance_mm: status.distance_mm,
-    initial_mm: status.initial_mm, end_mm: status.end_mm, recorded_at: status.recorded_at, scale_source: status.scale?.source ?? null,
-    out_of_range: status.out_of_range, near_limit: status.near_limit, rule: status.rule, calibrated: status.calibrated,
-    advance_mm: status.advance_mm, wait_reason: status.wait_reason, reason: status.reason, unit: status.unit,
-    voltage_mv: status.current?.voltage_mv, voltage_source: status.current?.voltage_source, quality: status.current?.quality, adc: status.current?.adc,
-    block: status.current?.block, electric_percent: status.current?.electric_percent, cycle_event_id: status.cycle_event_id, anchored: !!status.anchor,
-  });
-  const key = JSON.stringify([
-    sensorId, status.state, status.event_id, status.link_id, status.can_operate, status.scale?.source, status.scale?.event_id, status.scale?.profile_version,
-    status.anchor?.id, (status.events || []).length, status.wait_reason, status.reason, status.candidate?.reading_id, status.window?.lo, status.window?.hi, status.scale?.end_ok,
-    status.current?.block, status.candidate?.below_peak, !!status.commission, status.scale?.points, status.profile?.version,
-  ]);
-  if (force || key !== glandPanelState.key) {
-    glandPanelState.key = key;
-    renderGlandPanel(status, device);
-  } else {
-    const live = glandLiveFields(status);
-    const set = (id, text) => $id(id) && ($id(id).textContent = text);
-    set("glandNow", live.now);
-    set("glandPct", live.percent);
-    set("glandAdv", live.advance);
-    set("glandAdc", live.volt);
-    set("glandElec", live.electric);
-    if ($id("glandWarn")) $id("glandWarn").innerHTML = live.warn.map((text) => `<p class="path-note">${esc(text)}</p>`).join("");
-  }
-  updateDrawerLive();
-}
-
-// ----- Registro (engaxetamento, conferência, manutenção) -----
-function glandContextLine(device) {
-  const identity = deviceIdentity(device);
-  return `${deviceLabel(device)}${identity.linked ? ` · ${identity.title} · ${identity.spot}` : ""}`;
-}
-function glandLiveLine(device, check) {
-  const status = deviceStatus(device);
-  const gland = state.gland.get(device.sensor_id);
-  const volt = voltageInfo(device, gland);
-  const electric = electricInfo(device, gland);
-  const block = electric.block;
-  const head = `Sensor agora: ${electric.text} da escala elétrica${electric.label ? " (" + electric.label + ")" : ""} · ${volt.text}${volt.source ? " " + volt.source : ""} · ${status.label}.`;
-  if (check)
-    return head + (block && block !== "ok" ? ` A leitura atual não serve para a conferência (${BLOCK_SHORT[block]}): a medida fica salva e a plataforma usa a próxima leitura apta.` : "");
-  return (
-    head +
-    (status.online ? "" : " A referência elétrica só é avaliada quando a placa enviar a próxima leitura.") +
-    (block === "ceiling"
-      ? " A leitura está no limite do ADC. O cadastro pode ser salvo assim mesmo; para calibrar a distância, o topo precisa ficar na faixa mensurável."
-      : block && block !== "ok"
-        ? ` Condição da leitura: ${BLOCK_SHORT[block]}. O cadastro pode ser salvo; a referência elétrica fica pendente até chegar uma leitura apta.`
-        : "")
-  );
-}
-function glandFormValues() {
-  return { mm: $id("glandMm").value, end: $id("glandEnd").value, top: $id("glandTop").checked, kind: document.querySelector('input[name="glandKind"]:checked')?.value || "replacement" };
-}
-function updateGlandHint() {
-  if (glandForm.mode !== "cycle") return;
-  const initial = parseMm($id("glandMm").value);
-  const endText = $id("glandEnd").value.trim();
-  const end = endText ? parseMm(endText) : null;
-  const text = glandCourseText(initial, endText ? end : null);
-  $id("glandCourse").textContent = text || "Exemplo: começa em 15 mm; quando chegar a 3 mm, acaba o ajuste; curso útil de 12 mm.";
-}
-function openGlandDialog(mode) {
-  const status = glandPanelState.status;
-  const device = findDevice(state.drawer.sensorId);
-  if (!status || !device || !status.can_operate) return;
-  Object.assign(glandForm, { mode, sensorId: device.sensor_id, requestId: newRequestId(), linkId: status.link_id, expected: status.event_id ?? null });
-  const check = mode === "check";
-  const interval = state.gland.get(device.sensor_id)?.interval_s;
-  const draft = glandDraft.get(device.sensor_id + "|" + mode);
-  $id("glandTitle").textContent = check ? "Conferir medida" : "Registrar engaxetamento";
-  $id("glandSubmit").textContent = check ? "Registrar conferência" : "Registrar engaxetamento";
-  $id("glandContext").textContent = glandContextLine(device);
-  $id("glandKindField").hidden = check;
-  $id("glandEndField").hidden = check;
-  $id("glandTopField").hidden = check;
-  $id("glandTopField").classList.remove("needs-check");
-  $id("glandCourse").hidden = check;
-  $id("glandTop").checked = false; // a declaração física é refeita a cada registro
-  $id("glandMmLabel").textContent = check ? "Distância medida agora com o paquímetro (mm)" : "Distância inicial (100 %) — medida com o paquímetro, em mm";
-  $id("glandMm").value = draft?.mm ?? "";
-  $id("glandEnd").value = check ? "" : draft?.end ?? (status.end_mm == null ? "" : String(Number(status.end_mm)).replace(".", ","));
-  document.querySelector(`input[name="glandKind"][value="${draft?.kind === "adjustment" ? "adjustment" : "replacement"}"]`).checked = true;
-  // Na conferência, um toque preenche a distância de fim de ajuste do ciclo (segundo ponto do comissionamento).
-  const atEnd = $id("glandAtEnd");
-  atEnd.hidden = !(check && status.end_mm != null);
-  if (!atEnd.hidden) {
-    atEnd.textContent = `Estou no fim de ajuste (${fmtMmShort(status.end_mm)})`;
-    atEnd.onclick = () => {
-      $id("glandMm").value = String(Number(status.end_mm)).replace(".", ",");
-      $id("glandMm").focus();
-    };
-  }
-  $id("glandHelp").textContent = check
-    ? `Segundo ponto da calibração. Meça agora, na mesma referência mecânica da distância inicial (${fmtMmShort(status.initial_mm)}), e deixe o conjunto parado até a próxima leitura. ` +
-      (status.end_mm != null ? `No fim de ajuste (${fmtMmShort(status.end_mm)}) a conferência fecha o comissionamento em dois pontos e valida o 0 % do ciclo; em outra posição conhecida ela mede a inclinação. ` : "") +
-      `É preciso pelo menos 0,1 V (100 contagens) de diferença em relação ao topo, com a distância caindo junto com a tensão. A conferência não abre um ciclo novo. ${glandNextReading(interval)}`
-    : `Coloque o potenciômetro na marca superior e confira pela marca física. Meça as duas distâncias na mesma referência mecânica. O 0 % do ciclo é a distância em que acaba o ajuste: pode ser 3 mm, e a tensão nesse ponto pode ser maior que 0 V. ${glandNextReading(interval)}`;
-  $id("glandLive").textContent = glandLiveLine(device, check);
-  $id("glandMessage").textContent = "";
-  updateGlandHint();
-  $id("glandDialog").showModal();
-  $id("glandMm").focus();
-}
-$id("glandMm").addEventListener("input", updateGlandHint);
-$id("glandEnd").addEventListener("input", updateGlandHint);
-$id("glandTop").addEventListener("change", () => {
-  if ($id("glandTop").checked) {
-    $id("glandTopField").classList.remove("needs-check");
-    if ($id("glandMessage").dataset.kind === "top") $id("glandMessage").textContent = "";
-  }
-});
-// Fechar sem enviar guarda o que foi digitado (menos a caixa, que é declaração do momento).
-$id("glandDialog").addEventListener("close", () => {
-  if (!glandForm.sensorId || glandForm.mode === "maintenance") return;
-  const key = glandForm.sensorId + "|" + glandForm.mode;
-  if (glandForm.sent) glandDraft.delete(key);
-  else glandDraft.set(key, glandFormValues());
-  glandForm.sent = false;
-});
-// O cadastro é uma chamada; reler a tela é outra. Se a releitura falhar, o registro continua
-// gravado e a tela avisa, sem oferecer um envio novo.
-async function sendGlandEvent(kind, initialMm, endMm) {
-  const saved = await callRpc("gaxeta_record_gland_event", {
-    p_sensor_id: glandForm.sensorId, p_link_id: glandForm.linkId, p_expected_event: glandForm.expected, p_request_id: glandForm.requestId,
-    p_kind: kind, p_initial_mm: initialMm, p_end_mm: endMm,
-  });
-  let refreshed = true;
-  try {
-    await refreshGlandPanel(true);
-    await afterSensorChange();
-  } catch {
-    refreshed = false;
-  }
-  return { ...saved, refreshed };
-}
-// Envio cuja resposta se perdeu: procura o registro pela mesma chave (request_id) antes de
-// oferecer outro envio. Devolve o registro, null (não foi gravado) ou undefined (não deu para saber).
-async function reconcileGlandRequest() {
-  try {
-    const status = await callRpc("gaxeta_gland_status", { p_sensor_id: glandForm.sensorId });
-    const events = status.events || [];
-    const found = events.find((event) => event.request_id && event.request_id === glandForm.requestId);
-    if (found) return { id: found.id, duplicate: true, reconciled: true };
-    return "commission" in status ? null : undefined; // banco anterior à migração 11 não devolve a chave: não dá para afirmar
-  } catch {
-    return undefined;
-  }
-}
-// Depois de um conflito, o estado mostrado ficou velho: relê e exige nova confirmação.
-async function glandConflict() {
-  await refreshGlandPanel(true).catch(() => {});
-  const status = glandPanelState.status;
-  Object.assign(glandForm, { requestId: newRequestId(), linkId: status?.link_id ?? null, expected: status?.event_id ?? null });
-}
-function glandSavedMessage(kind, measured, end, saved) {
-  const status = glandPanelState.status;
-  const device = findDevice(glandForm.sensorId);
-  const mine = status && status.cycle_event_id === String(saved.id) ? status : null;
-  const when = mine ? ` de ${fmtDateTime(mine.recorded_at)}` : "";
-  const head = `${glandPair(measured, end)} salvos · registro nº ${saved.id}${when}${saved.duplicate ? " (já estava gravado)" : ""}.`;
-  const tail = saved.refreshed === false ? " A tela não pôde ser atualizada agora: o registro está gravado e aparece na próxima atualização." : "";
-  if (mine?.anchor) return head + " Referência elétrica aprovada na marca superior." + tail;
-  const block = mine?.current?.block || (device ? electricInfo(device, state.gland.get(device.sensor_id)).block : null);
-  if (block === "ceiling" || block === "touch_high") return head + " Para calibrar a distância, o topo precisa ficar na faixa mensurável." + tail;
-  return head + " Medidas salvas · aguardando leitura apta: mantenha o sensor na marca superior." + tail;
-}
-$id("glandForm").onsubmit = async (event) => {
-  event.preventDefault();
-  const message = $id("glandMessage");
-  const say = (text, kind = "") => {
-    message.textContent = text;
-    message.dataset.kind = kind;
-  };
-  const check = glandForm.mode === "check";
-  const measured = parseMm($id("glandMm").value);
-  const endText = $id("glandEnd").value.trim();
-  const end = check || !endText ? null : parseMm(endText);
-  if (measured == null || measured <= 0) {
-    $id("glandMm").focus();
-    return say("Informe a distância medida em milímetros, maior que zero, com até três casas decimais (use vírgula ou ponto).");
-  }
-  if (!check && endText && (end == null || end >= measured)) {
-    $id("glandEnd").focus();
-    return say("A distância no fim de ajuste deve ser um número menor que a distância inicial (0 é aceito).");
-  }
-  if (!check && !$id("glandTop").checked) {
-    // Falta só a declaração física: os valores digitados ficam como estão e o foco vai para a caixa.
-    $id("glandTopField").classList.add("needs-check");
-    $id("glandTop").focus();
-    return say("Marque a caixa para confirmar que você colocou o potenciômetro na marca superior.", "top");
-  }
-  const kind = check ? "check" : document.querySelector('input[name="glandKind"]:checked').value;
-  say("Registrando…");
-  await withBusy($id("glandSubmit"), async () => {
-    let saved = null;
-    try {
-      saved = await sendGlandEvent(kind, measured, end);
-    } catch (error) {
-      if (isNetworkError(error)) {
-        // A resposta se perdeu: antes de pedir outro envio, confere pela mesma chave se o registro entrou.
-        say("Sem resposta do servidor. Conferindo se o registro foi gravado…");
-        const found = await reconcileGlandRequest();
-        if (found) {
-          saved = { ...found, refreshed: await refreshGlandPanel(true).then(() => afterSensorChange()).then(() => true, () => false) };
-        } else {
-          return say(
-            found === null
-              ? "Sem conexão: o registro não foi gravado. Os valores continuam aqui; tente de novo (a mesma chave impede duplicar)."
-              : "Sem conexão: não foi possível confirmar se o registro foi gravado. Os valores continuam aqui; ao tentar de novo, a mesma chave impede duplicar.",
-          );
-        }
-      } else if (error?.code === "PT409") {
-        await glandConflict();
-        return say(errorText(error) + " Confira os dados e confirme de novo.");
-      } else return say(errorText(error));
-    }
-    glandForm.sent = true;
-    $id("glandDialog").close();
-    showMessage(
-      check
-        ? `Conferência registrada (nº ${saved.id})${saved.duplicate ? ", já estava gravada" : ""}: ${fmtMmShort(measured)}. Deixe o conjunto parado: a calibração é recalculada com a próxima leitura apta do sensor.` +
-            (saved.refreshed === false ? " A tela não pôde ser atualizada agora; o registro está gravado." : "")
-        : glandSavedMessage(kind, measured, end, saved),
-      "success",
-    );
-  });
-};
-// Confirmação, pelo técnico, de que a leitura candidata foi colhida com o sensor na marca superior.
-async function confirmGlandAnchor(button) {
-  const status = glandPanelState.status;
-  const device = findDevice(state.drawer.sensorId);
-  const candidate = status?.candidate;
-  if (!status || !device || !candidate) return;
-  const outside = status.wait_reason === "outside_window";
-  const peak = candidate.below_peak ? candidate.peak : null;
-  const confirmed = await askConfirm({
-    title: "Confirmar leitura na marca superior",
-    html:
-      `<p>Sensor <b>${esc(glandContextLine(device))}</b>.</p>` +
-      `<p>Leitura de ${esc(fmtDateTime(candidate.sampled_at))}: <b>${esc(fmtElectric(status, candidate.value, candidate.quantity))}</b>` +
-      (candidate.electric_percent != null ? ` (${esc(fmtNum(candidate.electric_percent))} % da escala elétrica, ` : " (") +
-      `ADC ${esc(fmtNum(candidate.adc, 0))}, dispersão ${esc(fmtNum(candidate.noise, 1))} contagens).` +
-      (candidate.age_s != null ? ` Recebida há ${esc(fmtSeconds(candidate.age_s))}; transporte de ${esc(fmtSeconds(candidate.transport_s))}.` : "") +
-      `</p>` +
-      (outside ? `<p><b>Atenção:</b> a faixa esperada da marca superior nesta instalação é de ${esc(fmtElectric(status, status.window?.lo, status.window?.quantity))} a ${esc(fmtElectric(status, status.window?.hi, status.window?.quantity))}. Confirme só se a marca física foi conferida agora e a montagem mudou.</p>` : "") +
-      (!status.window ? `<p>Esta instalação ainda não tem a marca superior caracterizada: esta primeira confirmação define a faixa esperada para os próximos ciclos.</p>` : "") +
-      (peak
-        ? `<p class="gland-alert"><b>Atenção:</b> depois do registro o sensor já mostrou uma posição mais alta (${esc(peak.block === "ceiling" ? "limite do ADC, 100 % da escala elétrica" : fmtNum(peak.electric_percent) + " % da escala elétrica")} em ${esc(fmtDateTime(peak.sampled_at))}). Se o potenciômetro saiu do topo, esta leitura é de uma posição intermediária e não deve ser confirmada como máximo.</p>` +
-          `<label class="check"><input id="glandAckLower" type="checkbox"> Conferi a marca física agora: esta posição é a marca superior desta montagem</label>`
-        : "") +
-      `<p>Confirme apenas se o potenciômetro está, fisicamente, na marca superior desta montagem e não foi movido desde essa leitura. Ela passa a ser a referência elétrica (100 %) da distância inicial de <b>${esc(fmtMm(status.initial_mm, 2))}</b>. Uma referência aprovada não é substituída: para trocar, é preciso um novo registro. As medidas cadastradas não mudam.</p>`,
-    okLabel: "Confirmar referência",
-    danger: false,
-  });
-  if (!confirmed) return;
-  const ack = !!$id("glandAckLower")?.checked;
-  if (peak && !ack) return showMessage("Referência não confirmada: marque a declaração de que esta posição é a marca superior, ou recoloque o potenciômetro no topo e aguarde a próxima leitura.", "error");
-  await withBusy(button, async () => {
-    try {
-      const args = { p_sensor_id: device.sensor_id, p_link_id: status.link_id, p_event_id: status.cycle_event_id, p_reading_id: candidate.reading_id };
-      if (peak) args.p_ack_lower = true; // só vai quando a declaração foi feita (o banco da migração 10 não conhece o parâmetro)
-      await callRpc("gaxeta_confirm_gland_anchor", args);
-      await refreshGlandPanel(true);
-      await afterSensorChange();
-      const after = glandPanelState.status;
-      showMessage(
-        after?.scale?.source && after.scale.source !== "none"
-          ? "Referência confirmada. A calibração da instalação já vale para este ciclo."
-          : `Referência confirmada (topo). Falta o segundo ponto: leve o conjunto ${after?.end_mm != null ? "ao fim de ajuste (" + fmtMmShort(after.end_mm) + ")" : "a uma posição conhecida"}, meça com o paquímetro e use Conferir medida.`,
-        "success",
-      );
-    } catch (error) {
-      // Chegou outra leitura (ou a que estava em tela envelheceu): a tela mostra o valor atual para revisão.
-      if (error?.code === "PT409") await refreshGlandPanel(true).catch(() => {});
-      throw error;
-    }
-  });
-}
-// Grava no perfil da instalação o comissionamento em dois pontos do ciclo vigente (níveis 1 e 2).
-async function commissionGland(button) {
-  const status = glandPanelState.status;
-  const device = findDevice(state.drawer.sensorId);
-  const draft = status?.commission;
-  if (!status || !device || !draft || !status.can_profile) return;
-  const origin = draft.origin || {};
-  const volt = draft.quantity === "mv";
-  const value = (number) => (volt ? fmtVolt(number) : fmtNum(number, 0) + " contagens");
-  const confirmed = await askConfirm({
-    title: "Gravar o comissionamento no perfil da instalação",
-    html:
-      `<p>Sensor <b>${esc(glandContextLine(device))}</b>.</p>` +
-      `<p>Topo: <b>${esc(fmtMmShort(origin.d100_mm))}</b> em <b>${esc(value(origin.v100))}</b> (V100).<br>` +
-      `${origin.at_end ? "Fim de ajuste" : "Segundo ponto"}: <b>${esc(fmtMmShort(origin.d2_mm))}</b> em <b>${esc(value(origin.v2))}</b>${origin.at_end ? " (V0)" : ""}.<br>` +
-      `Razão medida: ${esc(volt ? fmtNum(Number(draft.mm_per_unit) * 1000, 3) + " mm por volt" : fmtNum(draft.mm_per_unit, 5) + " mm por contagem")} · faixa validada de ${esc(value(draft.valid_lo))} a ${esc(value(draft.valid_hi))}` +
-      (Number(origin.points) > 1 ? ` · ${esc(origin.points)} pontos, maior desvio ${esc(fmtNum(origin.max_residual_mm, 2))} mm` : "") +
-      `.</p>` +
-      `<p>Grave só depois de conferir um ponto intermediário com o paquímetro. Com o perfil gravado, as próximas trocas nesta instalação reaproveitam a marca superior (${esc(value(draft.high_value))} ± ${esc(value(draft.high_tolerance))}) e a razão medida: basta registrar as medidas do novo ciclo. O perfil vale enquanto a montagem, o método de aquisição e a faixa forem os mesmos; mudou a ligação ou o acoplamento, comissione de novo.</p>`,
-    okLabel: "Gravar no perfil",
-    danger: false,
-  });
-  if (!confirmed) return;
-  const requestId = newRequestId();
-  await withBusy(button, async () => {
-    try {
-      const saved = await callRpc("gaxeta_commission_gland", { p_sensor_id: device.sensor_id, p_link_id: status.link_id, p_request_id: requestId });
-      await refreshGlandPanel(true);
-      await afterSensorChange();
-      showMessage(`Comissionamento gravado: versão ${saved.version} do perfil da instalação.`, "success");
-    } catch (error) {
-      if (error?.code === "PT409") await refreshGlandPanel(true).catch(() => {});
-      throw error;
-    }
-  });
-}
-$id("detailPane").addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-gland]");
-  if (!button) return;
-  const mode = button.dataset.gland;
-  if (mode === "confirm") return confirmGlandAnchor(button).catch((error) => showMessage(errorText(error), "error"));
-  if (mode === "commission") return commissionGland(button).catch((error) => showMessage(errorText(error), "error"));
-  if (mode !== "maintenance") return openGlandDialog(mode);
-  const status = glandPanelState.status;
-  const device = findDevice(state.drawer.sensorId);
-  if (!status || !device) return;
-  const confirmed = await askConfirm({
-    title: "Iniciar manutenção",
-    html: `<p>Sensor <b>${esc(glandContextLine(device))}</b>.</p><p>Use antes de desacoplar ou movimentar o sensor. Enquanto a manutenção estiver aberta, as leituras continuam gravadas, mas não contam para o ajuste da gaxeta. Ao terminar, recoloque o potenciômetro na marca superior e use <b>Registrar engaxetamento</b>.</p>`,
-    okLabel: "Iniciar manutenção",
-    danger: false,
-  });
-  if (!confirmed) return;
-  Object.assign(glandForm, { mode: "maintenance", sensorId: device.sensor_id, requestId: newRequestId(), linkId: status.link_id, expected: status.event_id ?? null });
-  await withBusy(button, async () => {
-    try {
-      await sendGlandEvent("maintenance", null, null);
-      showMessage("Manutenção iniciada. As leituras deste período não contam para o ajuste.", "success");
-    } catch (error) {
-      if (error?.code === "PT409") await glandConflict();
-      throw error;
-    }
-  });
-});
-
-// ----- Telemetria: ajuste pelo ciclo no período exibido -----
-// Cada ponto é calculado no servidor com a regra, a referência e o modelo que valiam na
-// época da leitura (gaxeta_gland_history). Um ciclo novo ou um perfil novo não redesenha o passado.
-async function loadCycleHistory(sensorId, range, token) {
-  const panel = $id("cyclePanel");
-  if (state.glandMissing) return void (panel.hidden = true);
-  let data;
-  try {
-    data = await callRpc("gaxeta_gland_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() });
-  } catch (error) {
-    if (isMissingFeature(error)) state.glandMissing = true;
-    panel.hidden = true; // complemento da tela: o gráfico principal continua valendo
-    return;
-  }
-  if (token !== telem.request || sensorId !== state.sensorId || !state.authorized) return;
-  if (telem.loaded?.sensorId === sensorId) telem.loaded.cycle = data; // usado pelo CSV: mesma amostra, mesmo cálculo
-  renderCycleChart(data, range);
-}
-function renderCycleChart(data, range) {
-  const panel = $id("cyclePanel");
-  const events = data?.events || [];
-  // A unidade segue o ciclo mais recente do período: percentual quando ele tem fim de ajuste válido, milímetros quando não tem.
-  const all = data?.points || [];
-  const usePercent = all.length > 0 && all[all.length - 1].percent != null;
-  const points = (data?.points || [])
-    .map((point) => ({ at: new Date(point.received_at).getTime(), value: Number(usePercent ? point.percent : point.distance_mm), raw: point }))
-    .filter((point) => Number.isFinite(point.value) && (!usePercent || point.raw.percent != null));
-  if (!points.length && !events.length) return void (panel.hidden = true);
-  panel.hidden = false;
-  const fromAt = range.from.getTime();
-  const span = Math.max(1, range.to.getTime() - fromAt);
-  const values = points.map((point) => point.value);
-  let low = usePercent ? Math.min(0, ...values) : Math.min(...values);
-  let high = usePercent ? Math.max(100, ...values) : Math.max(...values);
-  if (!points.length) [low, high] = [0, 100];
-  if (high - low < 1e-6) [low, high] = [low - 1, high + 1];
-  const px = (at) => (((at - fromAt) / span) * 1000).toFixed(1);
-  const py = (value) => (112 - ((value - low) / (high - low)) * 104).toFixed(1);
-  // Quebra a linha a cada evento que muda o ciclo e em lacunas longas (placa parada ou em manutenção).
-  const cuts = events.filter((event) => event.kind !== "check").map((event) => new Date(event.recorded_at).getTime());
-  const gapMs = Math.max(3 * (Number(data.bucket_seconds) || 1) * 1000, 90e3, 2.5 * (Number(state.gland.get(state.sensorId)?.interval_s) || 0) * 1000);
-  const paths = [];
-  let current = [];
-  points.forEach((point, index) => {
-    const previous = points[index - 1];
-    if (previous && (point.at - previous.at > gapMs || cuts.some((cut) => cut > previous.at && cut <= point.at) || Boolean(point.raw.nominal) !== Boolean(previous.raw.nominal))) {
-      paths.push(current);
-      current = [];
-    }
-    current.push(point);
-  });
-  if (current.length) paths.push(current);
-  const lines = paths
-    .map((path) => {
-      const estimate = path[0].raw.nominal || Number(path[0].raw.rule) === 1 ? " cycle-estimate" : "";
-      return path.length === 1
-        ? `<circle class="cycle-dot${estimate}" cx="${px(path[0].at)}" cy="${py(path[0].value)}" r="3"/>`
-        : `<path class="cycle-line${estimate}" d="M${path.map((point) => `${px(point.at)} ${py(point.value)}`).join("L")}"/>`;
-    })
-    .join("");
-  // Leituras fora da faixa calibrada: o valor fica, marcado.
-  const flags = points
-    .filter((point) => point.raw.out_of_range)
-    .map((point) => `<circle class="cycle-off" cx="${px(point.at)}" cy="${py(point.value)}" r="4"><title>Fora da faixa calibrada · ${esc(fmtDateTime(point.raw.received_at))}</title></circle>`)
-    .join("");
-  const marks = events
-    .filter((event) => new Date(event.recorded_at).getTime() >= fromAt)
-    .map((event) => {
-      const x = px(new Date(event.recorded_at).getTime());
-      const text = `${GLAND_KIND[event.kind] || event.kind}${event.initial_mm == null ? "" : " · " + fmtMm(event.initial_mm, 2)} · ${fmtDateTime(event.recorded_at)}`;
-      return `<path class="chart-riser${event.kind === "check" ? " cycle-check" : ""}" d="M${x} 4V116"><title>${esc(text)}</title></path>`;
-    })
-    .join("");
-  $id("cycleChart").innerHTML = marks + lines + flags;
-  // O eixo tem a mesma largura do gráfico principal (os dois compartilham o eixo do tempo); a unidade fica na legenda.
-  $id("cycleAxis").innerHTML = [high, (high + low) / 2, low].map((value) => `<span>${fmtNum(value, usePercent || high - low >= 20 ? 0 : 1)}</span>`).join("");
-  const last = points[points.length - 1];
-  const tail = !last
-    ? ""
-    : ` · ${fmtMm(last.raw.distance_mm, 2)}` +
-      (last.raw.advance_mm != null ? ` · avanço ${fmtMm(last.raw.advance_mm, 2)}` : "") +
-      (last.raw.voltage_mv != null ? ` · ${fmtVolt(last.raw.voltage_mv)} calibrada` : "") +
-      (last.raw.nominal || Number(last.raw.rule) === 1 ? " · estimativa (regra anterior)" : "") +
-      (last.raw.out_of_range ? " · fora da faixa calibrada" : "");
-  $id("cycleShown").textContent = !points.length
-    ? "Ciclo de gaxeta: eventos no período, sem leitura com distância calculada (sem calibração de distância ou aguardando referência)."
-    : usePercent
-      ? `Ajuste pelo ciclo de gaxeta (% da distância inicial) · último ${fmtNum(last.raw.percent)} %${tail}`
-      : `Distância pelo ciclo de gaxeta (mm), sem percentual · última${tail.replace(/^ ·/, "")}`;
 }
 
 // ---- 65-assets.js ----
@@ -3584,10 +2702,10 @@ const MISSING_FEATURE_TEXT = "Esta função depende da atualização do banco de
 // "Corporação gravada", "TAG gravado": concordância com o nível.
 const kindDone = (kind, verb) => verb + (["corporation", "company", "area", "subarea"].includes(kind) ? "a" : "o");
 const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.ctx.can_write && access === "full");
-// Leitura e condição do sensor pelo ciclo de gaxeta (ou "Sem referência" quando não há engaxetamento registrado).
-const cycleReading = (device) => {
-  const view = deviceCycle(device);
-  return `<span class="spot-reading"${view.electric ? ' title="Posição elétrica do sensor (% da escala do ADC). Não é o ajuste da gaxeta."' : ""}>${view.value}${view.unit === "%" || view.unit === "mm" ? " " + view.unit : view.electric && view.unit ? " % elétr." : ""}</span><span class="adjustment-badge health-${view.key}">${esc(view.label)}</span>`;
+// Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
+const spotReading = (device) => {
+  const view = deviceView(device);
+  return `<span class="spot-reading" title="Posição elétrica do potenciômetro (leitura atual)">${esc(view.value)}${view.unit ? " %" : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);
@@ -3629,7 +2747,7 @@ function equipmentInspector(asset, overview, problem) {
         `<button class="spot-name" data-act="open-spot" data-spot="${spot.id}" title="Abrir o spot na árvore">${icon("map-pin")}<b>${esc(spot.name)}</b>${spot.standard_name ? "" : '<em class="legacy-flag" title="Nome anterior à padronização (LOA, LA, UNICO)">nome anterior</em>'}</button>` +
         `<span class="spot-position">${esc(spot.position || "Posição não informada")}</span>` +
         (sensor
-          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${cycleReading(sensor)}${connBadge(sensor)}</span>` +
+          ? `<span class="spot-sensor"><b>${esc(deviceLabel(sensor))}</b>${spotReading(sensor)}${connBadge(sensor)}</span>` +
             `<span class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></span>`
           : `<span class="spot-sensor none">Sem sensor vinculado</span>` +
             `<span class="row-actions">${linkable ? `<button class="primary compact" data-act="spot-link" data-spot="${spot.id}">Vincular sensor</button>` : ""}</span>`) +
@@ -3682,7 +2800,7 @@ async function renderInspector() {
     sensor = (await unwrap(sb.from("gaxeta_devices").select("*").eq("measurement_point_id", assetId).limit(1)))[0] || null;
     if (sensor) {
       mergeDevices([sensor]);
-      await loadGlandSummary([sensor.sensor_id]).catch(() => {});
+      await loadTelemetrySummary([sensor.sensor_id]).catch(() => {});
     }
   } else if (asset.kind === "equipment") {
     // Spots, sensores e ficha vêm do banco numa chamada: a contagem não depende do que a grade já carregou.
@@ -3693,7 +2811,7 @@ async function renderInspector() {
       mergeDevices(overview.spots.map((spot) => spot.sensor).filter(Boolean));
       rememberAssets(overview.spots.map((spot) => ({ id: spot.id, parent_id: assetId, kind: "point", name: spot.name, position: spot.position })));
       equipTypeIndex.set(assetId, overview.details?.equipment_type || null);
-      await loadGlandSummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
+      await loadTelemetrySummary(overview.spots.map((spot) => spot.sensor?.sensor_id)).catch(() => {});
     } catch (error) {
       problem = isMissingFeature(error) ? MISSING_FEATURE_TEXT : "Não foi possível carregar spots e ficha deste TAG: " + errorText(error);
     }
@@ -3710,7 +2828,7 @@ async function renderInspector() {
     asset.kind !== "point"
       ? ""
       : sensor
-        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${cycleReading(sensor)} ${connBadge(sensor)}</span></div>` +
+        ? `<div class="inspector-sensor"><div><small>Sensor vinculado</small><strong>${esc(deviceLabel(sensor))}</strong><span>${spotReading(sensor)} ${connBadge(sensor)}</span></div>` +
           `<div class="row-actions"><button class="secondary compact" data-act="sensor-detail" data-sensor="${esc(sensor.sensor_id)}">Detalhes</button><button class="secondary compact" data-act="sensor-history" data-sensor="${esc(sensor.sensor_id)}">Histórico</button></div></div>`
         : `<div class="inspector-sensor empty"><div><small>Sensor</small><strong>Aguardando instalação</strong><span>Nenhum sensor vinculado a este spot.</span></div>` +
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
@@ -3926,7 +3044,7 @@ const DELETE_BLOCKERS = [
   ["children", "níveis diretamente abaixo", "spots cadastrados neste equipamento"],
   ["linked_sensors", "sensores vinculados", "sensores vinculados aos spots"],
   ["gateways", "gateways", "gateways"],
-  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos, a telemetria e os ciclos de gaxeta desses spots são preservados"],
+  ["link_history", "registros de instalação (histórico de vínculos)", "registros de instalação de sensor: o histórico de vínculos e a telemetria desses spots são preservados"],
   ["users", "usuários vinculados à corporação", "usuários vinculados"],
 ];
 // Identificação do equipamento no diálogo: nome e TAG sempre à vista.
@@ -4064,11 +3182,10 @@ $id("linkResults").onclick = async (event) => {
 //   * Leitura atual (leve, a cada ciclo) separada da consulta de histórico (pesada,
 //     só quando o período pede). Uma solicitação por combinação; respostas e erros
 //     de pedidos substituídos são descartados e a requisição é cancelada.
-//   * O gráfico principal é a série ELÉTRICA do sensor (posição em % da escala do ADC):
+//   * O gráfico é a série ELÉTRICA do sensor (posição em % da escala elétrica da placa):
 //     leitura atual (média bruta de cada intervalo) e linha estabilizada em degraus, que só
-//     muda com variação de 5 p.p. Nenhuma das duas recebe classificação mecânica
-//     ("Sem ajuste", "Baixo"…): a condição da gaxeta vem só do ciclo calibrado.
-// O cálculo, os limites da consulta e as colunas existentes dos CSV não mudaram.
+//     muda com variação de 5 p.p. Não há classificação mecânica, milímetros nem ciclo.
+//   * Os CSV trazem só telemetria elétrica: posição (%), tensão (V), ADC e escala.
 // =============================================================================
 const telem = {
   matchIds: null, // resultado da busca do seletor (null = sem filtro)
@@ -4200,10 +3317,8 @@ async function loadHistory({ auto = false } = {}) {
   if (!sensorId) {
     resetTelemetryData();
     renderHistory();
-    $id("cyclePanel").hidden = true;
     return;
   }
-  if (telem.loaded?.sensorId !== sensorId) $id("cyclePanel").hidden = true; // não mostra o ciclo de outro sensor
   // A atualização automática nunca compete com um pedido de quem está usando.
   if (auto && telem.pending) return;
   // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
@@ -4234,8 +3349,6 @@ async function loadHistory({ auto = false } = {}) {
     };
     telem.error = "";
     telem.lastLoadAt = Date.now();
-    // Ajuste pelo ciclo de gaxeta no mesmo período: consulta separada, sem atrasar o gráfico principal.
-    loadCycleHistory(sensorId, range, token);
   } catch (error) {
     if (token !== telem.request) return; // pedido substituído: o erro dele não interessa mais
     telem.error = historyErrorText(error);
@@ -4303,9 +3416,10 @@ function buildStableSegments(movements, seed, fromValue, toValue, lastValue) {
 function renderTelemetryLive() {
   const device = currentDevice();
   const identity = deviceIdentity(device);
-  // Condição pelo ciclo de gaxeta; o gráfico abaixo é a série elétrica do sensor (ADC).
-  // Os mesmos números de Sensores → Detalhes: os dois saem de state.devices e state.gland.
-  const health = device ? deviceCycle(device) : cycleView(null, null);
+  // Os mesmos números de Sensores → Detalhes: os dois saem de state.devices e state.live.
+  const live = device ? deviceLive(device) : null;
+  const view = electricView(device, live);
+  const electric = view.electric;
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
   $id("historyTitle").title = identity.path || "";
   $id("historyContext").textContent = !device
@@ -4314,41 +3428,28 @@ function renderTelemetryLive() {
       ? `Sensor: ${identity.sensor} · Spot: ${identity.spot}`
       : `Sensor sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
-  const gland = device && !state.glandMissing ? state.gland.get(device.sensor_id) : null;
-  const electric = electricInfo(device, gland);
-  $id("historyCurrentLabel").textContent = health.mode === "cycle" ? "Ajuste do ciclo" : health.mode === "distance" ? "Distância atual" : health.mode === "legacy" ? "Posição elétrica estabilizada" : "Posição elétrica" + (electric.label ? " · " + electric.label : "");
-  $id("historyCurrent").textContent = health.mode === "cycle" || health.mode === "distance" || health.mode === "legacy" ? `${health.value} ${health.unit}` : electric.text;
-  $id("historyHealthBox").className = "summary-main health-" + health.key;
-  $id("historyHealth").textContent = health.label;
-  $id("historyAction").textContent = health.warn || health.action;
-  // Posição elétrica, tensão, distância e ajuste do ciclo lado a lado, da mesma leitura.
-  // Sem escala validada, ciclo e milímetros ficam indisponíveis, com o passo que falta na dica.
-  const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
-  const volt = voltageInfo(device, gland);
-  const missing = glandMissingStep(gland);
-  $id("historyDistance").textContent = computed ? fmtMm(gland.distance_mm, 2) + (gland.state === "out_of_range" ? " *" : "") : device ? "indisponível" : "—";
-  $id("historyDistance").title = computed && gland.state === "out_of_range" ? "Fora da faixa calibrada: valor calculado, sem classificação" : computed && Number(gland.rule) !== 2 ? "Estimativa: ciclo registrado na regra anterior" : computed ? "" : "Para ter a distância: " + missing.distance;
-  $id("historyPercent").textContent = computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" + (Number(gland.rule) !== 2 ? " (est.)" : "") : device ? "indisponível" : "—";
-  $id("historyPercent").title = computed && gland.percent != null ? "" : "Para ter o percentual do ciclo: " + missing.percent;
+  $id("historyCurrentLabel").textContent = "Posição elétrica" + (electric.label ? " · " + electric.label : "");
+  $id("historyCurrent").textContent = electric.text;
+  $id("historyHealthBox").className = "summary-main health-" + view.key;
+  $id("historyHealth").textContent = view.label;
+  $id("historyAction").textContent = view.note;
+  // Posição elétrica, tensão e linha estabilizada lado a lado, da mesma leitura.
+  const volt = voltageInfo(device, live);
   $id("historyVoltLabel").textContent = volt.source ? `Tensão ${volt.source} (V)` : "Tensão (V)";
-  $id("historyVolt").textContent = volt.text + (electric.block && electric.block !== "ok" && BLOCK_SHORT[electric.block] ? " *" : "");
+  $id("historyVolt").textContent = volt.text + (electric.block && electric.block !== "ok" && electric.block !== "unknown" && BLOCK_SHORT[electric.block] ? " *" : "");
   $id("historyVolt").title = [volt.title, electric.block ? "Condição do bloco: " + (BLOCK_TEXT[electric.block] || "—") : ""].filter(Boolean).join(". ");
   $id("historyRawNow").textContent = electric.text;
-  $id("historyRawNow").title = electric.label ? electric.label + ": " + (BLOCK_HINT[electric.block] || "") : "Leitura atual, sem a estabilização de 5 p.p.";
+  $id("historyRawNow").title = (electric.label ? electric.label + ": " + (BLOCK_HINT[electric.block] || "") + " " : "Leitura atual, sem a estabilização de 5 p.p. ") + "Em % da " + scaleText(electric.scale) + ".";
+  $id("historyStableNow").textContent = device?.stable_percent == null ? "—" : fmtNum(device.stable_percent) + " %";
   $id("historyDelta").textContent = rawDeltaText(device).split(" · ").slice(0, 2).join(" · ") || "—";
   const cadence = firmwareCadence(device?.firmware_version);
   $id("historyReading").textContent = !device
     ? ""
     : `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` +
-      (electric.label ? ` · ${electric.label}` : electric.block && electric.block !== "ok" ? ` · ${BLOCK_SHORT[electric.block]}` : "") +
-      ` · linha estabilizada em ${fmtNum(device.stable_percent)} %` +
+      (electric.label ? ` · ${electric.label}` : electric.block && electric.block !== "ok" && electric.block !== "unknown" ? ` · ${BLOCK_SHORT[electric.block]}` : "") +
       (cadence ? ` · ${cadence.text}` : "") +
-      (glandCadastro(gland) ? ` · ${glandCadastro(gland)}` : "");
-  $id("historySince").textContent = gland?.recorded_at
-    ? `${health.sub ? health.sub + " · " : ""}referência de ${fmtDateTime(gland.recorded_at)}`
-    : device?.stable_since
-      ? "Sensor estável desde " + fmtDateTime(device.stable_since)
-      : "";
+      (electric.scale ? ` · ${scaleText(electric.scale)}` : "");
+  $id("historySince").textContent = device?.stable_since ? "Linha estabilizada desde " + fmtDateTime(device.stable_since) : "";
   $id("historyEdit").disabled = !device;
 }
 // O que está em tela e o que está sendo carregado, sempre explícito.
@@ -4441,9 +3542,10 @@ function renderHistory() {
         .join(" ") +
       " Z"
     : "";
-  // Leitura atual: a média bruta de cada intervalo, sem filtro. É ela que mostra um avanço de
-  // 1 a 2 mm, que a linha estabilizada (5 p.p.) pode não mostrar. A linha quebra em lacunas longas.
-  const gapMs = Math.max(3 * (Number(loaded?.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(state.gland.get(state.sensorId)?.interval_s) || 0) * 1000);
+  // Leitura atual: a média bruta de cada intervalo, sem filtro. É ela que mostra o giro pequeno
+  // que a linha estabilizada (5 p.p.) não mostra. A linha quebra em lacunas longas.
+  const gapDevice = currentDevice();
+  const gapMs = Math.max(3 * (Number(loaded?.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(gapDevice ? deviceInterval(gapDevice) : 0) || 0) * 1000);
   let rawPath = "";
   rows.forEach((row, index) => {
     const previous = rows[index - 1];
@@ -4466,9 +3568,9 @@ function renderHistory() {
       .reverse()
       .map(
         (row) =>
-          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Leitura: ${fmtNum(row.travel_percent, 2)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.position_mm, 2)} mm</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${row.voltage_mv == null ? "—" : fmtVolt(row.voltage_mv)}</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
+          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${fmtNum(row.stable_percent)} %<small class="raw-average">Leitura: ${fmtNum(row.travel_percent, 2)}%</small></td><td>${fmtNum(row.min_percent)} / ${fmtNum(row.max_percent)} %</td><td>${fmtNum(row.voltage_v, 3)} V</td><td>${row.voltage_mv == null ? "—" : fmtVolt(row.voltage_mv)}</td><td>${fmtNum(row.samples, 0)}</td></tr>`,
       )
-      .join("") || '<tr><td colspan="7">Nenhuma leitura neste período.</td></tr>';
+      .join("") || '<tr><td colspan="6">Nenhuma leitura neste período.</td></tr>';
 }
 
 // ----- Período -----
@@ -4578,24 +3680,16 @@ $id("historyChart").onpointerup = (event) => {
 $id("exportCsv").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.history.length) return;
-  const fromAt = new Date(loaded.range.from).getTime();
-  const bucketMs = Math.max(1, Number(loaded.bucketSeconds) || 1) * 1000;
-  const bucketOf = (at) => Math.floor((new Date(at).getTime() - fromAt) / bucketMs);
-  const cycleByBucket = new Map((loaded.cycle?.points || []).map((point) => [bucketOf(point.received_at), point]));
   const text = [
-    // As colunas antigas não mudam de nome nem de conteúdo. As do ciclo vêm do mesmo cálculo do
-    // servidor usado na tela (gaxeta_gland_history), casadas por intervalo.
-    ["horario", "percentual_estabilizado", "media_percentual", "min_percentual", "max_percentual", "posicao_estimada_mm", "tensao_estimada_v", "leituras",
-      "tensao_calibrada_v", "adc_bruto", "distancia_ciclo_mm", "ajuste_ciclo_pct", "avanco_mm", "calculo_ciclo", "escala_dos_percentuais"],
-    ...loaded.history.map((row) => {
-      const cycle = cycleByBucket.get(bucketOf(row.received_at));
-      return [row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent, row.position_mm, row.voltage_v, row.samples,
-        row.voltage_mv == null ? "" : Number(row.voltage_mv) / 1000, row.adc_raw ?? "",
-        cycle?.distance_mm ?? "", cycle?.percent ?? "", cycle?.advance_mm ?? "",
-        !cycle ? "sem escala validada: so posicao eletrica" : cycle.out_of_range ? "fora da faixa calibrada" : cycle.nominal || Number(cycle.rule) === 1 ? "estimativa nominal (regra anterior)" : cycle.percent == null ? "calibrado, sem fim de ajuste valido" : "calibrado",
-        // percentual_estabilizado, media, min e max são a posição ELÉTRICA (% da escala do ADC); o ajuste da gaxeta é ajuste_ciclo_pct.
-        "posicao eletrica (% da escala do ADC)"];
-    }),
+    // Só telemetria elétrica. A tensão é a calibrada pelo ADC quando o firmware a envia; senão,
+    // a estimada (ADC × 3,3 ÷ 4095). A última coluna diz em que escala o percentual foi calculado.
+    ["horario", "posicao_eletrica_estabilizada_pct", "posicao_eletrica_media_pct", "posicao_eletrica_min_pct", "posicao_eletrica_max_pct",
+      "tensao_v", "origem_da_tensao", "tensao_estimada_v", "adc_bruto", "leituras", "escala_do_percentual"],
+    ...loaded.history.map((row) => [
+      row.received_at, row.stable_percent, row.travel_percent, row.min_percent, row.max_percent,
+      row.voltage_mv == null ? row.voltage_v : Number(row.voltage_mv) / 1000, row.voltage_mv == null ? "estimada" : "calibrada", row.voltage_v, row.adc_raw ?? "", row.samples,
+      (row.percent_scale || "adc bruto 0-4095") + (row.scale_mixed ? " (troca de escala neste intervalo)" : ""),
+    ]),
   ]
     .map((row) => row.map(csvCell).join(";"))
     .join("\r\n");
@@ -4610,8 +3704,8 @@ $id("exportMovements").onclick = async () => {
   if (!loaded?.movements.length) return;
   if (loaded.truncated) return showMessage("Reduza o período para exportar todas as mudanças.");
   const text = [
-    ["horario", "percentual_anterior", "percentual_estabilizado", "variacao_pontos", "regra", "escala_dos_percentuais"],
-    ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), move.rule_version, "posicao eletrica estabilizada (% da escala do ADC, mudancas de 5 p.p.)"]),
+    ["horario", "posicao_eletrica_anterior_pct", "posicao_eletrica_estabilizada_pct", "variacao_pontos", "regra"],
+    ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), "mudanca de 5 p.p. ou mais na posicao eletrica"]),
   ]
     .map((row) => row.map(csvCell).join(";"))
     .join("\r\n");

@@ -29,7 +29,6 @@ frontend/
         ├── 40-shell     estado, permissões, navegação, atualização periódica
         ├── 50-tree      árvore de ativos por ramo, busca
         ├── 60-sensors   lista paginada e painel lateral
-        ├── 62-gland     ciclo de gaxeta: estado, registro na marca superior, confirmação da leitura, conferência, manutenção, painel na Telemetria
         ├── 65-assets    ficha do nível, TAG + ficha técnica, spots do TAG, Excluir equipamento, vínculo sensor–spot
         ├── 70-telemetry identidade, histórico por contexto, gráfico por condição, CSV
         ├── 75-gateways  cadastro e edição
@@ -62,21 +61,19 @@ O servidor valida papéis e escopos nos dois casos; a diferença acima é só de
 - Tipos de equipamento: tabela `gaxeta_equipment_types`. A cópia em `equipCatalog` é o catálogo inicial e é substituída pela leitura do servidor ao entrar.
 - Campos da ficha técnica: `EQUIP_GROUPS` (`10-core.js`) e a tabela `gaxeta_equipment_details`.
 
-## Ciclo de gaxeta (migrações 08 a 11)
+## Posição elétrica (migrações 12 e 13)
 
-- Distância (mm), percentual (%) e avanço vêm do servidor: `gaxeta_gland_summary` (lista), `gaxeta_gland_status` (painel) e `gaxeta_gland_history` (gráfico e CSV). A tela não calcula: só aplica as faixas de `adjustmentInfo` e limita a exibição a 0–100 %, mantendo o aviso de fora da faixa.
-- `cycleView()` em `10-core.js` decide o que mostrar por estado (`active`, `waiting`, `no_scale`, `no_end`, `out_of_range`, `unusable`, `maintenance`, `no_reference`, `unlinked`). Só um ciclo calibrado da regra 2 recebe faixa e recomendação. Ciclo da regra anterior aparece como **Estimativa nominal**, sem classificação. Sem referência, o número é rotulado como escala elétrica (diagnóstico).
-- `voltageInfo()` devolve a tensão com a origem: **calibrada** (`last_voltage_mv`, firmware 4.3.0+) ou **estimada** (`last_voltage_v`). A tensão nunca aparece sem a origem.
-- Registro: o diálogo exige marcar que o potenciômetro está na marca superior. Enquanto a marca da instalação não tem faixa elétrica, o painel mostra a leitura candidata e o botão **Confirmar leitura na marca superior** (`gaxeta_confirm_gland_anchor`).
-- O registro usa `gaxeta_record_gland_event` com um identificador de solicitação gerado ao abrir o diálogo: reenviar depois de uma queda de rede não duplica. Conflito (`PT409`) relê o estado e pede nova confirmação.
-- Se o banco ainda não tiver as funções (`PGRST202`), `state.glandMissing` liga e a tela volta à apresentação anterior, sem erro.
-- **Cadastro × leitura** (migração 11): a caixa da marca superior é a declaração física do técnico e continua obrigatória. Desmarcada, nada é enviado, os valores ficam e o foco vai para a caixa. Marcada, o cadastro é gravado mesmo com a leitura no limite do ADC; a tela mostra o número e o horário do registro e **Medidas salvas · aguardando leitura apta**. Se a resposta se perder, `reconcileGlandRequest()` procura o registro pela mesma chave (`request_id`, devolvida por `gaxeta_gland_status` só ao autor) antes de oferecer outro envio. A tela só mostra como cadastrado o que o servidor devolveu.
-- **Posição elétrica** (`electricInfo()`): leitura atual em % da escala do ADC. Bloco estável no teto aparece como 100 % com o rótulo **Limite do ADC**. `blockOf()` repete no navegador a regra de `gaxeta_private.gland_block` (teto estável, bloco misto, instável), para a tela funcionar igual com o banco na migração 10. Sem ciclo calculado, `cycleView()` mostra a posição elétrica como **% elétrico** e `glandMissingStep()` dá o passo que falta para a distância e para o percentual.
-- **Bloco fixo em Detalhes** (`updateDrawerLive()`): posição elétrica, tensão com origem e condição, distância e ajuste do ciclo, horário, variação bruta desde o envio anterior (`rawDeltaText()`), cadência do firmware (`firmwareCadence()`, sufixos `-hibNNN` e `-contNN`) e medidas cadastradas. A Telemetria usa os mesmos dados (`state.devices` e `state.gland`), atualizados a cada ciclo de 5 s.
-- **Série elétrica na Telemetria**: o gráfico principal mostra a leitura atual (média bruta por intervalo, `.chart-raw`) e a linha estabilizada de 5 p.p. (`.chart-electric`), sem as cores e os nomes das faixas de ajuste. A árvore (`treeSensorValue()`) mostra o ajuste do ciclo quando há ciclo calculado e, nos demais casos, a posição elétrica rotulada. Os CSV mantêm as colunas e ganham `escala_dos_percentuais`.
-- **Confirmação da referência**: a leitura candidata traz idade, transporte e o limite para confirmar. Se o sensor já mostrou posição mais alta depois do registro, a confirmação exige a declaração do técnico (`p_ack_lower`); o parâmetro só é enviado nesse caso, para a chamada continuar válida no banco da migração 10.
-- **Comissionamento em dois pontos** (`glandSteps()`, `commissionGland()`): topo aprovado, conferência no fim de ajuste (botão **Estou no fim de ajuste**), ponto intermediário e **Gravar no perfil da instalação** (`gaxeta_commission_gland`, níveis 1 e 2).
-- Situação de transmissão: `connectionStatus()` usa a cadência observada (`interval_s` do resumo). Até 12 s vale a regra original de 25 s / 65 s.
+A plataforma mostra uma única medida de posição: a posição elétrica do potenciômetro, em %, e a tensão, em V. O fluxo de calibração mecânica (registrar engaxetamento, manutenção, confirmar marca, conferir medida, comissionamento, perfil, mm, avanço, ciclo) foi retirado e o módulo `62-gland.js` não existe mais.
+
+- `electricInfo()` e `electricView()` (`10-core.js`): o número de todo cartão, da árvore, de Detalhes e da Telemetria é `last_percent` do sensor, a leitura atual em % da escala elétrica da placa. Bloco estável no teto aparece como 100 % com **Limite do ADC**.
+- Condição do sinal (`BLOCK_QUALITY`): `electric` (leitura boa), `limit` (saturação do ADC), `warn` (bloco misto ou instável: cursor solto, entrada sem potenciômetro ou giro durante a leitura) e `unknown` (sem leitura). Não há classificação mecânica nem recomendação de intervenção. `blockOf()` repete no navegador a regra de `gaxeta_private.adc_block`.
+- Escala do percentual (`scaleText()`): `last_percent_scale` nulo é o ADC bruto de 0 a 4095; `mv-140-2400` e `adc-180-3170` são limites fixos definidos no firmware da placa.
+- Resumo por sensor: `loadTelemetrySummary()` (`40-shell.js`) chama `gaxeta_telemetry_summary` e guarda em `state.live`. Se o banco ainda não tiver a função (`PGRST202`), `state.liveMissing` liga e a tela segue só com os campos do sensor.
+- Cadência (`deviceInterval()`): a medida nos últimos envios (`interval_s` do resumo) ou, sem ela, a declarada pelo firmware no sufixo da versão (`-cont30`, `-hib180`).
+- Linha estabilizada: `stable_percent` vem do servidor (`gaxeta_private.stabilize`, 5 p.p.). O navegador não aplica outro filtro.
+- CSV de intervalos: `posicao_eletrica_estabilizada_pct`, `_media_pct`, `_min_pct`, `_max_pct`, `tensao_v`, `origem_da_tensao`, `tensao_estimada_v`, `adc_bruto`, `leituras` e `escala_do_percentual`. Não há coluna em mm nem de ciclo.
+- Cartões de sensor (`app.css`): a coluna interna é `minmax(0, 1fr)`, todo filho pode encolher e cabeçalho, situação e rodapé quebram de linha. O conteúdo não atravessa a borda de 320 px a 1470 px.
+- Situação de transmissão: `connectionStatus()` usa a cadência de `deviceInterval()`. Até 12 s vale a regra original de 25 s / 65 s.
 
 ## Manual
 

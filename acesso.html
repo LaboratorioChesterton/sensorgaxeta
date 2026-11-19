@@ -175,11 +175,10 @@
         <div class="summary-condition"><span id="historyHealth" class="adjustment-badge">Sem leitura</span><small id="historyAction"></small><small id="historySince" class="summary-since"></small></div>
       </div>
       <dl class="summary-stats">
-        <div><dt title="Leitura atual do potenciômetro na escala do ADC, em %. Não é o ajuste da gaxeta.">Posição elétrica (%)</dt><dd id="historyRawNow">—</dd></div>
+        <div><dt title="Leitura atual do potenciômetro, em % da escala elétrica da placa (0 % no mínimo, 100 % no máximo).">Posição elétrica (%)</dt><dd id="historyRawNow">—</dd></div>
         <div><dt id="historyVoltLabel">Tensão (V)</dt><dd id="historyVolt">—</dd></div>
-        <div><dt>Distância atual (mm)</dt><dd id="historyDistance">—</dd></div>
-        <div><dt>Ajuste do ciclo (%)</dt><dd id="historyPercent">—</dd></div>
-        <div><dt title="Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p.">Variação bruta</dt><dd id="historyDelta">—</dd></div>
+        <div><dt title="Posição elétrica estabilizada: só muda com variação de 5 pontos percentuais ou mais.">Linha estabilizada (%)</dt><dd id="historyStableNow">—</dd></div>
+        <div><dt title="Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p.">Variação desde o envio anterior</dt><dd id="historyDelta">—</dd></div>
         <div><dt title="Menor posição elétrica do período">Mín. elétrico</dt><dd id="historyMin">—</dd></div>
         <div><dt title="Maior posição elétrica do período">Máx. elétrico</dt><dd id="historyMax">—</dd></div>
         <div><dt>Leituras</dt><dd id="historyCount">—</dd></div>
@@ -195,7 +194,7 @@
     <div class="chart-panel">
       <div class="chart-caption">
         <span id="historyShown" class="chart-shown" role="status" aria-live="polite"></span>
-        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala elétrica do ADC. A leitura atual é a média de cada intervalo, sem filtro; a linha estabilizada só muda com variação de 5 pontos ou mais. É a série elétrica do sensor, sem classificação mecânica. O ajuste da gaxeta (distância e percentual do ciclo) aparece no topo e no painel abaixo.">Posição elétrica do sensor (% da escala do ADC)</span>
+        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala elétrica do ADC. A leitura atual é a média de cada intervalo, sem filtro; a linha estabilizada só muda com variação de 5 pontos ou mais. É a série elétrica do sensor.">Posição elétrica do sensor (% da escala elétrica)</span>
         <ul class="chart-legend" aria-label="Legenda da série elétrica">
           <li class="legend-raw"><i></i>Leitura atual (média por intervalo)</li><li class="legend-stable"><i></i>Linha estabilizada (5 p.p.)</li><li class="legend-change"><i></i>Mudança da linha estabilizada</li>
         </ul>
@@ -206,16 +205,9 @@
       <div class="x-axis"><span id="chartFrom">—</span><span id="chartTo">—</span></div>
       <div class="chart-footer"><span>Arraste sobre o gráfico para ampliar. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
     </div>
-    <div id="cyclePanel" class="chart-panel cycle-panel" hidden>
-      <div class="chart-caption">
-        <span id="cycleShown" class="chart-shown" role="status"></span>
-        <ul class="chart-legend" aria-label="Legenda do ciclo de gaxeta"><li class="legend-cycle"><i></i>Ajuste pelo ciclo de gaxeta</li><li class="legend-estimate"><i></i>Estimativa (regra anterior)</li><li class="legend-off"><i></i>Fora da faixa calibrada</li><li class="legend-change"><i></i>Engaxetamento, reajuste, conferência ou manutenção</li></ul>
-      </div>
-      <div class="chart-layout cycle-layout"><div class="y-axis" id="cycleAxis"><span>100</span><span>50</span><span>0</span></div><div class="chart-surface"><svg id="cycleChart" viewBox="0 0 1000 120" preserveAspectRatio="none" role="img" aria-label="Ajuste do ciclo de gaxeta no período"></svg></div></div>
-    </div>
     <div class="movement-heading"><div><h3>Mudanças da linha estabilizada (posição elétrica)</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
     <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Posição elétrica anterior</th><th>Nova posição elétrica</th><th>Variação</th></tr></thead><tbody id="movementRows"></tbody></table></div>
-    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Posição elétrica: estabilizada / leitura (média)</th><th>Mín. / máx. elétrico</th><th>Posição nominal (firmware)</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
+    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Posição elétrica: estabilizada / leitura (média)</th><th>Mín. / máx. elétrico</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
   </section>
 
   <!-- Gateways -->
@@ -328,24 +320,6 @@
   <div class="dialog-actions"><button type="button" id="userBack" class="secondary">Voltar</button><button type="submit" id="userNext" class="primary">Avançar</button></div>
 </form></dialog>
 
-<dialog id="glandDialog"><form id="glandForm" novalidate>
-  <div class="dialog-heading"><h2 id="glandTitle">Registrar engaxetamento</h2><button type="button" data-close="glandDialog" class="icon-button" aria-label="Fechar">×</button></div>
-  <p id="glandContext" class="form-context"></p>
-  <fieldset id="glandKindField" class="choice-row"><legend>Serviço executado</legend>
-    <label class="check"><input type="radio" name="glandKind" value="replacement" checked> Troca completa da gaxeta</label>
-    <label class="check"><input type="radio" name="glandKind" value="adjustment"> Reajuste da gaxeta existente</label>
-  </fieldset>
-  <label id="glandTopField" class="check"><input id="glandTop" type="checkbox"> Coloquei o potenciômetro na marca superior desta montagem (conferi pela marca física)</label>
-  <label><span id="glandMmLabel">Distância inicial (100 %) — medida com o paquímetro, em mm</span><input id="glandMm" inputmode="decimal" maxlength="14" required autocomplete="off" placeholder="ex.: 15"></label>
-  <button type="button" id="glandAtEnd" class="text-button" hidden></button>
-  <label id="glandEndField">Distância no fim de ajuste (0 %, opcional), em mm<input id="glandEnd" inputmode="decimal" maxlength="14" autocomplete="off" placeholder="ex.: 3"></label>
-  <p id="glandCourse" class="gland-course" role="status" aria-live="polite"></p>
-  <p id="glandHelp" class="form-help"></p>
-  <p id="glandLive" class="form-context"></p>
-  <p id="glandMessage" class="form-message" role="status"></p>
-  <div class="dialog-actions"><button type="button" data-close="glandDialog" class="secondary">Cancelar</button><button class="primary" id="glandSubmit">Registrar engaxetamento</button></div>
-</form></dialog>
-
 <dialog id="confirmDialog"><form method="dialog">
   <div class="dialog-heading"><h2 id="confirmTitle">Confirmar</h2></div>
   <div id="confirmBody" class="confirm-body"></div>
@@ -360,7 +334,7 @@
   <div id="bleDevices" class="ble-devices"></div>
   <div id="bleLive" hidden>
     <div class="ble-identity"><strong id="bleName">—</strong><code id="bleIdentity">—</code></div>
-    <div class="ble-values"><div><strong id="blePercent">—</strong><span>deslocamento</span></div><div><strong id="bleVoltage">—</strong><span>tensão estimada</span></div></div>
+    <div class="ble-values"><div><strong id="blePercent">—</strong><span>posição elétrica</span></div><div><strong id="bleVoltage">—</strong><span>tensão estimada</span></div></div>
     <p id="bleTimestamp"></p>
     <button id="identifyBle" class="secondary">Identificar: piscar LED</button>
     <button id="linkBle" class="primary">Abrir este sensor na plataforma</button>

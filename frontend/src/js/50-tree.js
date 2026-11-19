@@ -51,14 +51,10 @@ function canEditAsset(asset) {
   if (role === "adm2") return asset.kind !== "corporation";
   return role === "corp" && state.ctx.can_write && ["area", "subarea", "equipment", "point"].includes(asset.kind) && asset.access === "full";
 }
-// Valor ao lado do sensor na árvore: o ajuste do ciclo quando há ciclo calculado; senão a posição
-// elétrica (leitura atual), sempre identificada como elétrica e sem classificação mecânica.
+// Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
-  const view = deviceCycle(sensor);
-  if (view.mode === "cycle" || view.mode === "distance")
-    return `<strong title="${esc(view.label + (view.sub ? " · " + view.sub : ""))}">${esc(view.value)}${view.unit === "%" ? "%" : " " + esc(view.unit)}</strong>`;
-  const electric = electricInfo(sensor, state.glandMissing ? null : state.gland.get(sensor.sensor_id));
-  return `<strong class="tree-electric" title="Posição elétrica do sensor (leitura atual, % da escala do ADC)${electric.label ? " · " + electric.label : ""}. Não é o ajuste da gaxeta.">${esc(electric.percent == null ? "—" : fmtNum(electric.percent))}% <small>elétr.</small></strong>`;
+  const view = deviceView(sensor);
+  return `<strong class="tree-electric" title="Posição elétrica: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${view.unit ? "%" : ""}</strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));

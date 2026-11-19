@@ -32,7 +32,7 @@ async function loadSensors({ quiet = false } = {}) {
     view.offset = Math.max(0, view.offset - CONFIG.pageSize);
     return loadSensors({ quiet });
   }
-  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadGlandSummary(view.ids)]);
+  await Promise.all([ensureAssets(page.items.map((device) => device.measurement_point_id)), loadTelemetrySummary(view.ids)]);
   if (run !== view.request) return;
   if (!state.assetId && !view.search && view.filter === "all") {
     // Com todos os sensores na página, a contagem usa a cadência de cada um (placa que
@@ -69,21 +69,24 @@ function renderSensorGrid() {
     devices
       .map((device) => {
         const status = deviceStatus(device);
-        // Ajuste pelo ciclo de gaxeta (referência do engaxetamento); sem referência, só a posição do sensor.
-        const health = deviceCycle(device);
+        // Um único número: a posição elétrica do potenciômetro (%), com a condição do sinal.
+        const view = deviceView(device);
         // Identidade curta: TAG · tipo · spot. O caminho completo fica na dica e em Detalhes.
         const identity = deviceIdentity(device);
         const place = identity.linked ? `${identity.title} · ${identity.spot}` : "";
         // Tensão sempre com a origem: calibrada pelo ADC (firmware 4.3.0+) ou estimada.
-        const volt = voltageInfo(device, state.gland.get(device.sensor_id));
+        const volt = voltageInfo(device, deviceLive(device));
+        const name = deviceLabel(device);
         return (
-          `<article class="sensor-card health-${health.key}" data-card="${esc(device.sensor_id)}">` +
-          `<header><strong>${esc(deviceLabel(device))}</strong><span class="conn"><i class="dot ${status.className}"></i>${status.label}</span></header>` +
-          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path)}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
-          `<div class="card-main"><div class="card-value${health.unit === "%" ? "" : " small-unit"}">${health.value}<small>${health.unit}</small></div>` +
-          `<div class="card-side"><span class="adjustment-badge">${health.label}</span><small title="${esc(health.warn || health.action)}">${esc(health.warn || health.action)}</small></div></div>` +
-          `<div class="mini-scale${health.scale == null ? " idle" : ""}"><i style="width:${health.scale ?? 0}%"></i></div>` +
-          `<div class="card-meta"><span title="${esc(health.nominal ? "Ciclo registrado na regra anterior: estimativa pelo curso nominal do firmware, sem classificação" : health.electric ? "O número em destaque é a posição elétrica do sensor (leitura atual, em % da escala do ADC). Não é o ajuste da gaxeta." : "")}">${esc(health.sub || "Posição elétrica " + electricInfo(device, state.gland.get(device.sensor_id)).text)}</span><span class="volt" title="${esc(volt.title)}">${esc(volt.text)}${volt.short ? `<small>${esc(volt.short)}</small>` : ""}</span><span title="Última leitura">${fmtDateTime(device.last_received_at)}</span></div>` +
+          `<article class="sensor-card health-${view.key}" data-card="${esc(device.sensor_id)}">` +
+          `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
+          `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
+          `<div class="card-main"><div class="card-value" title="Posição elétrica do potenciômetro: leitura atual, em % da ${esc(scaleText(view.electric.scale))}">${view.value}<small>${view.unit}</small></div>` +
+          `<div class="card-side"><span class="card-kicker">Posição elétrica</span><span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+          `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="Posição elétrica: ${esc(view.value)} ${view.unit}"><i style="width:${view.scale ?? 0}%"></i></div>` +
+          `<div class="card-meta"><span class="volt" title="${esc(volt.title)}">Tensão ${esc(volt.text)}${volt.short ? `<small>${esc(volt.short)}</small>` : ""}</span>` +
+          `<span title="Linha estabilizada: só muda com variação de 5 pontos percentuais ou mais">Estável ${fmtNum(device.stable_percent)} %</span>` +
+          `<span title="Última leitura recebida">${fmtDateTime(device.last_received_at)}</span></div>` +
           `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
           (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
           `</footer></article>`
@@ -223,55 +226,48 @@ function updateDrawerLive() {
   const device = findDevice(state.drawer.sensorId);
   if (!device) return;
   const status = deviceStatus(device);
-  const health = deviceCycle(device);
-  const gland = state.gland.get(device.sensor_id);
-  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${status.label} · ${fmtDateTime(device.last_received_at)}`;
-  // Bloco fixo, também com o ciclo pendente: posição elétrica, tensão (origem e condição),
-  // distância e ajuste do ciclo, todos da mesma leitura, mais o horário e as medidas cadastradas.
-  // O que não pode ser calculado aparece como indisponível, com o passo que falta.
-  const computed = gland && gland.distance_mm != null && ["active", "no_end", "out_of_range"].includes(gland.state);
-  const volt = voltageInfo(device, gland);
-  const electric = electricInfo(device, gland);
-  const missing = glandMissingStep(gland);
+  const live = deviceLive(device);
+  const view = deviceView(device);
+  const electric = view.electric;
+  const volt = voltageInfo(device, live);
+  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
+  // Bloco fixo, igual para sensor com ou sem vínculo: posição elétrica e tensão da mesma leitura,
+  // a linha estabilizada (5 p.p.) e a condição do sinal.
   const tile = (id, value, note) => ($id(id).innerHTML = `${esc(value)}<small>${esc(note)}</small>`);
   tile("detailElectric", electric.text, electric.label || "leitura atual");
-  tile("detailVolt", volt.text, [volt.source, electric.block && electric.block !== "ok" ? BLOCK_SHORT[electric.block] : electric.block === "ok" ? "bloco bom" : ""].filter(Boolean).join(" · "));
+  tile("detailVolt", volt.text, volt.source || "sem leitura");
   $id("detailVolt").title = volt.title;
-  tile("detailRaw", computed ? fmtMm(gland.distance_mm, 2) : "indisponível", computed ? (gland.state === "out_of_range" ? "fora da faixa calibrada" : Number(gland.rule) !== 2 ? "estimativa (regra anterior)" : gland.advance_mm != null ? "avanço " + fmtMm(gland.advance_mm, 2) : "") : missing.distance);
-  tile("detailStable", computed && gland.percent != null ? fmtNum(Math.max(0, Math.min(100, Number(gland.percent)))) + " %" : "indisponível", computed && gland.percent != null ? (Number(gland.rule) !== 2 ? "estimativa (regra anterior)" : "do ciclo vigente") : missing.percent);
+  tile("detailStableLine", device.stable_percent == null ? "—" : fmtNum(device.stable_percent) + " %", "muda com 5 p.p. ou mais");
+  tile("detailSignal", view.label, BLOCK_SHORT[electric.block] && electric.block !== "ok" ? BLOCK_SHORT[electric.block] : "bloco de amostras bom");
   const delta = rawDeltaText(device);
   const cadence = firmwareCadence(device.firmware_version);
   $id("detailReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` +
-    (delta ? ` · variação bruta desde o envio anterior: ${delta}` : "") +
+    (delta ? ` · variação desde o envio anterior: ${delta}` : "") +
     (cadence ? ` · ${cadence.text}` : "");
-  const cadastro = glandCadastro(gland);
-  $id("detailCadastro").textContent = !cadastro
-    ? gland?.state === "maintenance" ? "Em manutenção: sem ciclo vigente." : "Nenhum engaxetamento cadastrado nesta instalação."
-    : `Ciclo vigente${gland.cycle_event_id ? " · registro nº " + gland.cycle_event_id : ""} de ${fmtDateTime(gland.recorded_at)} · ${cadastro}` +
-      (Number(gland.rule) !== 2 ? " · regra anterior" : gland.anchored === false || gland.state === "waiting" ? " · referência elétrica pendente" : " · referência elétrica aprovada");
-  $id("detailHealth").textContent = health.label + " · " + (health.warn || health.action);
+  $id("detailHealth").textContent = view.label + " · " + view.note;
+  $id("detailHealth").className = "health-banner health-" + view.key;
   if ($id("detailDiag")) {
     const block = device.last_adc_min != null && device.last_adc_max != null ? ` (bloco de ${fmtNum(device.last_adc_min, 0)} a ${fmtNum(device.last_adc_max, 0)})` : "";
-    const measured = Number(gland?.interval_s);
+    const measured = Number(live?.interval_s);
     const rows = [
-      ["Posição elétrica (leitura atual)", electric.text + (electric.label ? " · " + electric.label : "") + " da escala do ADC"],
-      ["Posição elétrica (linha estabilizada)", `${fmtNum(device.stable_percent)} % · muda só com variação de 5 p.p. ou mais`],
-      ["Variação bruta desde o envio anterior", delta || "aguardando o próximo envio"],
-      ["ADC bruto", device.last_adc_raw != null || gland?.adc != null ? fmtNum(device.last_adc_raw ?? gland.adc, 1) + " contagens" + block : "—"],
+      ["Posição elétrica (leitura atual)", electric.text + (electric.label ? " · " + electric.label : "")],
+      ["Escala do percentual", scaleText(electric.scale)],
+      ["Posição elétrica (linha estabilizada)", `${fmtNum(device.stable_percent)} % · muda só com variação de 5 p.p. ou mais` + (device.stable_since ? ` · desde ${fmtDateTime(device.stable_since)}` : "")],
+      ["Variação desde o envio anterior", delta || "aguardando o próximo envio"],
+      ["Tensão calibrada", device.last_voltage_mv != null ? fmtVolt(device.last_voltage_mv) : "não enviada por este firmware"],
+      ["Tensão estimada", device.last_voltage_v != null ? fmtNum(device.last_voltage_v, 3) + " V (ADC × 3,3 ÷ 4095)" : "—"],
+      ["ADC bruto", device.last_adc_raw != null || live?.adc != null ? fmtNum(device.last_adc_raw ?? live.adc, 1) + " contagens" + block : "—"],
       ["Dispersão do bloco", device.adc_noise != null ? fmtNum(device.adc_noise, 1) + " contagens" : "—"],
       ["Condição do bloco", BLOCK_TEXT[electric.block] || "—"],
       ...(BLOCK_HINT[electric.block] ? [["O que os dados indicam", BLOCK_HINT[electric.block]]] : []),
       ["Cadência", [cadence ? "declarada pelo firmware: " + cadence.text : "", Number.isFinite(measured) && measured > 0 ? "medida nos últimos envios: " + fmtInterval(measured) : ""].filter(Boolean).join(" · ") || "—"],
-      ["Tensão calibrada", device.last_voltage_mv != null ? fmtVolt(device.last_voltage_mv) : "não enviada por este firmware"],
-      ["Tensão estimada", device.last_voltage_v != null ? fmtNum(device.last_voltage_v, 3) + " V (ADC × 3,3 ÷ 4095)" : "—"],
       ["Método de aquisição", device.last_acq_method || "anterior ao 4.3.0"],
       ["Amostra colhida", fmtDateTime(device.last_sampled_at)],
       ["Recebida no servidor", fmtDateTime(device.last_received_at)],
     ];
     $id("detailDiag").innerHTML = rows.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("");
   }
-  $id("detailHealth").className = "health-banner health-" + health.key;
   if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
   if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
 }
@@ -289,8 +285,8 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica do sensor (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Distância atual (mm)</span><strong id="detailRaw" class="volt-value"></strong></div><div><span>Ajuste do ciclo (%)</span><strong id="detailStable" class="volt-value"></strong></div></div>` +
-    `<p id="detailReading" class="live-reading"></p><p id="detailCadastro" class="live-cadastro"></p>` +
+    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>` +
+    `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
   if (mode === "edit") {
@@ -371,18 +367,16 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
-      `</div><section id="glandPanel" class="gland-panel" aria-live="polite"></section>` +
+      `</div>` +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
       // Dados elétricos da leitura atual: servem para diagnosticar ligação, ruído e saturação.
-      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro na escala do ADC (0 a 4095). Ela não é o ajuste da gaxeta. Os avisos de limite vêm dessa escala e não medem a distância até o batente do potenciômetro.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
+      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A posição elétrica e a tensão valem sempre. Distância e percentual do ciclo valem depois da referência aprovada na marca superior e do segundo ponto medido. A tensão traz a origem: calibrada pelo ADC da placa ou estimada.</small></div>`;
-    glandPanelState.key = "";
-    refreshGlandPanel(true).catch((error) => showMessage(errorText(error), "error"));
+      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`;
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);
