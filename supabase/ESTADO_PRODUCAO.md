@@ -1,5 +1,21 @@
 # Estado da produção — SensorGaxeta
 
+## 19/11/2026: migração 12 aplicada, migração 13 pendente
+
+Conferido em 19/11/2026 às 11:17 (horário de Brasília).
+
+| # | Arquivo | Versão no histórico | Situação |
+|---|---|---|---|
+| 12 | `20261119141626_posicao_eletrica.sql` | `20261119141626` | **Aplicada** em 19/11 às 11:16. MD5 do SQL gravado igual ao do arquivo (`ab72fb22…c738`). |
+| 13 | `20261119142500_desativa_calibracao_mecanica.sql` | a definir na aplicação | **Não aplicada.** Só depois de publicar o site e instalar o APK desta entrega. |
+
+- As cinco funções da migração 12 (`gaxeta_ingest`, `gaxeta_ingest_v3`, `gaxeta_history`, `gaxeta_telemetry_summary`, `gaxeta_private.adc_block`) têm em produção o mesmo hash do banco local em que as 638 verificações rodaram.
+- A primeira tentativa de aplicação foi desfeita pelo próprio banco (impasse com uma leitura que chegava naquele instante); nada foi alterado. A migração passou a tomar as duas tabelas de uma vez, sem espera, e a segunda tentativa entrou.
+- Ingestão durante a aplicação: a placa `ESP32-4070298DBD44` (ESP32-C3, firmware 4.3.2-cont30) enviou às 11:14:38, 11:15:08, 11:15:38, 11:16:08 e 11:16:38, sem falha e sem intervalo perdido. O pacote antigo, com `position_mm`, continua aceito.
+- Permissões de `gaxeta_ingest` e `gaxeta_ingest_v3` iguais às anteriores. Eventos, referências e perfis do antigo ciclo: 6, 1 e 0, sem alteração. Mudanças de 5 p.p.: 115, sem alteração.
+- O site publicado (entrega de 18/11) continua funcionando com a migração 12: ele ainda chama `gaxeta_gland_summary`, que só sai de operação na migração 13.
+
+
 Conferido em 18/11/2026 às 14:05 (horário de Brasília). Projeto **SensorGaxeta**, PostgreSQL 17. O ambiente hospedado é o piloto em uso e continua em teste.
 
 ## Migrações: onze de onze aplicadas

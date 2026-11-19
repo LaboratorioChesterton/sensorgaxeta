@@ -24,12 +24,14 @@ echo "schemas restantes além da baseline: $(psql -q -At -d gaxeta_clean -c "sel
 # (3) Reversão apenas do corte, com tenants e usuários de corporação já cadastrados.
 if psql -q -At -d postgres -c "select 1 from pg_database where datname='gaxeta_dev'" | grep -q 1; then
   psql -q -At -d postgres -c "drop database if exists gaxeta_rb with (force)" -c "create database gaxeta_rb template gaxeta_dev" 2>/dev/null
+  # A reversão do corte não pode tocar a ingestão: compara com a função vigente antes de reverter.
+  ING_HASH="$(psql -q -At -d gaxeta_rb -c "select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure")"
   psql -q -v ON_ERROR_STOP=1 -d gaxeta_rb -f "$ROOT/supabase/rollback/20261111175658_telemetria_consultas.down.sql" -f "$ROOT/supabase/rollback/20261111175624_corte_acesso.down.sql"
   psql -q -At -d gaxeta_rb -c "select set_config('t.suite','90 reversão do corte',false);
     select t.ok(t.view_of(t.id('uA_all')) like 'false ativos=0 gateways=0 sensores=0 leituras=0 %', 'após reverter o corte, usuário de corporação fica sem acesso (não vê outra corporação)');
     select t.ok(t.view_of(t.id('uB_all')) like 'false ativos=0 %', 'idem para a outra corporação');
     select t.ok(t.view_of(t.id('adm2')) like 'false ativos=0 %', 'adm2/adm3 (fora da lista do piloto) ficam sem acesso');
-    select t.ok(t.view_of(t.id('adm1')) like 'true ativos=% sensores=12 %', 'contas administrativas do piloto seguem com a visão anterior');
-    select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '7be2a1efbbe41d30ac66c88098e3d0fc', 'ingestão intocada após a reversão');"
+    select t.ok(t.view_of(t.id('adm1')) like 'true ativos=% sensores=' || (select count(*) from public.gaxeta_devices where origin = 'esp32') || ' %', 'contas administrativas do piloto seguem com a visão anterior');
+    select t.eq((select md5(regexp_replace(prosrc, '\s+', '', 'g')) from pg_proc where oid = 'public.gaxeta_ingest(text,jsonb)'::regprocedure), '$ING_HASH', 'ingestão intocada após a reversão');"
   psql -q -d postgres -c "drop database gaxeta_rb with (force)"
 fi
