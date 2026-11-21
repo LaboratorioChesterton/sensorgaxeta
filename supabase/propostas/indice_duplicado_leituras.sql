@@ -1,0 +1,17 @@
+-- PROPOSTA, NÃO APLICADA. Remove um dos dois índices equivalentes de public.gaxeta_readings.
+--
+-- gaxeta_readings_sensor_time      (sensor_id, received_at DESC)
+-- gaxeta_readings_sensor_time_idx  (sensor_id, received_at)
+--
+-- Um índice b-tree é percorrido nos dois sentidos: os dois atendem às mesmas consultas. Em
+-- produção, em 21/11/2026, somavam 15,2 MB dos 51 MB da tabela (9,5 MB + 5,6 MB) e cada leitura
+-- gravada atualiza os dois.
+--
+-- Medido em cópia isolada com 476.882 leituras (tests/86_capacidade_15_dias.sh, 10 placas por
+-- 15 dias): sem o índice DESC a ingestão e as consultas da interface ficaram na mesma faixa
+-- (ingestão p50 1,2 a 1,4 ms; histórico de 15 dias 200 a 240 ms; resumo 1 a 2 ms) e a tabela
+-- ficou 40 MB menor (89 bytes por leitura, 17 % do total).
+--
+-- Não é urgente: com uma placa, 15 dias somam cerca de 23 MB. Aplique só se o espaço passar a
+-- pesar. Reversão: recriar o índice com a definição acima.
+drop index concurrently if exists public.gaxeta_readings_sensor_time;

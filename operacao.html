@@ -29,6 +29,7 @@
         <li><a href="#vinculo" data-section="vinculo">Vincular sensor</a></li>
         <li><a href="#sensores" data-section="sensores">Sensores</a></li>
         <li><a href="#eletrica" data-section="eletrica">Posição elétrica</a></li>
+        <li><a href="#magnetico" data-section="magnetico">Sensor magnético e curso restante</a></li>
         <li><a href="#telemetria" data-section="telemetria">Telemetria e CSV</a></li>
         <li><a href="#gateways" data-section="gateways">Gateways</a></li>
         <li><a href="#usuarios" data-section="usuarios">Usuários e acesso</a></li>
@@ -182,6 +183,39 @@
       </ul>
     </section>
 
+    <section id="magnetico">
+      <h2>Sensor magnético e curso de ajuste restante</h2>
+      <p>Placas com o sensor magnético <b>AS5600</b> não têm potenciômetro. Elas medem o <b>ângulo absoluto do ímã</b> preso ao eixo, de 0° a 359,9°, e informam a saúde do campo e do barramento. Nesses sensores a plataforma não mostra posição elétrica nem tensão: os quadros elétricos ficam vazios, nunca em zero.</p>
+      <div class="table-wrap"><table><thead><tr><th>O que aparece</th><th>O que é</th></tr></thead><tbody>
+        <tr><td>Ângulo do sensor (medido)</td><td>Posição absoluta do ímã na leitura atual. Não é avanço nem curso.</td></tr>
+        <tr><td>Campo magnético</td><td><b>Bom</b>, <b>ímã ausente</b>, <b>campo fraco</b> (ímã longe ou descentrado) ou <b>campo forte</b> (ímã perto demais). Fora de “bom”, a leitura não vira posição.</td></tr>
+        <tr><td>Barramento I²C</td><td><b>Bom</b> ou falha de comunicação entre a placa e o sensor. Com falha não há ângulo naquela leitura; o último ângulo válido aparece à parte, com o horário dele.</td></tr>
+        <tr><td>Curso de ajuste restante (calculado)</td><td>Quanto do curso informado no engaxetamento ainda resta, em % e em mm. Começa em 100 % e diminui conforme o preme-gaxeta avança.</td></tr>
+        <tr><td>Linha estabilizada</td><td>O curso restante com o filtro de 5 pontos percentuais, dentro do mesmo engaxetamento.</td></tr>
+      </tbody></table></div>
+      <h3>Engaxetamento realizado: uma medida e um toque</h3>
+      <ol>
+        <li>Depois de engaxetar, meça com paquímetro o <b>curso disponível</b> do preme-gaxeta, em mm.</li>
+        <li>Em <b>Sensores → Detalhes</b>, digite a medida em <b>Curso disponível no engaxetamento</b> e toque em <b>Engaxetamento realizado</b>. Se o valor for estimativa, marque como estimado.</li>
+        <li>Mantenha a haste parada. A plataforma usa como referência a <b>primeira leitura nova, válida e estável</b> que chegar depois do toque. A espera é de até alguns envios da placa.</li>
+        <li>Confirmada a referência, o painel mostra <b>Curso de ajuste restante</b> em 100 % e passa a acompanhar o avanço.</li>
+      </ol>
+      <ul>
+        <li>Tocar duas vezes não cria dois registros. Enquanto um registro aguarda leitura, outro técnico vê o aviso e pode esperar ou cancelar.</li>
+        <li>Um novo engaxetamento substitui a referência anterior; o histórico guarda as duas, com autor e horário.</li>
+        <li>Trocar o sensor de spot encerra a referência. No spot novo é preciso registrar de novo.</li>
+      </ul>
+      <h3>Quando o curso restante não aparece</h3>
+      <div class="table-wrap"><table><thead><tr><th>Aviso</th><th>O que fazer</th></tr></thead><tbody>
+        <tr><td>Sem geometria</td><td>O spot ainda não tem a montagem caracterizada. A engenharia (ADM 1 ou 2) precisa vincular a geometria medida em bancada.</td></tr>
+        <tr><td>Geometria em caracterização</td><td>A engenharia registrou, mas ainda não validou. O valor sai marcado como provisório.</td></tr>
+        <tr><td>Sem engaxetamento</td><td>Informe o curso disponível e toque em <b>Engaxetamento realizado</b>.</td></tr>
+        <tr><td>Ímã ausente, campo fraco ou forte</td><td>Confira o ímã no eixo e a distância até o chip.</td></tr>
+        <tr><td>Fora da faixa validada</td><td>O ângulo saiu do arco caracterizado. Confira a montagem; a linha estabilizada não é atualizada.</td></tr>
+      </tbody></table></div>
+      <p>O ângulo é sempre uma medida. O avanço e o curso restante são <b>calculados</b> a partir da geometria da montagem e só valem dentro da faixa que a engenharia validou.</p>
+    </section>
+
     <section id="telemetria">
       <h2>Telemetria e CSV</h2>
       <ul>
@@ -194,6 +228,7 @@
         <li><b>CSV</b> baixa os intervalos do período em tela: posição elétrica (estabilizada, média, mínima e máxima), tensão em volts com a origem, ADC bruto, número de leituras e a escala do percentual. <b>CSV de mudanças</b> baixa as mudanças de 5 pontos ou mais.</li>
         <li>Os horários aparecem no fuso do aparelho. Os arquivos CSV trazem o horário em UTC.</li>
         <li>“Leituras” conta as leituras brutas do período. O gráfico agrupa em até 600 intervalos. Acima de 5.000 mudanças, reduza o período.</li>
+        <li>Em sensor magnético, o seletor do gráfico alterna entre <b>Curso restante (%)</b> e <b>Ângulo do sensor</b>. A linha quebra em cada engaxetamento registrado, e o CSV traz o ângulo médio, o avanço e o curso restante em mm e em %, a contagem de leituras inválidas por motivo e a referência usada. Leituras elétricas e magnéticas nunca entram na mesma média.</li>
         <li>Usuários de corporação veem o histórico do período em que o sensor esteve num spot dos seus ramos.</li>
       </ul>
     </section>

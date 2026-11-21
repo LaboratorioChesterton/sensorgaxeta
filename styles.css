@@ -698,3 +698,20 @@ body.manual-standalone .manual-layout { max-width: 1140px; margin: 0 auto; paddi
 .chart-raw-dot { fill: var(--blue); }
 .chart-legend .legend-raw i { background: var(--blue); height: 2px; }
 .chart-legend .legend-stable i { background: #6f8594; }
+
+/* ----- Sensor magnético (AS5600) ----- */
+.sensor-card.is-magnetic .card-value small { font-size: 0.55em; }
+.mag-service { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; display: grid; gap: 6px; min-width: 0; }
+.mag-service h3 { margin: 0; font-size: 15px; color: var(--navy); }
+.mag-service form { display: grid; gap: 6px; min-width: 0; }
+.mag-service label { display: grid; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.mag-service #magCourse { font-size: 18px; padding: 8px 10px; min-height: 44px; width: 100%; box-sizing: border-box; }
+.mag-service input[readonly] { background: #f2f5f7; }
+.mag-service .mag-estimate { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.mag-service .mag-estimate input { width: 20px; height: 20px; flex: none; }
+.mag-service .drawer-actions .primary { min-height: 48px; font-size: 16px; }
+.mag-wait { margin: 0; padding: 8px 10px; border-radius: 6px; background: #fff0d8; color: #6b3a00; overflow-wrap: anywhere; }
+.mag-current { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.form-message.is-error { color: #b22432; }
+.chart-service { fill: none; stroke: #506675; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+#historySeries { max-width: 100%; min-width: 0; }

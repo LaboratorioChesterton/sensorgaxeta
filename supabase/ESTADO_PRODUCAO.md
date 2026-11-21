@@ -1,5 +1,22 @@
 # Estado da produção — SensorGaxeta
 
+## 21/11/2026: migração 14 (contrato magnético AS5600) aplicada; migração 13 continua pendente
+
+Conferido em 21/11/2026 às 13:12 (horário de Brasília).
+
+| # | Arquivo | Versão no histórico | Situação |
+|---|---|---|---|
+| 13 | `20261119142500_desativa_calibracao_mecanica.sql` | a definir na aplicação | **Não aplicada.** Continua dependendo de o site e o APK de 19/11 estarem em uso. A migração 14 não depende dela (testada nas duas ordens). |
+| 14 | `20261121154407_as5600_contrato_magnetico.sql` | `20261121154407` | **Aplicada** em 21/11 às 12:44. SQL gravado no histórico byte a byte igual ao arquivo: 83.187 bytes, MD5 `10110a22d64c3b950ad2bec400c68a5c`. |
+
+- As 23 funções novas ou alteradas (`gaxeta_ingest_v4`, `gaxeta_ingest`, `gaxeta_telemetry_summary`, `gaxeta_history`, as nove `gaxeta_mag_*` públicas e as nove `gaxeta_private.mag_*`) e as sete tabelas tocadas (`gaxeta_readings`, `gaxeta_devices` e as cinco `mag_*`) têm em produção o mesmo hash do banco local em que as 812 verificações rodaram. `gaxeta_ingest_v3` ficou com o hash de antes.
+- Antes da aplicação, `gaxeta_ingest`, `gaxeta_ingest_v3`, `gaxeta_telemetry_summary` e `gaxeta_history` estavam em produção com o corpo da migração 12, sem alteração manual.
+- As cinco tabelas `gaxeta_private.mag_*` têm RLS ligada e nenhuma política: só as funções `security definer` chegam a elas. `gaxeta_ingest_v4` aceita o papel `anon` (a placa usa a chave publicável e a credencial de envio, como na rota antiga); as funções `gaxeta_mag_*` aceitam só `authenticated`.
+- Consultor de segurança do Supabase depois da aplicação: nenhum item de nível ERRO. Os avisos são os mesmos de antes, agora também para os objetos novos: tabelas privadas com RLS e sem política (intencional) e funções `security definer` expostas (cada uma confere o papel e o escopo do usuário). Aviso que já existia e continua: proteção contra senha vazada desligada no Auth.
+- Primeira leitura magnética real em produção: placa `ESP32-4070298DBD44`, firmware `4.4.0-cont30`, leitura `106008`, 13:11:22, sequência 1, ângulo bruto 1347 (118,389°), dispersão 0, campo `ok`, barramento `ok`, AGC 66, magnitude 2105; campos elétricos nulos. A leitura seguinte, `106009`, entrou 30 s depois. No sensor, `last_modality = as5600_i2c` e todos os campos elétricos atuais nulos.
+- A placa está sem vínculo com spot e não existe geometria cadastrada: o curso de ajuste restante fica indisponível, com o motivo explícito, até a engenharia caracterizar a montagem.
+- Tamanho em 21/11: banco 65 MB; `gaxeta_readings` 51 MB com índices (105.986 leituras desde 02/11).
+
 ## 19/11/2026: migração 12 aplicada, migração 13 pendente
 
 Conferido em 19/11/2026 às 11:17 (horário de Brasília).
