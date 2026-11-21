@@ -715,3 +715,87 @@ body.manual-standalone .manual-layout { max-width: 1140px; margin: 0 auto; paddi
 .form-message.is-error { color: #b22432; }
 .chart-service { fill: none; stroke: #506675; stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 #historySeries { max-width: 100%; min-width: 0; }
+
+/* ---------------------------------------------------------------------------
+   Sensor magnético: Modo bancada, faixas de ajuste e Configurar montagem (21/11/2026)
+   A cor nunca é o único sinal: cada série e cada faixa tem rótulo escrito.
+   --------------------------------------------------------------------------- */
+.health-bench { --health: #5b3f9e; --health-bg: #efe9fb; }
+.health-band-high { --health: #12724f; --health-bg: #e2f4ec; }
+.health-band-medium { --health: #156f9e; --health-bg: #e1f1fa; }
+.health-band-low { --health: #9c5400; --health-bg: #fff0d8; }
+.health-band-none { --health: #b22432; --health-bg: #ffe7e9; }
+.series-tag { display: inline-block; max-width: 100%; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; line-height: 1.35; overflow-wrap: anywhere; }
+.series-tag.is-bench { color: #5b3f9e; background: #fff; border-style: dashed; }
+.series-tag.is-estimated { color: #6b3a00; background: #fff7e6; }
+.sensor-card.is-bench { border-top: 3px dashed #5b3f9e; }
+.card-side { min-width: 0; }
+.card-side .series-tag { align-self: flex-start; }
+.scope-clear { margin-left: auto; white-space: normal; text-align: right; }
+.section-line { flex-wrap: wrap; row-gap: 4px; }
+.tree-electric small { margin-left: 4px; }
+.tree-electric[class*="health-"] { color: var(--health, inherit); }
+
+.mag-bench { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0; display: grid; gap: 6px; min-width: 0; }
+.mag-bench.is-active { border: 2px dashed #5b3f9e; background: #fbf9ff; }
+.mag-bench h3 { margin: 0; font-size: 15px; color: var(--navy); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mag-bench h4 { margin: 0 0 4px; font-size: 13px; }
+.mag-bench form { display: grid; gap: 6px; min-width: 0; }
+.mag-bench label { display: grid; gap: 4px; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.mag-bench label.check { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.mag-bench input[type="text"], .mag-bench select { width: 100%; box-sizing: border-box; min-height: 40px; font-size: 16px; padding: 6px 8px; }
+.bench-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; min-width: 0; }
+.bench-bar { position: relative; height: 26px; margin: 4px 0 18px; border-radius: 6px; background: #e3eaef; --health: #5b3f9e; }
+.bench-bar i { display: block; height: 100%; border-radius: 6px; background: var(--health); min-width: 0; transition: width .3s ease; }
+.bench-bar.idle { background: repeating-linear-gradient(90deg, #e3eaef 0 8px, #f2f5f7 8px 16px); }
+.bench-mark { position: absolute; top: 100%; transform: translateX(-50%); font-size: 11px; color: var(--muted); white-space: nowrap; }
+.bench-mark:first-of-type { transform: none; }
+.bench-mark:last-of-type { transform: translateX(-100%); }
+.bench-number { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.bench-number strong { font-size: 30px; line-height: 1.1; color: #3d2a75; font-variant-numeric: tabular-nums; }
+.bench-number span { font-size: 13px; color: var(--muted); }
+.bench-sim, .bench-warn, .bench-ok { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.bench-warn { padding: 6px 10px; border-radius: 6px; background: #fff0d8; color: #6b3a00; }
+.bench-ok { padding: 6px 10px; border-radius: 6px; background: #e2f4ec; color: #0c5239; }
+.bench-facts { display: grid; grid-template-columns: minmax(88px, max-content) minmax(0, 1fr); gap: 2px 10px; margin: 0; font-size: 13px; }
+.bench-facts dt { color: var(--muted); }
+.bench-facts dd { margin: 0; overflow-wrap: anywhere; }
+.bench-preview { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 10px; background: #fff; display: grid; gap: 6px; min-width: 0; }
+.bench-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bench-preview th, .bench-preview td { text-align: left; padding: 2px 6px 2px 0; border-bottom: 1px solid var(--line-soft); }
+.bench-preview p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+#chartScaleNote.is-bench { color: #5b3f9e; font-weight: 700; }
+
+.mag-gaps { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.mag-course { margin: 0; display: grid; gap: 2px; padding: 8px 10px; border-radius: 6px; background: #f2f5f7; min-width: 0; }
+.mag-course span { font-size: 12px; color: var(--muted); }
+.mag-course strong { font-size: 24px; line-height: 1.1; color: var(--navy); }
+.mag-course small { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.mag-service .drawer-actions .secondary { min-height: 44px; }
+
+.setup-body { display: grid; gap: 12px; padding: 0 14px 14px; min-width: 0; }
+dialog#magSetupDialog > .dialog-heading { padding: 14px 14px 0; }
+.setup-block { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; min-width: 0; }
+.setup-block h3 { margin: 0; font-size: 15px; color: var(--navy); }
+.setup-block h4 { margin: 0; font-size: 14px; }
+.setup-current { margin: 0; padding: 6px 10px; border-radius: 6px; background: #f2f5f7; font-size: 13px; overflow-wrap: anywhere; }
+.setup-row, .setup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; align-items: end; min-width: 0; }
+.setup-row label, .setup-grid label { display: grid; gap: 4px; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.setup-row label.check { display: flex; align-items: center; gap: 8px; }
+.setup-row fieldset { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 10px; display: grid; gap: 6px; min-width: 0; grid-column: 1 / -1; }
+.setup-row input[type="text"], .setup-row select, .setup-grid input, .setup-grid select, .setup-grid textarea, .setup-row textarea { width: 100%; box-sizing: border-box; min-height: 40px; font-size: 16px; padding: 6px 8px; }
+.setup-row button, .setup-grid button { min-height: 40px; }
+.setup-geoms { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.setup-geoms li { display: flex; flex-wrap: wrap; gap: 6px 10px; justify-content: space-between; align-items: center; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+.setup-geoms li > span:first-child { flex: 1 1 220px; min-width: 0; }
+.setup-validate { border: 1px dashed var(--line); border-radius: 6px; padding: 8px 10px; }
+.setup-validate h4, .setup-validate > p, .span-all { grid-column: 1 / -1; }
+.form-message.is-success { color: var(--green); }
+.mag-asset { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; min-width: 0; }
+.mag-asset label.check { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.mag-asset p { margin: 0; }
+@media (max-width: 360px) {
+  .bench-number strong { font-size: 26px; }
+  .setup-body { padding: 0 8px 10px; }
+  .setup-block, .mag-bench, .mag-service { padding: 8px; }
+}

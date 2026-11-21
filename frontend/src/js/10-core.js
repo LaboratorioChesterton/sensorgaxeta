@@ -351,7 +351,52 @@ const MAG_REASON = {
   awaiting_reference: { key: "limit", label: "Aguardando leitura", note: "Engaxetamento solicitado. Mantenha a haste parada até a confirmação." },
   not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
   out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
+  // Modo bancada (demonstração em mesa). Nunca é curso de campo, e sem posição conhecida não há número.
+  bench: { key: "bench", label: "Modo bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
+  bench_awaiting_start: { key: "bench", label: "Confirme o início", note: "Modo bancada ligado. Ponha o eixo dentro da faixa e toque em Confirmar início, em Detalhes." },
+  bench_reposition: { key: "warn", label: "Reposicionar para retomar", note: "A placa perdeu a continuidade do giro. Volte o eixo para dentro da faixa e confirme a referência, em Detalhes." },
+  bench_no_continuity: { key: "limit", label: "Sem contagem contínua", note: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0). O Modo bancada precisa dela." },
 };
+// Faixas do curso de ajuste restante. Quem decide é o servidor (service.band), sobre o valor
+// estabilizado com duas casas: o mesmo número que a tela mostra. Aqui ficam só o rótulo e a cor.
+const MAG_BAND = {
+  high: { key: "band-high", label: "Alto ajuste", range: "73 % ou mais" },
+  medium: { key: "band-medium", label: "Médio ajuste", range: "de 50 % até abaixo de 73 %" },
+  low: { key: "band-low", label: "Baixo ajuste", range: "de 30 % até abaixo de 50 %" },
+  none: { key: "band-none", label: "Sem ajuste", range: "abaixo de 30 %" },
+};
+// Mesma regra de gaxeta_private.mag_band, só para a legenda da SIMULAÇÃO das faixas na bancada.
+const magBandOf = (percent) => {
+  const shown = Math.round(Number(percent) * 100) / 100;
+  return !Number.isFinite(shown) ? null : shown >= 73 ? "high" : shown >= 50 ? "medium" : shown >= 30 ? "low" : "none";
+};
+// Por que a placa recomeçou a contagem contínua (ct_loss) ou a bancada perdeu a posição.
+const CT_LOSS_TEXT = {
+  boot: "reinício da placa ou retorno de energia", no_magnet: "ímã ausente", field: "campo magnético fora da faixa", bus: "falha do barramento I²C",
+  gap: "lacuna na aquisição acima do limite", speed: "giro mais rápido que a velocidade garantida", ambiguous: "meia volta entre duas amostras (ambíguo)",
+  incoherent: "pacote com contagem incoerente", session_changed: "a sessão da placa mudou",
+  bus_no_ack: "sensor sem resposta no I²C", bus_read_error: "falha de leitura no I²C", bus_timeout: "I²C sem resposta a tempo", field_weak: "campo fraco", field_strong: "campo forte",
+};
+const ctLossText = (code) => CT_LOSS_TEXT[code] || code || "motivo não informado";
+// Motivo de a confirmação do início ainda estar aguardando (bench.anchor_note).
+const BENCH_NOTE_TEXT = {
+  outside_range: "O eixo está FORA da faixa. Gire até um ponto entre o 0 % e o 100 % e aguarde a próxima leitura.",
+  moving: "O eixo estava em movimento na última leitura. Deixe-o parado.",
+  invalid_sample: "A última leitura veio sem ângulo válido (ímã ou barramento). Confira o sensor.",
+  no_continuity: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0).",
+  no_session: "A placa ainda não abriu a contagem. Aguarde a próxima leitura.",
+  waiting_new_sample: "Aguardando uma leitura colhida depois do toque.",
+  expired: "A confirmação anterior venceu sem uma leitura válida. Toque de novo.",
+};
+// Milímetros digitados com vírgula ou ponto. Devolve número, ou null quando vazio, ou NaN quando inválido.
+function parseMm(text) {
+  const raw = String(text ?? "").trim().replace(",", ".");
+  if (!raw) return null;
+  return /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : NaN;
+}
+const fmtMmInput = (value) => (value == null ? "" : Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 3, useGrouping: false }));
+const SIZE_CLASS_LABEL = { small: "Pequeno", medium: "Médio", large: "Grande" };
+const COURSE_SOURCE_TEXT = { point: "definido neste spot", equipment: "herdado do TAG" };
 // Sem o resumo magnético (banco antigo ou sem permissão), a saúde sai dos campos do próprio sensor.
 function magReasonFromDevice(device) {
   if (!device || device.last_bus_status == null) return "no_reading";
@@ -375,17 +420,46 @@ function magView(device, mag) {
   const electric = { percent: null, text: "—", label: "", block: null, ceiling: false, scale: null };
   const base = { magnetic: true, mag: mag || null, reason, degrees, raw, electric, computed, service, origin: "medido" };
   const info = MAG_REASON[reason] || null;
+  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
+  const bench = mag?.bench || null;
+  // Modo bancada: série própria, sempre identificada. Sem posição conhecida não há número
+  // (nunca 0 % nem "Sem ajuste" no lugar da leitura).
+  if (bench) {
+    const shared = { ...base, bench, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
+    if (bench.state === "ok" && bench.percent != null && !sampleBad) {
+      const over = Number(bench.over_deg) || 0;
+      return {
+        ...shared, origin: "calculado · bancada", key: "bench", label: "Modo bancada",
+        note: (over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa") + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
+        value: fmtNum(bench.percent, 2), unit: "%", scale: Number(bench.percent),
+      };
+    }
+    const state = info || MAG_REASON.bench_awaiting_start;
+    return { ...shared, key: state.key, label: state.label, note: state.note, value: "—", unit: "", scale: null };
+  }
   if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {
-    const percent = clampPercent(computed.remaining_percent);
-    const tags = [service?.course_origin === "estimated" ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    // Campo: o número em destaque é o curso restante ESTABILIZADO, com duas casas, e a faixa é a
+    // que o servidor decidiu sobre esse mesmo número. O valor instantâneo fica em Detalhes.
+    const estimated = service?.course_origin === "estimated";
+    const band = reason === "out_of_range" ? null : MAG_BAND[service?.band] || null;
+    const shown = service?.stable_shown ?? service?.stable_remaining ?? computed.remaining_percent;
+    const percent = clampPercent(shown);
+    const tags = [estimated ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    // Fora da faixa validada: a classificação fica suspensa e nenhum número ocupa o destaque.
+    // O instantâneo e o último estabilizado continuam em Detalhes, com esses nomes.
+    if (reason === "out_of_range")
+      return {
+        ...base, origin: "calculado", key: info.key, kicker: "Curso de ajuste restante", series: estimated ? "campo, curso estimado" : "campo, curso medido", estimated, band: null,
+        instant: computed.remaining_percent, label: info.label, note: `${info.note} Último valor estabilizado: ${fmtNum(shown, 2)} %.`, value: "—", unit: "", scale: null,
+      };
     return {
-      ...base, origin: "calculado", key: info ? info.key : "electric", kicker: "Curso de ajuste restante",
-      label: info ? info.label : service?.provisional ? "Provisório" : "Calculado",
+      ...base, origin: "calculado", key: info ? info.key : band ? band.key : "electric", kicker: "Curso de ajuste restante",
+      series: estimated ? "campo, curso estimado" : "campo, curso medido", estimated, band: band ? service.band : null, instant: computed.remaining_percent,
+      label: info ? info.label : band ? band.label : service?.provisional ? "Provisório" : "Calculado",
       note: info ? info.note : `${fmtMm(computed.remaining_mm)} de ${fmtMm(service?.course_mm)} · avanço ${fmtMm(computed.advance_mm)}` + (tags.length ? " · " + tags.join(" · ") : ""),
-      value: fmtNum(percent), unit: "%", scale: percent,
+      value: fmtNum(percent, 2), unit: "%", scale: percent,
     };
   }
-  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
   return {
     ...base, key: info?.key || "electric", kicker: "Ângulo do sensor", label: info?.label || "Ângulo do sensor", note: info?.note || "Ângulo absoluto do ímã.",
     value: sampleBad || degrees == null ? "—" : fmtNum(degrees), unit: sampleBad || degrees == null ? "" : "°", scale: null,

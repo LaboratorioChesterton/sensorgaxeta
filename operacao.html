@@ -191,23 +191,61 @@
         <tr><td>Campo magnético</td><td><b>Bom</b>, <b>ímã ausente</b>, <b>campo fraco</b> (ímã longe ou descentrado) ou <b>campo forte</b> (ímã perto demais). Fora de “bom”, a leitura não vira posição.</td></tr>
         <tr><td>Barramento I²C</td><td><b>Bom</b> ou falha de comunicação entre a placa e o sensor. Com falha não há ângulo naquela leitura; o último ângulo válido aparece à parte, com o horário dele.</td></tr>
         <tr><td>Curso de ajuste restante (calculado)</td><td>Quanto do curso informado no engaxetamento ainda resta, em % e em mm. Começa em 100 % e diminui conforme o preme-gaxeta avança.</td></tr>
-        <tr><td>Linha estabilizada</td><td>O curso restante com o filtro de 5 pontos percentuais, dentro do mesmo engaxetamento.</td></tr>
+        <tr><td>Linha estabilizada</td><td>O curso restante com o filtro de 5 pontos percentuais, dentro do mesmo engaxetamento. É o número em destaque no cartão e na árvore, com duas casas.</td></tr>
+        <tr><td>Posição de bancada (%)</td><td>Só no <b>Modo bancada</b>: demonstração em mesa entre dois ângulos escolhidos. Não é curso de ajuste restante e não entra no histórico de campo.</td></tr>
       </tbody></table></div>
-      <h3>Engaxetamento realizado: uma medida e um toque</h3>
+      <h3>Faixas do curso de ajuste restante</h3>
+      <div class="table-wrap"><table><thead><tr><th>Faixa</th><th>Curso de ajuste restante (estabilizado)</th></tr></thead><tbody>
+        <tr><td>Alto ajuste</td><td>73 % ou mais</td></tr>
+        <tr><td>Médio ajuste</td><td>de 50 % até abaixo de 73 %</td></tr>
+        <tr><td>Baixo ajuste</td><td>de 30 % até abaixo de 50 %</td></tr>
+        <tr><td>Sem ajuste</td><td>abaixo de 30 %</td></tr>
+      </tbody></table></div>
+      <p>A faixa é decidida sobre o valor estabilizado com duas casas, o mesmo que a tela mostra: 29,99 % é <b>Sem ajuste</b> e 30,00 % é <b>Baixo ajuste</b>. O curso restante diz quanto o preme-gaxeta ainda pode avançar. A decisão de apertar depende das condições de operação e não sai só desta barra. Leitura atrasada, ímã ausente, campo fora da faixa, falha de I²C, falta de referência ou de cadastro aparecem com o próprio nome: nunca viram 0 % nem “Sem ajuste”.</p>
+      <h3>Configurar a montagem (antes do primeiro engaxetamento)</h3>
       <ol>
-        <li>Depois de engaxetar, meça com paquímetro o <b>curso disponível</b> do preme-gaxeta, em mm.</li>
-        <li>Em <b>Sensores → Detalhes</b>, digite a medida em <b>Curso disponível no engaxetamento</b> e toque em <b>Engaxetamento realizado</b>. Se o valor for estimativa, marque como estimado.</li>
-        <li>Mantenha a haste parada. A plataforma usa como referência a <b>primeira leitura nova, válida e estável</b> que chegar depois do toque. A espera é de até alguns envios da placa.</li>
-        <li>Confirmada a referência, o painel mostra <b>Curso de ajuste restante</b> em 100 % e passa a acompanhar o avanço.</li>
+        <li><b>Curso disponível típico (mm)</b>: em <b>Ativos → TAG → Editar</b>. Vale para todos os spots do TAG. Aceita vírgula ou ponto (2, 5, 15, 20, 150…). O porte é opcional.</li>
+        <li><b>Exceção por spot</b>: em <b>Ativos → spot → Editar</b>, escolha <b>Herdar do TAG</b> ou <b>Valor específico deste spot</b>. A ficha mostra de onde veio o valor.</li>
+        <li><b>Revisão da montagem</b> (engenharia, ADM nível 1 ou 2): em <b>Sensores → Detalhes → Configurar montagem</b> ou <b>Ativos → spot → Configurar montagem do sensor</b>. A revisão vem de um ensaio com paquímetro e diz quantos milímetros valem um grau, em que sentido e em que arco. Sem revisão validada o curso restante fica indisponível, com o motivo.</li>
       </ol>
+      <p>O curso típico e a validação da mecânica são independentes: um pode ser cadastrado sem o outro. Mudar o curso do TAG depois não altera os ciclos já registrados.</p>
+      <h3>Engaxetamento realizado: um toque</h3>
+      <ol>
+        <li>Depois de engaxetar, com a haste parada, abra <b>Sensores → Detalhes</b>.</li>
+        <li>O <b>curso disponível</b> do cadastro aparece ao lado do botão, marcado como <b>estimado</b>. Se você mediu com paquímetro, marque <b>Tenho a medida real deste engaxetamento</b> e digite o valor.</li>
+        <li>Toque em <b>Engaxetamento realizado</b> uma vez. A plataforma usa como referência a <b>primeira leitura nova, válida e estável</b> que chegar depois do toque, seja qual for o ângulo. Até lá aparece <b>Aguardando leitura</b>, com a cadência.</li>
+        <li>Confirmada a referência, o painel mostra <b>100 % de curso restante</b> e passa a acompanhar o avanço. Com o valor típico, cartão e árvore mostram <b>Curso estimado</b>.</li>
+      </ol>
+      <p>Sem montagem validada, o botão <b>Registrar engaxetamento (sem referência)</b> guarda só quem fez e a hora. Esse registro não vira zero do curso.</p>
       <ul>
         <li>Tocar duas vezes não cria dois registros. Enquanto um registro aguarda leitura, outro técnico vê o aviso e pode esperar ou cancelar.</li>
         <li>Um novo engaxetamento substitui a referência anterior; o histórico guarda as duas, com autor e horário.</li>
         <li>Trocar o sensor de spot encerra a referência. No spot novo é preciso registrar de novo.</li>
       </ul>
+      <h3>Modo bancada (demonstração em mesa)</h3>
+      <ol>
+        <li>Em <b>Sensores → Detalhes → Modo bancada → Configurar e ativar…</b>, informe o ângulo que vale 0 %, o que vale 100 % e o sentido. Proposta inicial: 80° = 0 %, 180° = 100 %, crescente.</li>
+        <li>Toque em <b>Ver prévia</b>, confira a tabela e o valor da leitura atual, e só então <b>Ativar Modo bancada</b>.</li>
+        <li>Ponha o eixo parado <b>dentro da faixa</b> e toque em <b>Confirmar início</b>. A próxima leitura da placa vira a referência da posição.</li>
+        <li>Gire o ímã. A barra vai de 0 a 100 %; passando de um extremo ela fica no extremo e mostra quantos graus passou, inclusive depois de cruzar o zero do sensor e de várias voltas.</li>
+        <li>Ao terminar, <b>Sair do Modo bancada</b>.</li>
+      </ol>
+      <ul>
+        <li>A nuvem atualiza a cada envio da placa (30 s na bancada) e mostra a hora da última atualização. Para ver o giro em tempo real, abra o monitor serial da placa pela USB: ele imprime a mesma conta várias vezes por segundo.</li>
+        <li><b>Reposicionar para retomar</b>: a placa reiniciou, ficou sem ímã, teve falha de leitura ou girou mais rápido que o garantido. A última posição conhecida fica na tela, com o horário. Volte o eixo a um ponto dentro da faixa e confirme a referência.</li>
+        <li>O Modo bancada exige o firmware 4.5.0 ou mais novo. Com firmware anterior aparece <b>Sem contagem contínua</b>, sem percentual.</li>
+        <li>Ativar o Modo bancada encerra a referência de engaxetamento do vínculo. A bancada não cria mudança de 5 pontos nem evento de manutenção.</li>
+        <li>A opção <b>simulação das faixas</b> colore a barra pelas faixas de ajuste só para demonstração.</li>
+      </ul>
+      <h3>Ver todos os sensores e desvincular</h3>
+      <ul>
+        <li>Com um ramo da árvore selecionado, a lista mostra só os sensores daquele ramo. <b>Ver todos os sensores</b>, ao lado do título, ou o filtro <b>Todos</b>, volta a todos os sensores da sua conta, inclusive os sem spot.</li>
+        <li><b>Desvincular do spot…</b> fica em <b>Sensores → Detalhes</b> e em <b>Editar</b> (ADM nível 1 e 2). A confirmação mostra TAG, equipamento e spot. O sensor volta à fila, as leituras e o histórico são preservados, e o novo spot pede novo engaxetamento. Nada é apagado da nuvem.</li>
+      </ul>
       <h3>Quando o curso restante não aparece</h3>
       <div class="table-wrap"><table><thead><tr><th>Aviso</th><th>O que fazer</th></tr></thead><tbody>
-        <tr><td>Sem geometria</td><td>O spot ainda não tem a montagem caracterizada. A engenharia (ADM 1 ou 2) precisa vincular a geometria medida em bancada.</td></tr>
+        <tr><td>Sem geometria</td><td>O spot ainda não tem a montagem caracterizada. A engenharia (ADM 1 ou 2) vincula a revisão em <b>Configurar montagem</b>. O painel diz o que falta e quem cadastra.</td></tr>
+        <tr><td>Modo bancada / Confirme o início / Reposicionar para retomar</td><td>O sensor está em demonstração de mesa. Saia do Modo bancada para voltar à série de campo.</td></tr>
         <tr><td>Geometria em caracterização</td><td>A engenharia registrou, mas ainda não validou. O valor sai marcado como provisório.</td></tr>
         <tr><td>Sem engaxetamento</td><td>Informe o curso disponível e toque em <b>Engaxetamento realizado</b>.</td></tr>
         <tr><td>Ímã ausente, campo fraco ou forte</td><td>Confira o ímã no eixo e a distância até o chip.</td></tr>

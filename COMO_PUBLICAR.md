@@ -1,90 +1,102 @@
-# Como publicar — sensor magnético AS5600 e curso de ajuste restante (21/11/2026)
+# Como publicar — Modo bancada, Configurar montagem e faixas de ajuste (21/11/2026, entrega da noite)
 
-Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit publicado hoje (`acef2d6`, entrega de 19/11; `app.js` com MD5 `0eb71544…4190`, igual ao do site). Extraia sobre a cópia local do repositório, confira com `git status` e faça o commit.
+Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit publicado `9f3505b` (entrega AS5600 de 21/11; `app.js` com MD5 `5e1b484c…6d8`, igual ao do site). Extraia sobre a cópia local, confira com `git status` e faça o commit.
 
 ## Ordem
 
-1. **Banco, migração 14** (`20261121154407_as5600_contrato_magnetico`): **já aplicada** em 21/11/2026 às 12:44. O site publicado continua funcionando com ela.
-2. **Placa piloto C3** (`ESP32-4070298DBD44`): **já gravada** com o firmware 4.4.0 e enviando leitura magnética desde 13:11.
-3. **Site**: o seu commit e o push (item 3 abaixo). Até lá, o site publicado mostra a placa magnética como **Sem leitura** na posição elétrica, sem zero falso e sem erro. O ângulo, a saúde do sensor e o botão **Engaxetamento realizado** só aparecem depois do push.
-4. **APK**: não foi remontado nesta entrega. O aplicativo instalado continua valendo para as placas de potenciômetro; para ele mostrar o sensor magnético, o pacote precisa ser remontado a partir de `frontend/dist` e assinado com a sua chave.
-5. **Banco, migração 13** (`20261119142500_desativa_calibracao_mecanica`): continua **não aplicada**, pela mesma condição de 19/11 (site e APK daquela entrega em uso). A migração 14 não depende dela.
+A ordem entre os três passos é livre: cada combinação foi ensaiada.
+
+| Passo | Estado em 21/11, 19:45 | Compatibilidade |
+|---|---|---|
+| **1. Banco, migração 15** (quatro arquivos `2026112123000{1..4}_*.sql`) | **Não aplicada.** A aplicação pelo Claude foi barrada pelo controle de permissões da sessão; depende da sua autorização (ou de você colar os quatro arquivos, em ordem, no SQL Editor). | O site publicado hoje passa as 52 verificações dele com a migração 15 aplicada. O firmware 4.4.0 continua aceito. |
+| **2. Site** | Pronto para o seu commit. | Sem a migração 15, as telas novas avisam "depende da atualização do banco" e o resto funciona como hoje. |
+| **3. Firmware 4.5.0** na C3 piloto | **Não gravado.** Compilado para a C3; fonte na pasta da entrega. | O banco de hoje ignora os campos novos; com a migração 15 passa a gravá-los. |
+
+Para o Modo bancada mostrar percentual são necessários os três.
 
 ## 1. Arquivos servidos pelo Pages (raiz do repositório)
 
 | Arquivo | Ação |
 |---|---|
-| `index.html` | **Substituir** (rótulos da Telemetria passam a ter identificador; seletor de série) |
-| `app.js` | **Substituir** (de 395 KB para 446 KB: entram os módulos do sensor magnético) |
+| `index.html` | **Substituir** (botão "Ver todos os sensores") |
+| `app.js` | **Substituir** (de 446 KB para 519 KB) |
 | `styles.css` | **Substituir** |
-| `operacao.html` | **Substituir** (Manual: seção Sensor magnético e curso restante) |
+| `operacao.html` | **Substituir** (Manual: faixas, Configurar montagem, um toque, Modo bancada, desvincular) |
 | `acesso.html` | **Substituir** (gerado a partir do `index.html`) |
 | `COMO_PUBLICAR.md` | **Substituir** (este arquivo) |
-| Demais arquivos da raiz (`README.md`, `config.js`, ícone, logo, `web-*.js`, fontes) | Iguais aos atuais |
+| Demais arquivos da raiz | Iguais aos atuais |
 
 ## 2. Fonte, banco e testes
 
 | Arquivo | Ação |
 |---|---|
-| `frontend/src/js/63-magnetic.js` | **Novo** (cartão, diagnóstico, Engaxetamento realizado, curso de ajuste restante) |
-| `frontend/src/js/72-telemetry-mag.js` | **Novo** (telemetria magnética, CSV por referência) |
-| `frontend/src/js/62-gland.js` | **Apagar** (ainda estava no repositório; o build não o usa desde 19/11) |
-| `frontend/src/js/10-core.js` | Substituir (`isMagnetic`, `magView`, motivos de indisponibilidade, formatação de graus e mm) |
-| `frontend/src/js/40-shell.js` | Substituir (estado magnético, `gaxeta_mag_summary`) |
-| `frontend/src/js/50-tree.js`, `65-assets.js` | Substituir (unidade conforme a modalidade) |
-| `frontend/src/js/60-sensors.js` | Substituir (cartão e Detalhes por modalidade) |
-| `frontend/src/js/70-telemetry.js` | Substituir (escolha da série e da consulta por modalidade) |
-| `frontend/src/js/90-ble-ui.js` | Substituir (pacote Bluetooth magnético) |
+| `frontend/src/js/64-bench.js` | **Novo**: Modo bancada (prévia, ativar, confirmar início, reposicionar, sair, simulação das faixas) |
+| `frontend/src/js/66-mag-setup.js` | **Novo**: Configurar montagem (curso no TAG e no spot, revisões e ensaio) e campos do formulário de Ativos |
+| `frontend/src/js/62-gland.js` | **Apagar.** Continua no repositório e, com ele presente, `node build.mjs` gera um `app.js` com erro de sintaxe (`newRequestId` declarado duas vezes). O site no ar não é afetado porque foi publicado a partir do build da entrega anterior. |
+| `frontend/src/js/10-core.js` | Substituir (faixas, motivos de bancada, `magView` com série e estabilizado em duas casas) |
+| `frontend/src/js/63-magnetic.js` | Substituir (cartão com selo de série e botão Configurar; um toque com o curso do cadastro; registro sem referência) |
+| `frontend/src/js/60-sensors.js` | Substituir (Ver todos, Desvincular em Detalhes com TAG, equipamento e spot) |
+| `frontend/src/js/50-tree.js`, `65-assets.js`, `72-telemetry-mag.js` | Substituir (árvore com série e faixa; curso no formulário do TAG e do spot; gráfico e CSV da bancada) |
 | `frontend/src/index.html`, `frontend/src/operacao.html`, `frontend/src/styles/app.css` | Substituir |
-| `frontend/README.md` | Substituir |
-| `supabase/migrations/20261121154407_as5600_contrato_magnetico.sql` | **Novo** (já aplicada) |
-| `supabase/rollback/20261121154407_as5600_contrato_magnetico.down.sql` | **Novo** (recusa reverter se houver leitura magnética gravada) |
-| `supabase/propostas/indice_duplicado_leituras.sql` | **Novo** (proposta, não aplicada) |
+| `supabase/migrations/20261121230001_a_modo_bancada_estrutura.sql` | **Novo** |
+| `supabase/migrations/20261121230002_b_ingestao_contagem_continua.sql` | **Novo** |
+| `supabase/migrations/20261121230003_c_bancada_cadastro_funcoes.sql` | **Novo** |
+| `supabase/migrations/20261121230004_d_resumo_e_historico_magnetico.sql` | **Novo** |
+| `supabase/rollback/20261121230001_a_modo_bancada_estrutura.down.sql` | **Novo**: reverte as quatro partes de uma vez |
 | `supabase/ESTADO_PRODUCAO.md` | Substituir |
-| `tests/84_contrato_magnetico.sql` | **Novo** (168 verificações) |
-| `tests/85_concorrencia_magnetica.sh` | **Novo** (6 verificações com sessões paralelas) |
-| `tests/86_capacidade_15_dias.sh` | **Novo** (carga de 15 dias em cópia isolada) |
-| `dev/run_all.sh` | Substituir (migração 14 e suítes 84 e 85) |
+| `tests/87_modo_bancada.sql` | **Novo** (196 verificações) |
+| `tests/85_concorrencia_magnetica.sh` | Substituir (horário da amostra com milissegundos: tirava uma falha intermitente do ensaio) |
+| `tests/86_capacidade_15_dias.sh` | Substituir (carga com a contagem contínua) |
+| `dev/run_all.sh` | Substituir (migração 15 e suíte 87) |
 
-Nenhum arquivo traz chave, token, hash de ingestão, senha, PIN ou e-mail real. O firmware, o binário gravado e as evidências ficam fora do repositório, na pasta da entrega; o binário e o backup, em pasta privada.
+Os números `20261121230001` a `…04` são provisórios: ao aplicar, o Supabase grava a versão com o horário da aplicação. Depois de aplicar, renomeie os quatro arquivos e o `.down.sql` para as versões do histórico (como nas migrações anteriores) e registre em `supabase/ESTADO_PRODUCAO.md`.
+
+Nenhum arquivo traz chave, token, hash de ingestão, senha, PIN ou e-mail real.
 
 ## 3. Commit
 
 ```bash
-cd <sua cópia do repositório, no commit acef2d6>
-unzip -o "<pasta da entrega>/repositorio/SensorGaxeta_as5600_commit.zip"
-git rm -q --cached frontend/src/js/62-gland.js 2>/dev/null; rm -f frontend/src/js/62-gland.js   # o ZIP não apaga arquivo
+cd <sua cópia do repositório, no commit 9f3505b>
+unzip -o "<pasta da entrega>/repositorio/SensorGaxeta_bancada_commit.zip"
+git rm -q frontend/src/js/62-gland.js      # o ZIP não apaga arquivo
 git status
 git add -A && git commit -F "<pasta da entrega>/MENSAGEM_DO_COMMIT.txt" && git push
 ```
 
-ou, a partir de um clone no commit publicado: `git am "<pasta da entrega>/repositorio/as5600-piloto-2026-11-21.patch" && git push` (o patch já apaga o `62-gland.js`).
+ou `git am "<pasta da entrega>/repositorio/modo-bancada-2026-11-21.patch" && git push` (o patch já apaga o `62-gland.js`).
+
+Pelo site do GitHub ("Add files via upload"): envie os arquivos da tabela 1 na raiz e os da tabela 2 nas pastas indicadas, e apague `frontend/src/js/62-gland.js` pela própria página do arquivo.
 
 Conferir o build e os testes:
 
 ```bash
 cd frontend && node build.mjs && for f in index.html acesso.html app.js styles.css operacao.html; do cmp dist/$f ../$f; done
-PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh        # 812 verificações + reversão
+PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh        # 1008 verificações + reversão
 PGHOST=/tmp PGPORT=54329 PGUSER=postgres tests/86_capacidade_15_dias.sh 10
 ```
 
-## 4. Depois do push
+## 4. Aplicar a migração 15
 
-1. Abrir o site, tocar em **Continuar** e recarregar sem cache (Cmd+Shift+R).
-2. **Sensores**: a placa `ESP32-4070298DBD44` aparece em **Sem vínculo · fila de associação** com **Ângulo do sensor** em graus, campo magnético e barramento. Nenhum quadro de tensão ou posição elétrica nela. As placas de potenciômetro continuam como antes.
-3. **Detalhes** da placa magnética: ângulo medido, campo, barramento, AGC e magnitude, último ângulo válido. Sem vínculo e sem geometria, o curso de ajuste restante aparece indisponível com o motivo.
-4. **Telemetria** da placa magnética: gráfico do ângulo absoluto; o seletor de série mostra **Curso restante (%)** só quando houver engaxetamento registrado.
-5. **Manual**: seção **Sensor magnético e curso de ajuste restante**.
+No SQL Editor do Supabase (projeto SensorGaxeta), cole e execute **um arquivo por vez, na ordem a, b, c, d**. Cada um é uma transação: ou entra inteiro, ou nada muda. O primeiro toma `gaxeta_devices` e `gaxeta_readings` sem espera; se coincidir com uma leitura chegando, ele falha sem alterar nada: execute de novo.
 
-## 5. Para o curso de ajuste restante aparecer
+Antes: o histórico deve terminar em `20261121154407 as5600_contrato_magnetico`. **Não reaplique a migração 14, não aplique a 13 (`20261119142500`), o script de reversão nem a proposta de remoção de índice.**
 
-Depende de três passos que não são de software:
+Depois, confira:
 
-1. **Vincular** a placa a um spot (Sensores → Editar).
-2. **Caracterizar a geometria** da montagem em bancada e cadastrá-la (`gaxeta_mag_save_geometry`, `gaxeta_mag_set_geometry_status`, `gaxeta_mag_set_point_setup`; só ADM 1 ou 2). O ensaio de 21/11 mostrou giro de 2,55° em 10 mm, não linear e com repetibilidade de 4 contagens: a montagem atual precisa de mais giro por milímetro antes de ser caracterizada. Detalhe em `evidencias/BANCADA_AS5600.md`, na pasta da entrega.
-3. No campo, medir o curso disponível e tocar em **Engaxetamento realizado**.
+```sql
+select count(*) from pg_proc where proname in ('gaxeta_mag_bench_preview','gaxeta_mag_bench_start','gaxeta_mag_bench_confirm','gaxeta_mag_bench_stop',
+  'gaxeta_mag_set_point_course','gaxeta_mag_set_point_geometry','gaxeta_mag_asset_setup','gaxeta_mag_record_maintenance');   -- 8
+select count(*) from information_schema.columns where table_name = 'gaxeta_readings' and column_name ~ '^(ct_|bench_)';     -- 10
+```
+
+## 5. Depois do push
+
+1. Abra o site, toque em **Continuar** e recarregue sem cache (Cmd+Shift+R).
+2. **Sensores**: o L2-956 aparece com **Sem geometria** e o botão **Configurar** no cartão.
+3. Siga o `COMO_USAR_ROTEIRO_ITALO.md` da pasta da entrega.
 
 ## 6. Reversão
 
-- **Placa**: gravar de volta o firmware 4.3.2 pelo backup privado (`PRIVADO_BACKUP_2026-11-21_POTENCIOMETRO_4.3.2/LEIA_RESTAURAR.md`) e religar o potenciômetro. A rota antiga recomeça o filtro elétrico sem movimento falso e encerra a referência magnética.
-- **Banco**: `supabase/rollback/20261121154407_as5600_contrato_magnetico.down.sql`. Ele se recusa a rodar enquanto existirem leituras magnéticas gravadas, para não apagar histórico; nesse caso, mantenha a migração e reverta só a placa.
+- **Site**: `git revert` do commit.
+- **Placa**: gravar de volta o 4.4.0 (binário exportado antes da gravação do 4.5.0; ver `firmware/LEIA_FIRMWARE.md`). O banco aceita os dois.
+- **Banco**: `supabase/rollback/20261121230001_a_modo_bancada_estrutura.down.sql` devolve as funções à forma da migração 14 e remove tabelas, colunas e funções novas. As leituras ficam; a contagem contínua e o resultado de bancada gravados nelas são descartados com as colunas. Recusa rodar se houver spot com curso próprio e sem geometria.

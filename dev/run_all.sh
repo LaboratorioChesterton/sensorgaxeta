@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Suíte funcional completa, do zero: baseline + fixture legada + migrações 01–14 + testes.
+# Suíte funcional completa, do zero: baseline + fixture legada + migrações 01–15 + testes.
 # As suítes 75 a 77 conferem o ciclo de gaxeta como ele existiu até a migração 11 (histórico
 # reproduzível); por isso rodam antes das migrações 12 e 13, que tiram esse fluxo de operação.
 # Uso: PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh   (~1 min)
@@ -26,6 +26,9 @@ psql -q -At -v ON_ERROR_STOP=1 -d $DB -f "$ROOT/tests/79_ciclo_fora_de_operacao.
 "$ROOT/dev/apply_migrations.sh" $DB 20261121154407 20261121154407 | tail -1
 psql -q -At -v ON_ERROR_STOP=1 -d $DB -f "$ROOT/tests/84_contrato_magnetico.sql" > /tmp/suite_84_contrato_magnetico.log 2>&1 || { echo "ERRO em 84_contrato_magnetico:"; grep -n "ERROR" -A3 /tmp/suite_84_contrato_magnetico.log | head -8; }
 "$ROOT/tests/85_concorrencia_magnetica.sh" $DB > /tmp/suite_85.log 2>&1 || echo "ERRO em 85"
+# Migração 15 (Modo bancada, curso por TAG e por spot, faixas de ajuste) e suíte 87.
+"$ROOT/dev/apply_migrations.sh" $DB 99999999999999 20261121154408 | tail -1
+psql -q -At -v ON_ERROR_STOP=1 -d $DB -f "$ROOT/tests/87_modo_bancada.sql" > /tmp/suite_87_modo_bancada.log 2>&1 || { echo "ERRO em 87_modo_bancada:"; grep -n "ERROR" -A3 /tmp/suite_87_modo_bancada.log | head -8; }
 "$ROOT/tests/90_base_limpa_e_reversao.sh" > /tmp/suite_90.log 2>&1 || echo "ERRO em 90"
 grep -v "^migrações\|^$" /tmp/suite_90.log
 psql -q -At -F ' | ' -d $DB -c "select rpad(suite, 40), 'ok=' || count(*) filter (where ok), 'falhas=' || count(*) filter (where not ok) from (select suite, ok from t.results union all select 'x', true where false) r group by suite order by suite"

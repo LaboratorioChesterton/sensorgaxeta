@@ -18,9 +18,11 @@ OKS=$(grep -l '"status": "pending"' /tmp/c85_*.log | wc -l); ERR=$(grep -l 'agua
 q -c "select set_config('t.suite','85 concorrência magnética',false); select t.eq('$OKS/$ERR'::text, '1/7', 'oito cliques simultâneos de dois operadores: uma solicitação aceita, sete com pendência explícita');
       select t.eq((select count(*) from gaxeta_private.mag_services where sensor_id = '$S' and status = 'pending'), 1::bigint, 'uma única solicitação pendente no vínculo');"
 # (2) O mesmo pacote (mesma sequência) enviado por 6 sessões: uma linha, uma referência.
+# O horário da amostra vai com milissegundos: com segundos inteiros, um pacote de boot novo colhido no
+# mesmo segundo da última leitura da suíte 84 não virava a leitura atual (falha intermitente do ensaio).
 q -c "update gaxeta_private.mag_services set requested_at = requested_at - interval '10 seconds' where sensor_id = '$S' and status = 'pending'; update public.gaxeta_devices set last_received_at = last_received_at - interval '5 seconds' where sensor_id = '$S';" >/dev/null
 BOOT=eeeeeeeeeeeeeeee5555555555555555
-PAY="{\"schema_version\":4,\"modality\":\"as5600_i2c\",\"sensor_id\":\"$S\",\"boot_id\":\"$BOOT\",\"sequence\":1,\"origin\":\"esp32\",\"raw_angle\":700,\"angle_pp\":1,\"mag_status\":\"ok\",\"bus_status\":\"ok\",\"rssi\":-50,\"send_period_s\":30,\"sampled_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}"
+PAY="{\"schema_version\":4,\"modality\":\"as5600_i2c\",\"sensor_id\":\"$S\",\"boot_id\":\"$BOOT\",\"sequence\":1,\"origin\":\"esp32\",\"raw_angle\":700,\"angle_pp\":1,\"mag_status\":\"ok\",\"bus_status\":\"ok\",\"rssi\":-50,\"send_period_s\":30,\"sampled_at\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}"
 for i in 1 2 3 4 5 6; do q -c "begin; select t.anon(); select public.gaxeta_ingest_v4('$TOK', '$PAY'::jsonb); commit;" >/tmp/d85_$i.log 2>&1 & done; wait
 NEW=$(grep -l '"duplicate": false' /tmp/d85_*.log | wc -l); DUP=$(grep -l '"duplicate": true' /tmp/d85_*.log | wc -l); LIM=$(grep -l 'PT429\|Aguarde antes' /tmp/d85_*.log | wc -l)
 q -c "select set_config('t.suite','85 concorrência magnética',false);

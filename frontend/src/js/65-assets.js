@@ -53,7 +53,7 @@ function parentPathLine(asset) {
   return parents.length ? `<p class="inspector-path" title="${esc(parents.join(" / "))}">${esc(parents.join(" / "))}</p>` : "";
 }
 
-function equipmentInspector(asset, overview, problem) {
+function equipmentInspector(asset, overview, problem, magInfo = null) {
   const details = overview?.details || null;
   const type = equipCatalog.get(details?.equipment_type) || details?.equipment_type_label || "";
   const access = overview?.asset?.access || asset.access;
@@ -81,7 +81,12 @@ function equipmentInspector(asset, overview, problem) {
       `<section><h4>${group.title}</h4><dl class="detail-fields">` +
       group.fields.map(([key, label]) => `<dt>${esc(label)}</dt><dd${details?.[key] == null ? ' class="absent"' : ""}>${details?.[key] == null ? "—" : esc(details[key])}</dd>`).join("") +
       `</dl></section>`,
-  ).join("");
+  ).join("") +
+    // Sensor magnético: curso disponível típico do TAG (estimativa), editado em Editar.
+    (magInfo
+      ? `<section><h4>Sensor magnético</h4><dl class="detail-fields"><dt>Curso disponível típico</dt><dd${magInfo.suggested_course_mm == null ? ' class="absent"' : ""}>${esc(magAssetSummaryText(magInfo))}</dd>` +
+        `<dt>Revisão sugerida</dt><dd${magInfo.geometry ? "" : ' class="absent"'}>${magInfo.geometry ? esc(geomText(magInfo.geometry)) : "—"}</dd></dl></section>`
+      : "");
   const childKinds = allowedChildKinds({ ...asset, access });
   return (
     `<div class="inspector-card equip-card">` +
@@ -139,7 +144,9 @@ async function renderInspector() {
   }
   if (state.assetId !== assetId || state.page !== "assets") return;
   if (asset.kind === "equipment") {
-    box.innerHTML = equipmentInspector(asset, overview, problem);
+    const equipMag = await magAssetInfo(assetId);
+    if (state.assetId !== assetId || state.page !== "assets") return;
+    box.innerHTML = equipmentInspector(asset, overview, problem, equipMag);
     renderTree();
     renderIcons();
     return;
@@ -155,10 +162,18 @@ async function renderInspector() {
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
           `</div>`;
   const fields = [];
+  let magInfo = null;
   if (asset.kind === "point") {
     const equip = assetIndex.get(asset.parent_id);
     if (equip) fields.push(["TAG", `${equipTag(equip)} · ${equipTypeLabel(equip.id) || TYPE_UNKNOWN}`]);
     fields.push(["Posição de montagem", asset.position || "Não informada"]);
+    // Sensor magnético: curso típico com a origem (spot ou TAG) e a revisão da montagem.
+    magInfo = await magAssetInfo(assetId);
+    if (state.assetId !== assetId || state.page !== "assets") return;
+    if (magInfo) {
+      fields.push(["Curso disponível típico", magAssetSummaryText(magInfo)]);
+      fields.push(["Revisão da montagem", magInfo.effective?.geometry ? geomText(magInfo.effective.geometry) + (magInfo.effective.geometry_source === "equipment" ? " · sugerida no TAG" : "") : "Não vinculada"]);
+    }
   } else if (asset.tag && asset.tag !== asset.name) fields.push(["Código", asset.tag]);
   box.innerHTML =
     `<div class="inspector-card"><header class="inspector-head"><div class="inspector-title"><span class="kind-chip">${KIND_LABEL[asset.kind]}</span><h2>${esc(asset.name)}</h2>${parentPathLine(asset)}</div></header>` +
@@ -168,6 +183,7 @@ async function renderInspector() {
     (asset.access === "path" ? '<p class="path-note">Este nível aparece só como caminho de navegação até os ramos concedidos à sua conta.</p>' : "") +
     (fields.length ? `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}</dl>` : "") +
     sensorBlock +
+    (magInfo ? `<div class="inspector-actions"><button class="secondary compact" data-act="mag-setup">${magInfo.can_edit_course || magInfo.can_edit_geometry ? "Configurar montagem do sensor" : "Ver montagem do sensor"}</button></div>` : "") +
     inspectorActions(asset, childKinds) +
     (childKinds.length ? `<p class="form-help">Próxima criação: ${childKinds.map((kind) => KIND_LABEL[kind]).join(" ou ")}.</p>` : "") +
     `</div>`;
@@ -180,6 +196,7 @@ $id("assetInspector").onclick = async (event) => {
   const asset = assetIndex.get(state.assetId);
   const fail = (error) => showMessage(errorText(error), "error");
   if (act === "sensor-detail") return openDrawer(button.dataset.sensor, "detail", button);
+  if (act === "mag-setup") return openMagSetupForPoint(state.assetId, state.devices.find((device) => device.measurement_point_id === state.assetId)?.sensor_id || null).catch(fail);
   if (act === "sensor-history") return openHistoryFor(button.dataset.sensor);
   if (act === "spot-link") return openLinkDialog(button.dataset.spot);
   if (act === "open-spot") {
@@ -231,6 +248,8 @@ async function openAssetForm({ parentId = null, kind = null, editId = null }) {
     }
   }
   Object.assign(assetFormState, { editId: editing?.id || null, parentId: editing ? editing.parent_id : parentId, hadType: !!details?.equipment_type });
+  // Curso disponível típico do sensor magnético: campos do TAG e do spot (66-mag-setup.js).
+  await magAssetFormPrepare(editing, parent);
   fillSelect($id("assetKind"), kinds.map((value) => ({ value, label: KIND_LABEL[value] })), null, kind && kinds.includes(kind) ? kind : kinds[0]);
   $id("assetKindRow").hidden = kinds.length < 2;
   $id("assetContext").textContent = parent ? "Dentro de: " + assetPathLabel(parent.id) : "Raiz da estrutura";
@@ -273,6 +292,7 @@ function syncAssetForm() {
   $id("corpFields").querySelector(".form-help").textContent = editing
     ? "Para atualizar o contato, preencha e-mail e responsável. Em branco, só o nome é alterado."
     : "Contato e responsável podem ser preenchidos depois: a corporação pode nascer como rascunho.";
+  magAssetFormSync(kind);
 }
 $id("assetKind").onchange = syncAssetForm;
 // Lê a ficha do formulário. Campo vazio é ausência de informação; quantidade é inteiro não negativo.
@@ -307,6 +327,13 @@ $id("assetForm").onsubmit = async (event) => {
     }
     if (!details.equipment_type && (!editId || assetFormState.hadType)) return void (message.textContent = "Selecione o tipo de equipamento.");
   }
+  // Curso do sensor magnético: validado antes de gravar o ativo, aplicado logo depois.
+  let magWanted = null;
+  try {
+    magWanted = magAssetFormRead(kind);
+  } catch (error) {
+    return void (message.textContent = error.message);
+  }
   message.textContent = "Salvando…";
   const button = event.submitter || $id("assetForm").querySelector('button[type="submit"]');
   button.disabled = true;
@@ -336,6 +363,12 @@ $id("assetForm").onsubmit = async (event) => {
               p_sensor_label: null,
             });
     if (kind === "equipment") equipTypeIndex.set(saved.id, saved.details?.equipment_type || null);
+    let magProblem = "";
+    try {
+      await magAssetFormApply(saved, magWanted);
+    } catch (error) {
+      magProblem = " O curso do sensor magnético NÃO foi gravado: " + errorText(error);
+    }
     // Relê o ramo no servidor: o que aparece na árvore é o que ficou gravado.
     await loadKids(parentId || null, { force: true });
     await ensureAssets([saved.id]);
@@ -350,7 +383,7 @@ $id("assetForm").onsubmit = async (event) => {
     if (state.page === "assets") await renderInspector();
     renderIcons();
     const next = allowedChildKinds(assetIndex.get(saved.id)).map((value) => KIND_LABEL[value]);
-    showMessage(`${KIND_LABEL[kind]} “${assetLabel(assetIndex.get(saved.id) || saved)}” ${kindDone(kind, editId ? "atualizad" : "gravad")}.${!editId && next.length ? " Próxima criação: " + next.join(" ou ") + "." : ""}`, "success");
+    showMessage(`${KIND_LABEL[kind]} “${assetLabel(assetIndex.get(saved.id) || saved)}” ${kindDone(kind, editId ? "atualizad" : "gravad")}.${!editId && next.length ? " Próxima criação: " + next.join(" ou ") + "." : ""}${magProblem}`, magProblem ? "error" : "success");
   } catch (error) {
     message.textContent = isMissingFeature(error) ? MISSING_FEATURE_TEXT : errorText(error);
   } finally {

@@ -1509,7 +1509,52 @@ const MAG_REASON = {
   awaiting_reference: { key: "limit", label: "Aguardando leitura", note: "Engaxetamento solicitado. Mantenha a haste parada até a confirmação." },
   not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
   out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
+  // Modo bancada (demonstração em mesa). Nunca é curso de campo, e sem posição conhecida não há número.
+  bench: { key: "bench", label: "Modo bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
+  bench_awaiting_start: { key: "bench", label: "Confirme o início", note: "Modo bancada ligado. Ponha o eixo dentro da faixa e toque em Confirmar início, em Detalhes." },
+  bench_reposition: { key: "warn", label: "Reposicionar para retomar", note: "A placa perdeu a continuidade do giro. Volte o eixo para dentro da faixa e confirme a referência, em Detalhes." },
+  bench_no_continuity: { key: "limit", label: "Sem contagem contínua", note: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0). O Modo bancada precisa dela." },
 };
+// Faixas do curso de ajuste restante. Quem decide é o servidor (service.band), sobre o valor
+// estabilizado com duas casas: o mesmo número que a tela mostra. Aqui ficam só o rótulo e a cor.
+const MAG_BAND = {
+  high: { key: "band-high", label: "Alto ajuste", range: "73 % ou mais" },
+  medium: { key: "band-medium", label: "Médio ajuste", range: "de 50 % até abaixo de 73 %" },
+  low: { key: "band-low", label: "Baixo ajuste", range: "de 30 % até abaixo de 50 %" },
+  none: { key: "band-none", label: "Sem ajuste", range: "abaixo de 30 %" },
+};
+// Mesma regra de gaxeta_private.mag_band, só para a legenda da SIMULAÇÃO das faixas na bancada.
+const magBandOf = (percent) => {
+  const shown = Math.round(Number(percent) * 100) / 100;
+  return !Number.isFinite(shown) ? null : shown >= 73 ? "high" : shown >= 50 ? "medium" : shown >= 30 ? "low" : "none";
+};
+// Por que a placa recomeçou a contagem contínua (ct_loss) ou a bancada perdeu a posição.
+const CT_LOSS_TEXT = {
+  boot: "reinício da placa ou retorno de energia", no_magnet: "ímã ausente", field: "campo magnético fora da faixa", bus: "falha do barramento I²C",
+  gap: "lacuna na aquisição acima do limite", speed: "giro mais rápido que a velocidade garantida", ambiguous: "meia volta entre duas amostras (ambíguo)",
+  incoherent: "pacote com contagem incoerente", session_changed: "a sessão da placa mudou",
+  bus_no_ack: "sensor sem resposta no I²C", bus_read_error: "falha de leitura no I²C", bus_timeout: "I²C sem resposta a tempo", field_weak: "campo fraco", field_strong: "campo forte",
+};
+const ctLossText = (code) => CT_LOSS_TEXT[code] || code || "motivo não informado";
+// Motivo de a confirmação do início ainda estar aguardando (bench.anchor_note).
+const BENCH_NOTE_TEXT = {
+  outside_range: "O eixo está FORA da faixa. Gire até um ponto entre o 0 % e o 100 % e aguarde a próxima leitura.",
+  moving: "O eixo estava em movimento na última leitura. Deixe-o parado.",
+  invalid_sample: "A última leitura veio sem ângulo válido (ímã ou barramento). Confira o sensor.",
+  no_continuity: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0).",
+  no_session: "A placa ainda não abriu a contagem. Aguarde a próxima leitura.",
+  waiting_new_sample: "Aguardando uma leitura colhida depois do toque.",
+  expired: "A confirmação anterior venceu sem uma leitura válida. Toque de novo.",
+};
+// Milímetros digitados com vírgula ou ponto. Devolve número, ou null quando vazio, ou NaN quando inválido.
+function parseMm(text) {
+  const raw = String(text ?? "").trim().replace(",", ".");
+  if (!raw) return null;
+  return /^\d+(\.\d+)?$/.test(raw) ? Number(raw) : NaN;
+}
+const fmtMmInput = (value) => (value == null ? "" : Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 3, useGrouping: false }));
+const SIZE_CLASS_LABEL = { small: "Pequeno", medium: "Médio", large: "Grande" };
+const COURSE_SOURCE_TEXT = { point: "definido neste spot", equipment: "herdado do TAG" };
 // Sem o resumo magnético (banco antigo ou sem permissão), a saúde sai dos campos do próprio sensor.
 function magReasonFromDevice(device) {
   if (!device || device.last_bus_status == null) return "no_reading";
@@ -1533,17 +1578,46 @@ function magView(device, mag) {
   const electric = { percent: null, text: "—", label: "", block: null, ceiling: false, scale: null };
   const base = { magnetic: true, mag: mag || null, reason, degrees, raw, electric, computed, service, origin: "medido" };
   const info = MAG_REASON[reason] || null;
+  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
+  const bench = mag?.bench || null;
+  // Modo bancada: série própria, sempre identificada. Sem posição conhecida não há número
+  // (nunca 0 % nem "Sem ajuste" no lugar da leitura).
+  if (bench) {
+    const shared = { ...base, bench, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
+    if (bench.state === "ok" && bench.percent != null && !sampleBad) {
+      const over = Number(bench.over_deg) || 0;
+      return {
+        ...shared, origin: "calculado · bancada", key: "bench", label: "Modo bancada",
+        note: (over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa") + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
+        value: fmtNum(bench.percent, 2), unit: "%", scale: Number(bench.percent),
+      };
+    }
+    const state = info || MAG_REASON.bench_awaiting_start;
+    return { ...shared, key: state.key, label: state.label, note: state.note, value: "—", unit: "", scale: null };
+  }
   if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {
-    const percent = clampPercent(computed.remaining_percent);
-    const tags = [service?.course_origin === "estimated" ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    // Campo: o número em destaque é o curso restante ESTABILIZADO, com duas casas, e a faixa é a
+    // que o servidor decidiu sobre esse mesmo número. O valor instantâneo fica em Detalhes.
+    const estimated = service?.course_origin === "estimated";
+    const band = reason === "out_of_range" ? null : MAG_BAND[service?.band] || null;
+    const shown = service?.stable_shown ?? service?.stable_remaining ?? computed.remaining_percent;
+    const percent = clampPercent(shown);
+    const tags = [estimated ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    // Fora da faixa validada: a classificação fica suspensa e nenhum número ocupa o destaque.
+    // O instantâneo e o último estabilizado continuam em Detalhes, com esses nomes.
+    if (reason === "out_of_range")
+      return {
+        ...base, origin: "calculado", key: info.key, kicker: "Curso de ajuste restante", series: estimated ? "campo, curso estimado" : "campo, curso medido", estimated, band: null,
+        instant: computed.remaining_percent, label: info.label, note: `${info.note} Último valor estabilizado: ${fmtNum(shown, 2)} %.`, value: "—", unit: "", scale: null,
+      };
     return {
-      ...base, origin: "calculado", key: info ? info.key : "electric", kicker: "Curso de ajuste restante",
-      label: info ? info.label : service?.provisional ? "Provisório" : "Calculado",
+      ...base, origin: "calculado", key: info ? info.key : band ? band.key : "electric", kicker: "Curso de ajuste restante",
+      series: estimated ? "campo, curso estimado" : "campo, curso medido", estimated, band: band ? service.band : null, instant: computed.remaining_percent,
+      label: info ? info.label : band ? band.label : service?.provisional ? "Provisório" : "Calculado",
       note: info ? info.note : `${fmtMm(computed.remaining_mm)} de ${fmtMm(service?.course_mm)} · avanço ${fmtMm(computed.advance_mm)}` + (tags.length ? " · " + tags.join(" · ") : ""),
-      value: fmtNum(percent), unit: "%", scale: percent,
+      value: fmtNum(percent, 2), unit: "%", scale: percent,
     };
   }
-  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
   return {
     ...base, key: info?.key || "electric", kicker: "Ângulo do sensor", label: info?.label || "Ângulo do sensor", note: info?.note || "Ângulo absoluto do ímã.",
     value: sampleBad || degrees == null ? "—" : fmtNum(degrees), unit: sampleBad || degrees == null ? "" : "°", scale: null,
@@ -2202,7 +2276,10 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
-  return `<strong class="tree-electric" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}</strong>`;
+  // Sensor magnético: a árvore diz a série (bancada, curso estimado) e a faixa, além do número.
+  const tag = view.bench ? " · bancada" : view.estimated ? " · estimado" : "";
+  const band = view.magnetic && !view.bench && view.computed && MAG_BAND[view.band] ? ` ${MAG_BAND[view.band].label}` : view.magnetic && view.value === "—" ? ` ${view.label}` : "";
+  return `<strong class="tree-electric health-${esc(view.key)}" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}<small>${esc(band + tag)}</small></strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));
@@ -2432,6 +2509,8 @@ function renderSensorGrid() {
   const first = view.total ? view.offset + 1 : 0;
   const last = Math.min(view.offset + CONFIG.pageSize, view.total);
   $id("visibleCount").textContent = view.total ? `${first}–${last} de ${view.total}` : "";
+  // Com um ramo da árvore selecionado, o caminho de volta para "todos" fica sempre à vista.
+  $id("scopeClear").hidden = !state.assetId;
   grid.innerHTML =
     devices
       .map((device) => {
@@ -2489,6 +2568,7 @@ $id("sensorGrid").onclick = (event) => {
   const sensorId = event.target.closest("[data-card]")?.dataset.card;
   if (!button || !sensorId) return;
   if (button.dataset.act === "history") openHistoryFor(sensorId);
+  else if (button.dataset.act === "setup") openMagSetup(sensorId).catch((error) => showMessage(errorText(error), "error"));
   else openDrawer(sensorId, button.dataset.act, button);
 };
 $id("sensorPager").onclick = (event) => {
@@ -2502,11 +2582,21 @@ $id("sensorSearch").oninput = debounce(() => {
   state.sensors.offset = 0;
   loadSensors().catch((error) => showMessage(errorText(error), "error"));
 }, 350);
+// Sai do recorte da árvore: todos os sensores do escopo da conta, inclusive os sem spot.
+function clearSensorScope() {
+  state.assetId = "";
+  state.sensors.offset = 0;
+  renderTree();
+  loadSensors().catch((error) => showMessage(errorText(error), "error"));
+}
 $id("statusFilter").onchange = () => {
   state.sensors.filter = $id("statusFilter").value;
   state.sensors.offset = 0;
+  // "Todos" é todos mesmo: escolher essa opção com um ramo selecionado desfaz o recorte.
+  if (state.sensors.filter === "all" && state.assetId) return clearSensorScope();
   loadSensors().catch((error) => showMessage(errorText(error), "error"));
 };
+$id("scopeClear").onclick = () => clearSensorScope();
 
 // ----- Seletor de localização em cascata (lê cada nível sob demanda) -----
 const PICK_LEVELS = ["corporation", "company", "area", "subarea", "equipment", "point"];
@@ -2562,6 +2652,38 @@ async function afterSensorChange() {
     renderTelemetryLive();
   }
   renderIcons();
+}
+
+// Desvincular do spot (ADM nível 1 e 2), a partir de Detalhes ou de Editar. A confirmação mostra
+// TAG, equipamento e spot. O vínculo e a sua referência são encerrados; as leituras ficam.
+async function unlinkSensorFlow(sensorId, button) {
+  const device = findDevice(sensorId);
+  if (!device?.measurement_point_id) return;
+  await ensureAssets([device.measurement_point_id]);
+  const point = assetIndex.get(device.measurement_point_id);
+  const equip = point ? assetIndex.get(point.parent_id) : null;
+  const magnetic = isMagnetic(device, deviceLive(device));
+  const ok = await askConfirm({
+    title: "Desvincular sensor do spot",
+    okLabel: "Desvincular",
+    html:
+      `<dl class="detail-fields"><dt>Sensor</dt><dd>${esc(deviceLabel(device))} · ${esc(device.sensor_id)}</dd>` +
+      `<dt>TAG</dt><dd>${esc(equip ? equipTag(equip) : "—")}</dd><dt>Equipamento</dt><dd>${esc((equip && equipTypeLabel(equip.id)) || TYPE_UNKNOWN)}</dd>` +
+      `<dt>Spot</dt><dd>${esc(point ? point.name + (point.position ? " · " + point.position : "") : "—")}</dd>` +
+      `<dt>Caminho</dt><dd>${esc(assetPathLabel(device.measurement_point_id))}</dd></dl>` +
+      `<p>O vínculo é encerrado e o sensor volta à fila de associação, livre para outro spot. As leituras continuam chegando e todo o histórico é preservado.</p>` +
+      (magnetic ? `<p>A referência de engaxetamento deste vínculo (e o Modo bancada, se estiver ativo) é encerrada: no novo spot será preciso registrar o engaxetamento de novo.</p>` : "") +
+      `<p>Nada é apagado da nuvem.</p>`,
+  });
+  if (!ok) return;
+  await withBusy(button, async () => {
+    const saved = await callRpc("gaxeta_unlink_sensor", { p_sensor_id: sensorId, p_reason: "desvínculo pela interface" });
+    mergeDevices([saved]);
+    await loadMagSummary([sensorId]).catch(() => {});
+    showMessage("Sensor desvinculado. Ele está na fila de associação (Sensores → filtro Sem vínculo).", "success");
+    openDrawer(sensorId, "detail");
+    await afterSensorChange();
+  });
 }
 
 // ----- Painel lateral -----
@@ -2658,7 +2780,7 @@ async function renderDrawer() {
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
     (isMagnetic(device, deviceLive(device))
-      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span>Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
+      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span id="detailElectricLabel">Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span id="detailVoltLabel">Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
       : `<div class="drawer-values four" id="detailLive" data-mode="adc"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`) +
     `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
@@ -2712,17 +2834,7 @@ async function renderDrawer() {
         }
       });
     };
-    if ($id("unlinkSensor"))
-      $id("unlinkSensor").onclick = async (event) => {
-        if (!(await askConfirm({ title: "Desvincular sensor", html: `<p>O sensor <b>${esc(deviceLabel(device))}</b> sai de <b>${esc(path)}</b> e volta à fila de associação. As leituras continuam chegando e o histórico é preservado.</p>`, okLabel: "Desvincular" }))) return;
-        await withBusy(event.target, async () => {
-          const saved = await callRpc("gaxeta_unlink_sensor", { p_sensor_id: sensorId, p_reason: "desvínculo pela interface" });
-          mergeDevices([saved]);
-          showMessage("Sensor desvinculado. Ele está na fila de associação.", "success");
-          openDrawer(sensorId, "detail");
-          await afterSensorChange();
-        });
-      };
+    if ($id("unlinkSensor")) $id("unlinkSensor").onclick = (event) => unlinkSensorFlow(sensorId, event.currentTarget);
   } else {
     const gateway = device.gateway_id ? (await unwrap(sb.from("gaxeta_gateways").select("name,identifier").eq("id", device.gateway_id).limit(1)))[0] : null;
     if (state.drawer.sensorId !== sensorId) return;
@@ -2741,6 +2853,7 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
+      (isAdminWriter() && device.measurement_point_id ? `<button class="text-button danger-text" id="detailUnlink">Desvincular do spot…</button>` : "") +
       `</div>` +
       (isMagnetic(device, deviceLive(device)) ? magServiceSection() : "") +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
@@ -2761,6 +2874,7 @@ async function renderDrawer() {
       openHistoryFor(sensorId);
     };
     if ($id("detailEdit")) $id("detailEdit").onclick = () => openDrawer(sensorId, "edit");
+    if ($id("detailUnlink")) $id("detailUnlink").onclick = (event) => unlinkSensorFlow(sensorId, event.currentTarget);
     if ($id("applyBleName"))
       $id("applyBleName").onclick = (event) =>
         withBusy(event.currentTarget, async () => {
@@ -2783,6 +2897,9 @@ async function renderDrawer() {
 // ---- 63-magnetic.js ----
 // =============================================================================
 // Sensor magnético (AS5600): cartão, painel de Detalhes e "Engaxetamento realizado".
+//   * Modo bancada (64-bench.js): série própria, sempre identificada; não se mistura com o campo.
+//   * Campo: o número em destaque é o curso restante estabilizado, com a faixa de ajuste decidida
+//     no servidor; "curso estimado" aparece sempre que D veio do valor típico do cadastro.
 //   * Sem vínculo: ângulo absoluto e saúde.
 //   * Com vínculo e referência: Curso de ajuste restante (% e mm) em destaque; Avanço desde
 //     engaxetamento e Ângulo do sensor em Detalhes.
@@ -2803,22 +2920,46 @@ function magSignalText(device, mag) {
   if (!bus) return "sem leitura";
   return bus !== "ok" ? MAG_BUS_TEXT[bus] || bus : MAG_FIELD_TEXT[field] || "—";
 }
+// O que falta no cadastro deste spot para o cálculo de campo, e se esta conta pode resolver.
+function magConfigState(mag) {
+  const config = mag?.config || null;
+  const missing = config?.missing || [];
+  // No cartão, o botão Configurar aparece quando o que falta impede o próximo passo e esta conta
+  // resolve: geometria ou validação (engenharia), ou o curso típico enquanto não há referência.
+  const blocksGeometry = missing.includes("geometry") || missing.includes("validation");
+  return {
+    missing,
+    canFix: !!config && ((blocksGeometry && config.can_geometry) || (missing.includes("course") && config.can_course && !mag.service)),
+    can: !!config && (config.can_course || config.can_geometry),
+    pointId: config?.point_id || null,
+  };
+}
 function magCardHtml(device, view, status, identity, place, name) {
   const mag = view.mag;
-  const stable = view.service?.stable_remaining;
+  const config = magConfigState(mag);
+  const bench = view.bench || null;
+  // Selo da série: bancada, campo com curso medido ou estimado. A cor não é o único sinal.
+  const tag = bench
+    ? `<span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo e não gera evento de manutenção.">Modo bancada</span>`
+    : view.estimated
+      ? `<span class="series-tag is-estimated" title="O curso disponível deste engaxetamento veio do valor típico do cadastro, não de uma medida.">Curso estimado</span>`
+      : "";
   return (
-    `<article class="sensor-card health-${view.key} is-magnetic" data-card="${esc(device.sensor_id)}">` +
+    `<article class="sensor-card health-${view.key} is-magnetic${bench ? " is-bench" : ""}" data-card="${esc(device.sensor_id)}">` +
     `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
     `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
     `<div class="card-main"><div class="card-value" title="${esc(view.kicker)} (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
-    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}</span><span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}${bench ? " (%)" : ""}</span>${tag}<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
     `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="${esc(view.kicker)}: ${esc(view.value)} ${esc(view.unit)}"><i style="width:${view.scale ?? 0}%"></i></div>` +
     `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
-    (view.computed
-      ? `<span title="Linha estabilizada do curso restante: só muda com variação de 5 pontos percentuais ou mais, dentro do mesmo engaxetamento">Estável ${fmtNum(stable)} %</span>`
-      : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
-    `<span title="Última leitura recebida">${fmtDateTime(device.last_received_at)}</span></div>` +
+    (bench
+      ? `<span title="O percentual de bancada é calculado no servidor a cada envio da placa">${bench.state === "ok" ? "Bancada · envio a cada " + esc(fmtInterval(Number(deviceInterval(device)) || 30)) : esc(magSignalText(device, mag))}</span>`
+      : view.computed
+        ? `<span title="Valor da leitura atual, sem a estabilização de 5 pontos percentuais">Instantâneo ${fmtNum(view.instant, 2)} %</span>`
+        : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
+    `<span title="Última atualização recebida da placa">Atualizado ${fmtDateTime(device.last_received_at)}</span></div>` +
     `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
+    (config.canFix ? `<button data-act="setup" title="Falta cadastro para calcular o curso de ajuste restante">Configurar</button>` : "") +
     (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
     `</footer></article>`
   );
@@ -2827,7 +2968,7 @@ function magCardHtml(device, view, status, identity, place, name) {
 // ----- Painel de Detalhes -----
 // O bloco do engaxetamento fica logo abaixo das ações, antes da ficha do sensor: no celular o
 // técnico chega ao campo e ao botão sem percorrer a lista de identificação.
-const magServiceSection = () => `<section class="mag-service" id="magService" aria-live="polite"></section>`;
+const magServiceSection = () => `<section class="mag-bench" id="magBench" aria-live="polite"></section><section class="mag-service" id="magService" aria-live="polite"></section>`;
 function magDrawerSections() {
   return (
     `<details class="technical-detail"><summary>Leitura magnética (diagnóstico)</summary><p class="form-help">O ângulo é a posição absoluta do ímã, de 0° a 359,9° (12 bits). O avanço e o curso restante só existem depois de um engaxetamento registrado e dentro da geometria validada da montagem. Campo fraco, campo forte, ímã ausente e falha do barramento deixam a leitura sem posição: a placa segue online e o motivo aparece aqui.</p><dl class="detail-fields" id="detailDiag"></dl></details>`
@@ -2838,39 +2979,66 @@ function updateDrawerLiveMag(device, view, status) {
   const reading = mag?.reading || null;
   const computed = view.computed;
   const service = view.service;
-  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
+  const bench = view.bench || null;
+  const ct = reading?.ct || null;
+  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · atualizado ${fmtDateTime(device.last_received_at)}`;
   const tile = (id, value, note) => ($id(id).innerHTML = `${esc(value)}<small>${esc(note)}</small>`);
+  const label = (id, text) => $id(id) && ($id(id).textContent = text);
   const outside = view.reason === "out_of_range";
-  tile("detailElectric", computed ? fmtNum(clampPercent(computed.remaining_percent)) + " %" : "—",
-    computed ? `${fmtMm(computed.remaining_mm)} · calculado${outside ? " · fora da faixa" : ""}` : "sem referência válida");
-  tile("detailVolt", computed ? fmtMm(computed.advance_mm, 2) : "—", computed ? "calculado" : "sem referência válida");
-  tile("detailStableLine", view.value === "—" && !computed ? "—" : fmtDeg(view.degrees, 2), view.raw == null ? "sem ângulo" : `medido · bruto ${view.raw}`);
-  tile("detailSignal", (MAG_REASON[view.reason]?.key === "warn" && view.reason !== "out_of_range" ? view.label : "Sinal válido"), magSignalText(device, mag));
+  if (bench) {
+    // Bancada: o número é a Posição de bancada (%); graus e bruto ficam ao lado.
+    label("detailElectricLabel", "Posição de bancada (%)");
+    label("detailVoltLabel", "Posição contínua");
+    tile("detailElectric", view.value === "—" ? "—" : view.value + " %", view.value === "—" ? view.label : "calculado · bancada");
+    tile("detailVolt", bench.continuous_deg == null ? "—" : fmtDeg(bench.continuous_deg, 2), bench.continuous_deg == null ? "sem posição conhecida" : `${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s) · medido`);
+  } else {
+    label("detailElectricLabel", "Curso de ajuste restante");
+    label("detailVoltLabel", "Avanço desde engaxetamento");
+    tile("detailElectric", computed && view.value !== "—" ? view.value + " %" : "—",
+      computed ? `${outside ? "fora da faixa" : MAG_BAND[view.band]?.label || "estabilizado"} · ${view.estimated ? "curso estimado" : "curso medido"}` : "sem referência válida");
+    tile("detailVolt", computed ? fmtMm(computed.advance_mm, 2) : "—", computed ? `calculado · instantâneo ${fmtNum(computed.remaining_percent, 2)} %` : "sem referência válida");
+  }
+  tile("detailStableLine", view.raw == null ? "—" : fmtDeg(view.degrees, 2), view.raw == null ? "sem ângulo" : `medido · bruto ${view.raw}`);
+  tile("detailSignal", (MAG_REASON[view.reason]?.key === "warn" && view.reason !== "out_of_range" && !/^bench_/.test(view.reason) ? view.label : "Sinal válido"), magSignalText(device, mag));
   const cadence = firmwareCadence(device.firmware_version);
   $id("detailReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` + (cadence ? ` · ${cadence.text}` : "");
-  $id("detailHealth").textContent = (computed && !view.reason ? "Curso de ajuste restante" : view.label) + " · " + view.note;
+  $id("detailHealth").textContent = (bench && bench.state === "ok" ? "Modo bancada · série de bancada, não é curso de campo" : computed && !view.reason ? `Curso de ajuste restante · ${view.label}` : view.label) + " · " + view.note;
   $id("detailHealth").className = "health-banner health-" + view.key;
+  renderMagBench(device, view);
   renderMagService(device, view);
+  if ($id("detailUnlink")) $id("detailUnlink").hidden = !(isAdminWriter() && device.measurement_point_id);
   if ($id("detailDiag")) {
     const lastValid = mag?.last_valid;
     const rows = [
+      ["Série exibida", bench ? "bancada (demonstração em mesa)" : computed ? view.series : "ângulo do sensor (sem curso calculado)"],
       ["Ângulo do sensor (medido)", view.raw == null ? "sem ângulo nesta leitura" : `${fmtDeg(view.degrees, 3)} · bruto ${view.raw} de 4095`],
       ["Estabilidade do bloco", reading?.angle_pp == null && device.last_angle_pp == null ? "—" : `${reading?.angle_pp ?? device.last_angle_pp} contagens entre amostras (até 6 = estável)`],
       ["Barramento I²C", MAG_BUS_TEXT[reading?.bus_status ?? device.last_bus_status] || "—"],
       ["Campo magnético", MAG_FIELD_TEXT[reading?.mag_status ?? device.last_mag_status] || "—"],
       ["AGC / magnitude", `${reading?.agc ?? device.last_agc ?? "—"} / ${reading?.magnitude ?? device.last_magnitude ?? "—"}`],
+      ["Contagem contínua (placa)", !ct ? "não enviada por este firmware (anterior ao 4.5.0)" : ct.session ? `sessão ${ct.session} · ${ct.count} contagens · ${fmtDeg(ct.continuous_deg, 3)} contínuos · iniciada por: ${ctLossText(ct.loss)}` : `sem contagem agora: ${ctLossText(ct.loss)}`],
+      ...(ct && ct.step != null ? [["Margem desde o envio anterior", `maior passo entre amostras: ${ct.step} contagens (${fmtDeg((ct.step * 360) / 4096, 2)}; o limite é 90°) · maior lacuna: ${ct.gap_ms} ms`]] : []),
       ...(view.reason && MAG_REASON[view.reason] ? [["O que fazer", MAG_REASON[view.reason].note]] : []),
       ...(lastValid && (view.raw == null || /^(bus_|no_magnet|field_)/.test(view.reason || ""))
         ? [["Último ângulo válido", `${fmtDeg(lastValid.angle_deg, 3)} em ${fmtDateTime(lastValid.at)} (não é a leitura atual)`]]
         : []),
-      ["Avanço desde engaxetamento (calculado)", computed ? fmtMm(computed.advance_mm, 3) + (Number(computed.advance_mm) < 0 ? " · recuo" : "") : "—"],
-      ["Curso de ajuste restante (calculado)", computed ? `${fmtNum(computed.remaining_percent, 2)} % · ${fmtMm(computed.remaining_mm, 3)}` + (outside ? " · fora da faixa validada" : "") : "—"],
-      ["Linha estabilizada", service?.stable_remaining == null ? "—" : `${fmtNum(service.stable_remaining)} % · muda só com variação de 5 p.p. ou mais` + (service.stable_since ? ` · desde ${fmtDateTime(service.stable_since)}` : "")],
-      ["Curso disponível no engaxetamento", service ? `${fmtMm(service.course_mm, 3)} · ${service.course_origin === "estimated" ? "estimado" : "medido"}` : "—"],
-      ["Geometria da referência", service ? service.geometry + (service.provisional ? " · em caracterização (resultado provisório)" : " · validada") + (service.geometry_current === false ? " · o spot já usa outra revisão" : "") : "—"],
-      ["Ângulo de referência", service ? `${fmtDeg(service.ref_angle_deg, 3)} · bruto ${service.ref_raw_angle} · ${fmtDateTime(service.ref_sampled_at || service.captured_at)}` : "—"],
-      ["Montagem do spot", mag?.setup?.key ? `${mag.setup.label} (${mag.setup.key} r${mag.setup.revision}) · ${mag.setup.status === "validated" ? "validada" : mag.setup.status === "draft" ? "em caracterização" : "retirada"}` : "não definida"],
+      ...(bench
+        ? [
+            ["Bancada: faixa configurada", `${fmtDeg(bench.zero_deg, 1)} = 0 % · ${fmtDeg(bench.full_deg, 1)} = 100 % · sentido ${bench.direction > 0 ? "crescente" : "decrescente"} · ${fmtDeg(bench.span_deg, 1)} de faixa`],
+            ["Bancada: posição contínua", bench.u_deg == null ? "—" : `${fmtDeg(bench.u_deg, 2)} a partir do 0 %` + (Number(bench.over_deg) ? ` · ${fmtDeg(Math.abs(bench.over_deg), 2)} ${bench.over_deg > 0 ? "além do 100 %" : "abaixo do 0 %"}` : "")],
+            ["Bancada: início confirmado", bench.anchor_at ? fmtDateTime(bench.anchor_at) : "ainda não"],
+          ]
+        : [
+            ["Avanço desde engaxetamento (calculado)", computed ? fmtMm(computed.advance_mm, 3) + (Number(computed.advance_mm) < 0 ? " · recuo" : "") : "—"],
+            ["Curso de ajuste restante (instantâneo)", computed ? `${fmtNum(computed.remaining_percent, 2)} % · ${fmtMm(computed.remaining_mm, 3)}` + (outside ? " · fora da faixa validada" : "") : "—"],
+            ["Curso de ajuste restante (estabilizado)", service?.stable_remaining == null ? "—" : `${fmtNum(service.stable_shown ?? service.stable_remaining, 2)} % · ${MAG_BAND[service.band]?.label || "—"} · muda só com variação de 5 p.p. ou mais` + (service.stable_since ? ` · desde ${fmtDateTime(service.stable_since)}` : "")],
+            ["Curso disponível no engaxetamento", service ? `${fmtMm(service.course_mm, 3)} · ${service.course_origin === "estimated" ? "estimado (valor típico do cadastro)" : "medido"}` : "—"],
+            ["Geometria da referência", service ? service.geometry + (service.provisional ? " · em caracterização (resultado provisório)" : " · validada") + (service.geometry_current === false ? " · o spot já usa outra revisão" : "") : "—"],
+            ["Ângulo de referência", service ? `${fmtDeg(service.ref_angle_deg, 3)} · bruto ${service.ref_raw_angle} · ${fmtDateTime(service.ref_sampled_at || service.captured_at)}` : "—"],
+          ]),
+      ["Montagem do spot", mag?.setup?.key ? `${mag.setup.label} (${mag.setup.key} r${mag.setup.revision}) · ${mag.setup.status === "validated" ? "validada" : mag.setup.status === "draft" ? "em caracterização" : "retirada"}` + (mag.setup.geometry_source ? ` · ${mag.setup.geometry_source === "point" ? "vinculada a este spot" : "sugerida no TAG"}` : "") : "não definida"],
+      ["Curso disponível típico", mag?.setup?.suggested_course_mm != null ? `${fmtMm(mag.setup.suggested_course_mm, 2)} · ${COURSE_SOURCE_TEXT[mag.setup.course_source] || "do cadastro"} · estimativa` : "não cadastrado"],
       ["Cadência", [cadence ? "declarada pelo firmware: " + cadence.text : "", mag?.interval_s ? "anunciada pela placa: " + fmtInterval(mag.interval_s) : ""].filter(Boolean).join(" · ") || "—"],
       ["Método de aquisição", device.last_acq_method || "—"],
       ["Amostra colhida", fmtDateTime(device.last_sampled_at)],
@@ -2891,20 +3059,25 @@ function renderMagService(device, view) {
   const pending = mag?.pending || null;
   const service = view.service;
   const setup = mag?.setup || null;
+  const config = magConfigState(mag);
+  const maintenance = mag?.maintenance || null;
   const sending = state.magRequests.get(device.sensor_id) || null;
   const sampleBad = /^(bus_|no_magnet|field_|no_reading)/.test(view.reason || "");
   const mode = !mag
     ? "unavailable"
     : !mag.linked
       ? "no_link"
-      : pending && !pending.expired
-        ? "pending"
-        : !setup?.key
-          ? "no_geometry"
-          : !mag.can_operate
-            ? "readonly"
-            : "form";
-  const signature = [mode, pending?.id, pending?.expired, service?.id, setup?.geometry_id, setup?.status, sampleBad, mag?.can_operate, sending?.error || "", sending ? "s" : ""].join("|");
+      : mag.bench
+        ? "bench"
+        : pending && !pending.expired
+          ? "pending"
+          : !setup?.key
+            ? "no_geometry"
+            : !mag.can_operate
+              ? "readonly"
+              : "form";
+  const signature = [mode, pending?.id, pending?.expired, service?.id, setup?.geometry_id, setup?.status, setup?.suggested_course_mm, setup?.course_source, sampleBad, mag?.can_operate,
+    config.missing.join(","), config.can, maintenance?.id, sending?.error || "", sending ? "s" : "", sending?.manual ? "m" : ""].join("|");
   const current = service
     ? `<p class="mag-current">Referência atual: ${esc(fmtDateTime(service.captured_at))} · ${esc(fmtMm(service.course_mm))} ${service.course_origin === "estimated" ? "estimados" : "medidos"} · ângulo de referência ${esc(fmtDeg(service.ref_angle_deg))}${service.provisional ? " · provisório" : ""}</p>`
     : "";
@@ -2914,10 +3087,22 @@ function renderMagService(device, view) {
     return;
   }
   box.dataset.signature = signature;
+  // Quem pode configurar e o que falta, dito com todas as letras.
+  const missingText = { course: "o curso disponível típico (mm)", geometry: "a revisão da montagem (geometria ensaiada)", validation: "a validação da montagem pelo ensaio" };
+  const whoText = (item) => (item === "course" ? "quem edita o TAG ou o spot em Ativos (ADM nível 1 ou 2, ou usuário da corporação com permissão de edição neste ramo)" : "a engenharia (ADM nível 1 ou 2)");
+  const gaps = config.missing.length
+    ? `<ul class="mag-gaps">${config.missing.map((item) => `<li><b>Falta ${esc(missingText[item])}.</b> Quem cadastra: ${esc(whoText(item))}.</li>`).join("")}</ul>`
+    : "";
+  const setupButton = config.can ? `<button class="secondary" type="button" id="magSetupOpen">Configurar montagem</button>` : "";
+  const maintenanceLine = maintenance
+    ? `<p class="mag-current">Último registro de manutenção (sem referência): ${esc(fmtDateTime(maintenance.noted_at))}${maintenance.mine ? " · por você" : ""}${maintenance.note ? " · " + esc(maintenance.note) : ""}</p>`
+    : "";
   if (mode === "unavailable") {
     box.innerHTML = `<h3>Engaxetamento</h3><p class="form-help">Estado do engaxetamento indisponível no momento. O ângulo e a saúde do sensor seguem acima.</p>`;
   } else if (mode === "no_link") {
     box.innerHTML = `<h3>Engaxetamento</h3><p class="form-help">Sensor sem vínculo com spot. Associe o sensor a um spot para registrar o engaxetamento e acompanhar o curso restante.</p>`;
+  } else if (mode === "bench") {
+    box.innerHTML = `<h3>Engaxetamento</h3><p class="form-help">O Modo bancada está ativo: a série exibida é de bancada. Para registrar um engaxetamento de campo, saia do Modo bancada.</p>` + maintenanceLine;
   } else if (mode === "pending") {
     box.innerHTML =
       `<h3>Aguardando leitura</h3>` +
@@ -2927,27 +3112,42 @@ function renderMagService(device, view) {
       (mag.can_operate ? `<div class="drawer-actions"><button class="secondary" type="button" id="magCancel">Cancelar solicitação</button></div>` : "") +
       `<p id="magMessage" class="form-message" role="status"></p>`;
   } else if (mode === "no_geometry") {
+    // Sem montagem caracterizada não há escala física: só o fato da manutenção pode ser registrado.
     box.innerHTML =
-      `<h3>Engaxetamento</h3><p class="form-help">Este spot ainda não tem geometria de montagem caracterizada. Sem ela a plataforma mostra só o ângulo e a saúde do sensor. A engenharia vincula a revisão da montagem ao spot.</p>` +
-      (setup?.suggested_course_mm ? `<p class="form-help">Curso típico da ficha: ${esc(fmtMm(setup.suggested_course_mm))} (estimativa, não é medida).</p>` : "");
+      `<h3>Engaxetamento</h3><p class="form-help">Configuração pendente: sem a montagem ensaiada a plataforma mostra só o ângulo e a saúde do sensor. O curso de ajuste restante não é calculado, e nenhum número é posto no lugar.</p>` +
+      gaps +
+      (setup?.suggested_course_mm ? `<p class="form-help">Curso disponível típico: ${esc(fmtMm(setup.suggested_course_mm, 2))} (${esc(COURSE_SOURCE_TEXT[setup.course_source] || "do cadastro")}; estimativa, não é medida).</p>` : "") +
+      (setupButton || mag.can_operate
+        ? `<div class="drawer-actions">${setupButton}${mag.can_operate ? `<button class="secondary" type="button" id="magNote">Registrar engaxetamento (sem referência)</button>` : ""}</div>`
+        : "") +
+      (mag.can_operate ? `<p class="form-help">O registro guarda quem fez e a hora. Ele não vira zero do curso nem inicia a contagem do curso restante.</p>` : "") +
+      maintenanceLine +
+      `<p id="magMessage" class="form-message" role="status"></p>`;
   } else if (mode === "readonly") {
-    box.innerHTML = `<h3>Engaxetamento</h3>${current || '<p class="form-help">Nenhum engaxetamento registrado neste vínculo.</p>'}<p class="form-help">Sua conta consulta este sensor, sem permissão para registrar engaxetamento.</p>`;
+    box.innerHTML = `<h3>Engaxetamento</h3>${current || '<p class="form-help">Nenhum engaxetamento registrado neste vínculo.</p>'}<p class="form-help">Sua conta consulta este sensor, sem permissão para registrar engaxetamento.</p>` + gaps;
   } else {
-    const suggestion = setup.suggested_course_mm;
+    // Um toque: o curso vem do cadastro (estimado). Quem tem a medida real pode informá-la.
+    const typical = setup.suggested_course_mm;
     const draft = setup.status !== "validated";
+    const manual = !!sending?.manual || typical == null;
+    const typed = sending?.course == null ? "" : fmtMmInput(sending.course);
     box.innerHTML =
       `<h3>Engaxetamento realizado</h3>` +
       (pending?.expired ? `<p class="form-message is-error">A solicitação anterior venceu sem uma leitura válida. Confira o sensor e repita.</p>` : "") +
-      (draft ? `<p class="form-message">Geometria ainda em caracterização: o resultado sai como provisório e só a engenharia registra.</p>` : "") +
-      `<form id="magForm" novalidate><label>Curso ainda disponível até o limite de ajuste (mm)` +
-      `<input id="magCourse" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,3})?" maxlength="9" required autocomplete="off" value="${esc(sending?.course == null ? "" : String(sending.course).replace(".", ","))}" aria-describedby="magCourseHelp"></label>` +
-      `<p id="magCourseHelp" class="form-help">Meça agora, na direção do ajuste, quanto o preme-gaxeta ainda pode avançar. Faixa desta montagem: ${esc(fmtNum(setup.min_course_mm))} a ${esc(fmtNum(setup.max_course_mm))} mm.` +
-      (suggestion ? ` Curso típico da ficha: ${esc(fmtMm(suggestion))} (estimativa).` : "") + `</p>` +
-      (suggestion ? `<label class="mag-estimate"><input id="magEstimated" type="checkbox"${sending?.origin === "estimated" ? " checked" : ""}> Não medi: usar a estimativa de ${esc(fmtMm(suggestion))}</label>` : "") +
+      (draft ? `<p class="form-message">Montagem ainda em caracterização: o resultado sai como provisório e só a engenharia registra.</p>` : "") +
+      `<form id="magForm" novalidate>` +
+      (typical != null
+        ? `<p class="mag-course" id="magCourseLine"><span>Curso disponível</span><strong>${esc(fmtMm(typical, 2))}</strong><small>valor típico do cadastro · ${esc(COURSE_SOURCE_TEXT[setup.course_source] || "do cadastro")} · entra como <b>estimado</b></small></p>` +
+          `<label class="mag-estimate"><input id="magManual" type="checkbox"${manual ? " checked" : ""}> Tenho a medida real deste engaxetamento</label>`
+        : `<p class="form-message">Curso disponível típico não cadastrado para este spot. Informe a medida real, ou peça o cadastro em Ativos.</p>`) +
+      `<label id="magCourseRow"${manual ? "" : " hidden"}>Curso medido agora até o limite de ajuste (mm)` +
+      `<input id="magCourse" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,3})?" maxlength="9" autocomplete="off" value="${esc(typed)}" aria-describedby="magCourseHelp"></label>` +
+      `<p id="magCourseHelp" class="form-help">Faixa desta montagem: ${esc(fmtNum(setup.min_course_mm))} a ${esc(fmtNum(setup.max_course_mm))} mm. A medida real substitui a estimativa só neste engaxetamento.</p>` +
       `<p id="magMessage" class="form-message${sending?.error ? " is-error" : ""}" role="status">${esc(sending?.error || (sampleBad ? MAG_REASON[view.reason]?.note || "" : ""))}</p>` +
-      `<div class="drawer-actions"><button class="primary" type="submit" id="magSubmit">${sending?.error ? "Tentar de novo" : "Engaxetamento realizado"}</button></div></form>` +
+      `<div class="drawer-actions"><button class="primary" type="submit" id="magSubmit">${sending?.error ? "Tentar de novo" : "Engaxetamento realizado"}</button>${setupButton}</div></form>` +
       current +
-      `<p class="form-help">Depois do toque, mantenha a haste parada até a confirmação. A leitura de referência passa a valer como avanço zero e curso restante de 100 %.</p>`;
+      `<p class="form-help">Toque uma vez, com a haste parada. A primeira leitura nova, válida e estável vira a referência: avanço zero e 100 % de curso restante, seja qual for o ângulo.</p>` +
+      maintenanceLine;
   }
   bindMagDrawer(device.sensor_id);
 }
@@ -2961,15 +3161,32 @@ function magWaitText(device, pending) {
   return `Próxima leitura em cerca de ${fmtInterval(next)} (um envio a cada ${fmtInterval(period)}). A solicitação vale por mais ${fmtInterval(left)}.`;
 }
 function bindMagDrawer(sensorId) {
-  const estimated = $id("magEstimated");
-  if (estimated)
-    estimated.onchange = () => {
-      const device = findDevice(sensorId);
-      const suggestion = deviceMag(device)?.setup?.suggested_course_mm;
-      if (estimated.checked && suggestion != null) $id("magCourse").value = Number(suggestion).toLocaleString("pt-BR", { maximumFractionDigits: 3, useGrouping: false });
-      $id("magCourse").readOnly = estimated.checked;
+  const manual = $id("magManual");
+  if (manual)
+    manual.onchange = () => {
+      $id("magCourseRow").hidden = !manual.checked;
+      if (manual.checked) $id("magCourse").focus();
     };
-  if (estimated?.checked) $id("magCourse").readOnly = true;
+  if ($id("magSetupOpen")) $id("magSetupOpen").onclick = () => openMagSetup(sensorId).catch((error) => showMessage(errorText(error), "error"));
+  if ($id("magNote"))
+    $id("magNote").onclick = (event) =>
+      withBusy(event.currentTarget, async () => {
+        const device = findDevice(sensorId);
+        if (!(await askConfirm({ title: "Registrar engaxetamento sem referência", danger: false, okLabel: "Registrar",
+          html: `<p>Registra que o engaxetamento de <b>${esc(deviceIdentity(device).title)}</b> foi feito agora, por você.</p><p>Este registro <b>não</b> é a referência do curso: o cálculo do curso de ajuste restante continua indisponível até a montagem ser configurada e validada.</p>` }))) return;
+        const request = state.magRequests.get("note:" + sensorId) || { id: newRequestId() };
+        state.magRequests.set("note:" + sensorId, request);
+        try {
+          await callRpc("gaxeta_mag_record_maintenance", { p_sensor_id: sensorId, p_request_id: request.id, p_note: null });
+          state.magRequests.delete("note:" + sensorId);
+          showMessage("Engaxetamento registrado, sem referência de curso.", "success");
+        } catch (error) {
+          if (!isNetworkError(error)) state.magRequests.delete("note:" + sensorId);
+          if ($id("magMessage")) $id("magMessage").textContent = isNetworkError(error) ? "Sem resposta do servidor. Toque de novo: o mesmo registro é reenviado, sem duplicar." : isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error);
+        }
+        await loadMagSummary([sensorId]).catch(() => {});
+        updateDrawerLive();
+      });
   if ($id("magForm"))
     $id("magForm").onsubmit = (event) => {
       event.preventDefault();
@@ -2995,9 +3212,11 @@ async function submitMagService(sensorId, button) {
   const device = findDevice(sensorId);
   const setup = deviceMag(device)?.setup;
   const message = $id("magMessage");
-  const raw = String($id("magCourse").value).replace(",", ".").trim();
+  // Com a medida real marcada vale o que foi digitado (medido); senão, o valor típico (estimado).
+  const useManual = !$id("magManual") || $id("magManual").checked;
+  const estimated = !useManual;
+  const raw = useManual ? String($id("magCourse").value).replace(",", ".").trim() : String(setup?.suggested_course_mm ?? "");
   const course = Number(raw);
-  const estimated = !!$id("magEstimated")?.checked;
   // Validação local só para a mensagem imediata; quem decide é o servidor.
   if (!raw || !/^\d+(\.\d+)?$/.test(raw) || !Number.isFinite(course) || course <= 0) return void ((message.textContent = "Informe o curso disponível em mm (maior que zero)."), message.classList.add("is-error"));
   if (Math.round(course * 1000) !== course * 1000 && Math.abs(Math.round(course * 1000) - course * 1000) > 1e-6)
@@ -3009,6 +3228,7 @@ async function submitMagService(sensorId, button) {
   const origin = estimated ? "estimated" : "measured";
   const request = previous && previous.course === course && previous.origin === origin ? previous : { id: newRequestId(), course, origin };
   request.error = "";
+  request.manual = useManual;
   state.magRequests.set(sensorId, request);
   message.classList.remove("is-error");
   message.textContent = "Registrando…";
@@ -3016,7 +3236,7 @@ async function submitMagService(sensorId, button) {
     try {
       await callRpc("gaxeta_mag_request_service", { p_sensor_id: sensorId, p_request_id: request.id, p_course_mm: course, p_course_origin: origin });
       state.magRequests.delete(sensorId);
-      showMessage("Engaxetamento registrado. Aguardando a próxima leitura: mantenha a haste parada.", "success");
+      showMessage(`Engaxetamento registrado com ${fmtMm(course, 2)} ${estimated ? "estimados" : "medidos"}. Aguardando a próxima leitura: mantenha a haste parada.`, "success");
     } catch (error) {
       // Falha de transporte: guarda a solicitação para repetir com o mesmo identificador.
       if (isNetworkError(error)) request.error = "Sem resposta do servidor. Toque de novo: a mesma solicitação é reenviada, sem duplicar.";
@@ -3030,6 +3250,298 @@ async function submitMagService(sensorId, button) {
     if ($id("magService")) $id("magService").dataset.signature = "";
     updateDrawerLive();
   });
+}
+
+// ---- 64-bench.js ----
+// =============================================================================
+// Modo bancada do sensor magnético (demonstração em mesa).
+//   * Ativação explícita, com prévia antes de aplicar. Enquanto está ativo, cartão, árvore,
+//     Detalhes, gráfico e CSV dizem "bancada": o número é a Posição de bancada (%), nunca o
+//     curso de ajuste restante, e nada vai para a série de campo.
+//   * O percentual é calculado no servidor pela contagem contínua que a placa mantém (firmware
+//     4.5.0): limitado a 0–100 %, com o quanto passou do extremo guardado ao lado.
+//   * A nuvem atualiza a cada envio da placa (30 s na bancada). O acompanhamento em tempo real
+//     é o do monitor serial, pela USB. A tela mostra sempre a hora da última atualização.
+//   * Sessão da placa diferente da confirmada = "Reposicionar para retomar": a última leitura boa
+//     fica à vista, com horário, e nenhum número é inventado.
+// =============================================================================
+const BENCH_DEFAULT = { zero: 80, full: 180, direction: 1 };
+const MAG15_MISSING_TEXT = "Esta função depende da atualização do banco desta revisão (migração 15), que ainda não foi aplicada.";
+const benchForms = new Map(); // sensor → { open, zero, full, direction, preview, error, busy }
+const benchRequests = new Map(); // sensor → identificador da operação em envio (o mesmo nas novas tentativas)
+const benchFormOf = (sensorId) => {
+  if (!benchForms.has(sensorId)) benchForms.set(sensorId, { open: false, zero: "", full: "", direction: "1", preview: null, error: "", bands: false });
+  return benchForms.get(sensorId);
+};
+const benchDirText = (direction) => (Number(direction) > 0 ? "crescente (o percentual sobe quando o ângulo sobe)" : "decrescente (o percentual sobe quando o ângulo desce)");
+// Graus digitados com vírgula ou ponto: 0 a 359,999.
+function parseBenchDeg(text) {
+  const raw = String(text ?? "").trim().replace(",", ".").replace("°", "");
+  if (!/^\d+(\.\d{1,3})?$/.test(raw)) return NaN;
+  const value = Number(raw);
+  return value >= 0 && value < 360 ? value : NaN;
+}
+function benchPreviewHtml(preview) {
+  if (!preview) return "";
+  const current = preview.current;
+  return (
+    `<div class="bench-preview" id="benchPreview"><h4>Prévia (nada foi aplicado ainda)</h4>` +
+    `<table><thead><tr><th>Ângulo do sensor</th><th>Posição de bancada</th></tr></thead><tbody>` +
+    preview.marks.map((mark) => `<tr><td>${esc(fmtDeg(mark.angle_deg, 1))}</td><td>${esc(fmtNum(mark.percent, 0))} %</td></tr>`).join("") +
+    `</tbody></table>` +
+    `<p>Faixa de ${esc(fmtDeg(preview.span_deg, 1))}, sentido ${esc(benchDirText(preview.direction))}. Fora da faixa a barra fica em 0 % ou em 100 % e o quanto passou é guardado.</p>` +
+    (current
+      ? current.inside
+        ? `<p class="bench-ok">Leitura atual: ${esc(fmtDeg(current.angle_deg, 2))} (bruto ${current.raw_angle}) → <b>${esc(fmtNum(current.percent, 2))} %</b>. O eixo está dentro da faixa: depois de ativar, toque em Confirmar início.</p>`
+        : `<p class="bench-warn">Leitura atual: ${esc(fmtDeg(current.angle_deg, 2))} (bruto ${current.raw_angle}), <b>fora da faixa</b>. Antes de confirmar o início, gire o eixo para um ponto entre os dois extremos.</p>`
+      : `<p class="bench-warn">Sem ângulo válido na leitura atual: confira o ímã e o sensor antes de confirmar o início.</p>`) +
+    (preview.continuity ? "" : `<p class="bench-warn">A última leitura desta placa veio sem contagem contínua (firmware ${esc(preview.firmware_version || "desconhecido")}). O Modo bancada precisa do firmware 4.5.0 ou mais novo: sem ele a tela mostra "Sem contagem contínua", sem percentual.</p>`) +
+    (preview.ends_reference ? `<p class="bench-warn">Este vínculo tem um engaxetamento de campo em andamento. Ativar o Modo bancada <b>encerra essa referência</b>; ao sair será preciso registrar o engaxetamento de novo.</p>` : "") +
+    `</div>`
+  );
+}
+// Formulário dos extremos (ativar ou trocar). Uma instalação com outro sentido ou posição
+// configura os dois ângulos uma vez.
+function benchFormHtml(form, active) {
+  return (
+    `<form id="benchForm" novalidate>` +
+    `<div class="bench-fields"><label>Ângulo que vale 0 % (graus)<input id="benchZero" type="text" inputmode="decimal" maxlength="8" autocomplete="off" value="${esc(form.zero)}"></label>` +
+    `<label>Ângulo que vale 100 % (graus)<input id="benchFull" type="text" inputmode="decimal" maxlength="8" autocomplete="off" value="${esc(form.full)}"></label>` +
+    `<label>Sentido<select id="benchDirection"><option value="1"${form.direction === "1" ? " selected" : ""}>Crescente: sobe com o ângulo</option><option value="-1"${form.direction === "-1" ? " selected" : ""}>Decrescente: sobe quando o ângulo desce</option></select></label></div>` +
+    `<p class="form-help">Use os ângulos que aparecem em "Ângulo do sensor" com o eixo em cada extremo. Proposta inicial do ensaio: 80° = 0 % e 180° = 100 %, crescente.</p>` +
+    `<p id="benchMessage" class="form-message${form.error ? " is-error" : ""}" role="status">${esc(form.error || "")}</p>` +
+    benchPreviewHtml(form.preview) +
+    `<div class="drawer-actions"><button class="secondary" type="button" id="benchPreviewBtn">Ver prévia</button>` +
+    `<button class="primary" type="submit" id="benchApply"${form.preview ? "" : " disabled"}>${active ? "Aplicar novos extremos" : "Ativar Modo bancada"}</button>` +
+    `<button class="secondary" type="button" id="benchFormCancel">Cancelar</button></div></form>`
+  );
+}
+// Espera pela leitura que confirma o início.
+function benchWaitText(device, pending) {
+  const period = Number(deviceInterval(device)) || 30;
+  const now = Date.now() + state.clockOffset;
+  const sinceLast = (now - new Date(device.last_received_at).getTime()) / 1000;
+  const next = Math.max(0, Math.round(period - (sinceLast % period)));
+  const left = Math.max(0, Math.round((new Date(pending.expires_at).getTime() - now) / 1000));
+  return `Próxima leitura em cerca de ${fmtInterval(next)} (um envio a cada ${fmtInterval(period)}). A confirmação vale por mais ${fmtInterval(left)}.`;
+}
+// Barra de 0 a 100 % da bancada. Com "simulação das faixas" ligada, a cor segue as faixas de
+// ajuste e a legenda diz que é simulação: na bancada o percentual não é curso de campo.
+function benchBarHtml(bench, form) {
+  const percent = bench.state === "ok" && bench.percent != null ? Number(bench.percent) : null;
+  const band = form.bands && percent != null ? magBandOf(percent) : null;
+  const over = Number(bench.over_deg) || 0;
+  return (
+    `<div class="bench-bar${percent == null ? " idle" : ""}${band ? " health-" + MAG_BAND[band].key : ""}" role="img" aria-label="Posição de bancada: ${percent == null ? "sem posição" : fmtNum(percent, 2) + " por cento"}">` +
+    `<i style="width:${percent ?? 0}%"></i><span class="bench-mark" style="left:0">0 %</span><span class="bench-mark" style="left:50%">50</span><span class="bench-mark" style="left:100%">100 %</span></div>` +
+    `<p class="bench-number"><strong id="benchPercent">${percent == null ? "—" : esc(fmtNum(percent, 2)) + " %"}</strong>` +
+    `<span id="benchLimit">${percent == null ? "" : over > 0 ? `no teto · ${esc(fmtDeg(over, 1))} além do 100 %` : over < 0 ? `no piso · ${esc(fmtDeg(-over, 1))} abaixo do 0 %` : "dentro da faixa"}</span></p>` +
+    (band ? `<p class="bench-sim"><span class="adjustment-badge health-${MAG_BAND[band].key}">${esc(MAG_BAND[band].label)}</span> simulação das faixas (${esc(MAG_BAND[band].range)}). Na bancada este percentual não é curso de ajuste restante.</p>` : "")
+  );
+}
+function renderMagBench(device, view) {
+  const box = $id("magBench");
+  if (!box) return;
+  const mag = view.mag;
+  const bench = mag?.bench || null;
+  const form = benchFormOf(device.sensor_id);
+  const reading = mag?.reading || null;
+  if (!mag || !mag.linked) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const pending = bench?.pending && !bench.pending.expired ? bench.pending : null;
+  const state2 = !bench ? "off" : pending ? "pending" : bench.state;
+  // Só é redesenhado quando o estado muda: preserva o que a pessoa está digitando.
+  const signature = [state2, bench?.id, bench?.anchor_status, bench?.anchor_note, bench?.lost_reason, mag.can_operate, form.open, form.preview ? "p" : "", form.error, form.bands,
+    bench?.state === "ok" ? [bench.percent, bench.over_deg, reading?.id].join("/") : reading?.id, view.reason].join("|");
+  if (box.dataset.signature === signature) {
+    if (pending && $id("benchWait")) $id("benchWait").textContent = benchWaitText(device, pending);
+    if ($id("benchUpdated")) $id("benchUpdated").textContent = benchUpdatedText(device);
+    return;
+  }
+  box.dataset.signature = signature;
+  if (!bench) {
+    box.className = "mag-bench";
+    box.innerHTML = form.open
+      ? `<h3>Modo bancada</h3><p class="form-help">Para demonstração em mesa: gire o ímã com a mão e acompanhe uma barra de 0 a 100 %. A série fica identificada como bancada em todas as telas e não entra no histórico de campo.</p>` + benchFormHtml(form, false)
+      : `<h3>Modo bancada</h3><p class="form-help">Desligado. Serve para demonstrar o sensor na mesa, com uma barra de 0 a 100 % entre dois ângulos escolhidos.</p>` +
+        (mag.can_operate ? `<div class="drawer-actions"><button class="secondary" type="button" id="benchOpen">Configurar e ativar…</button></div>` : `<p class="form-help">Sua conta consulta este sensor, sem permissão para ativar o Modo bancada.</p>`);
+    return bindMagBench(device.sensor_id);
+  }
+  const lastOk = bench.last_ok;
+  const stateHtml =
+    state2 === "ok"
+      ? ""
+      : state2 === "pending"
+        ? `<p class="mag-wait"><strong>Deixe o eixo parado dentro da faixa.</strong> <span id="benchWait">${esc(benchWaitText(device, pending))}</span></p>` +
+          (bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note] ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>` : "")
+        : state2 === "reposition"
+          ? `<p class="bench-warn"><strong>Reposicionar para retomar.</strong> A placa deixou de garantir a continuidade do giro (${esc(ctLossText(bench.lost_reason))}${bench.lost_at ? ", " + esc(fmtDateTime(bench.lost_at)) : ""}): a posição atual pode estar em outra volta. Leve o eixo a um ponto conhecido dentro da faixa e confirme a referência.</p>`
+          : state2 === "no_continuity"
+            ? `<p class="bench-warn">${esc(MAG_REASON.bench_no_continuity.note)}</p>`
+            : `<p class="bench-warn"><strong>Início não confirmado.</strong> Ponha o eixo parado em um ponto dentro da faixa (entre ${esc(fmtDeg(bench.zero_deg, 1))} e ${esc(fmtDeg(bench.full_deg, 1))}) e toque em Confirmar início. Um ângulo fora da faixa poderia pertencer a várias voltas.</p>` +
+              (bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note] ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>` : "");
+  const sampleBad = /^(bus_|no_magnet|field_|no_reading)/.test(view.reason || "");
+  box.className = "mag-bench is-active";
+  box.innerHTML =
+    `<h3><span class="series-tag is-bench">Modo bancada ativo</span> Posição de bancada (%)</h3>` +
+    benchBarHtml(bench, form) +
+    (sampleBad ? `<p class="bench-warn"><strong>${esc(view.label)}.</strong> ${esc(view.note)}</p>` : "") +
+    stateHtml +
+    (state2 !== "ok" && lastOk ? `<p class="mag-current">Última posição conhecida: ${esc(fmtNum(lastOk.percent, 2))} % em ${esc(fmtDateTime(lastOk.at))} (não é a leitura atual).</p>` : "") +
+    `<dl class="bench-facts"><dt>Faixa</dt><dd>${esc(fmtDeg(bench.zero_deg, 1))} = 0 % · ${esc(fmtDeg(bench.full_deg, 1))} = 100 % · ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}</dd>` +
+    `<dt>Ângulo / bruto</dt><dd>${view.raw == null ? "sem ângulo" : esc(fmtDeg(view.degrees, 2)) + " · " + view.raw}</dd>` +
+    `<dt>Posição contínua</dt><dd>${bench.continuous_deg == null ? "—" : esc(fmtDeg(bench.continuous_deg, 2)) + ` · ${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s)`}</dd>` +
+    `<dt>Sessão da placa</dt><dd>${esc(reading?.ct?.session || "sem contagem")}${bench.anchor_at ? " · início confirmado " + esc(fmtDateTime(bench.anchor_at)) : ""}</dd>` +
+    `<dt>Última atualização</dt><dd id="benchUpdated">${esc(benchUpdatedText(device))}</dd></dl>` +
+    `<p class="form-help">A nuvem atualiza a cada envio da placa. Para acompanhar o giro em tempo real, use o monitor serial pela USB: ele mostra a mesma conta, linha a linha.</p>` +
+    (mag.can_operate
+      ? form.open
+        ? benchFormHtml(form, true)
+        : `<div class="drawer-actions">` +
+          (state2 === "pending" ? "" : `<button class="${state2 === "ok" ? "secondary" : "primary"}" type="button" id="benchConfirm">${state2 === "reposition" ? "Confirmar referência (reposicionado)" : state2 === "ok" ? "Confirmar referência de novo" : "Confirmar início"}</button>`) +
+          `<button class="secondary" type="button" id="benchOpen">Trocar extremos…</button><button class="secondary" type="button" id="benchStop">Sair do Modo bancada</button></div>` +
+          `<label class="check bench-sim-toggle"><input id="benchBands" type="checkbox"${form.bands ? " checked" : ""}> Mostrar a simulação das faixas de ajuste nesta barra</label>`
+      : `<p class="form-help">Sua conta consulta este sensor, sem permissão para operar o Modo bancada.</p>`) +
+    `<p id="benchMessage2" class="form-message" role="status"></p>`;
+  bindMagBench(device.sensor_id);
+}
+function benchUpdatedText(device) {
+  const period = Number(deviceInterval(device)) || 30;
+  const age = Math.max(0, Math.round((Date.now() + state.clockOffset - new Date(device.last_received_at).getTime()) / 1000));
+  return `${fmtDateTime(device.last_received_at)} · há ${fmtInterval(age)} · um envio a cada ${fmtInterval(period)}`;
+}
+function bindMagBench(sensorId) {
+  const form = benchFormOf(sensorId);
+  const refresh = async () => {
+    await loadMagSummary([sensorId]).catch(() => {});
+    if ($id("magBench")) $id("magBench").dataset.signature = "";
+    if ($id("magService")) $id("magService").dataset.signature = "";
+    updateDrawerLive();
+    if (state.page === "sensors") renderSensorGrid();
+    renderTree();
+  };
+  const redraw = () => {
+    if ($id("magBench")) $id("magBench").dataset.signature = "";
+    updateDrawerLive();
+  };
+  if ($id("benchOpen"))
+    $id("benchOpen").onclick = () => {
+      const bench = deviceMag(findDevice(sensorId))?.bench;
+      Object.assign(form, {
+        open: true, preview: null, error: "",
+        zero: fmtMmInput(bench?.zero_deg ?? BENCH_DEFAULT.zero), full: fmtMmInput(bench?.full_deg ?? BENCH_DEFAULT.full), direction: String(bench?.direction ?? BENCH_DEFAULT.direction),
+      });
+      redraw();
+      $id("benchZero")?.focus();
+    };
+  if ($id("benchFormCancel"))
+    $id("benchFormCancel").onclick = () => {
+      Object.assign(form, { open: false, preview: null, error: "" });
+      redraw();
+    };
+  const readForm = () => {
+    Object.assign(form, { zero: $id("benchZero").value, full: $id("benchFull").value, direction: $id("benchDirection").value });
+    const zero = parseBenchDeg(form.zero);
+    const full = parseBenchDeg(form.full);
+    if (Number.isNaN(zero) || Number.isNaN(full)) throw Error("Informe os dois ângulos em graus, de 0 a 359,999 (vírgula ou ponto).");
+    return { zero, full, direction: Number(form.direction) };
+  };
+  // Qualquer mudança nos campos invalida a prévia: só se aplica o que foi visto.
+  for (const id of ["benchZero", "benchFull", "benchDirection"])
+    if ($id(id))
+      $id(id).oninput = () => {
+        if (!form.preview) return;
+        form.preview = null;
+        if ($id("benchPreview")) $id("benchPreview").remove();
+        if ($id("benchApply")) $id("benchApply").disabled = true;
+      };
+  if ($id("benchPreviewBtn"))
+    $id("benchPreviewBtn").onclick = (event) =>
+      withBusy(event.currentTarget, async () => {
+        try {
+          const values = readForm();
+          form.preview = await callRpc("gaxeta_mag_bench_preview", { p_sensor_id: sensorId, p_zero_deg: values.zero, p_full_deg: values.full, p_direction: values.direction });
+          form.error = "";
+        } catch (error) {
+          form.preview = null;
+          form.error = isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error);
+        }
+        redraw();
+      });
+  if ($id("benchForm"))
+    $id("benchForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        let values;
+        try {
+          values = readForm();
+        } catch (error) {
+          form.error = error.message;
+          return redraw();
+        }
+        const preview = form.preview;
+        if (!preview || Number(preview.zero_deg) !== values.zero || Number(preview.full_deg) !== values.full || Number(preview.direction) !== values.direction) {
+          form.error = "Veja a prévia destes valores antes de aplicar.";
+          form.preview = null;
+          return redraw();
+        }
+        const key = `start:${values.zero}:${values.full}:${values.direction}`;
+        const previous = benchRequests.get(sensorId);
+        const request = previous?.key === key ? previous : { key, id: newRequestId() };
+        benchRequests.set(sensorId, request);
+        try {
+          await callRpc("gaxeta_mag_bench_start", { p_sensor_id: sensorId, p_request_id: request.id, p_zero_deg: values.zero, p_full_deg: values.full, p_direction: values.direction });
+          benchRequests.delete(sensorId);
+          Object.assign(form, { open: false, preview: null, error: "" });
+          showMessage("Modo bancada ativo. Ponha o eixo dentro da faixa e toque em Confirmar início.", "success");
+        } catch (error) {
+          if (!isNetworkError(error)) benchRequests.delete(sensorId);
+          form.error = isNetworkError(error) ? "Sem resposta do servidor. Toque de novo: a mesma ativação é reenviada, sem duplicar." : isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error);
+        }
+        await refresh();
+      });
+    };
+  if ($id("benchConfirm"))
+    $id("benchConfirm").onclick = (event) =>
+      withBusy(event.currentTarget, async () => {
+        const previous = benchRequests.get(sensorId);
+        const request = previous?.key === "confirm" ? previous : { key: "confirm", id: newRequestId() };
+        benchRequests.set(sensorId, request);
+        try {
+          await callRpc("gaxeta_mag_bench_confirm", { p_sensor_id: sensorId, p_request_id: request.id });
+          benchRequests.delete(sensorId);
+          showMessage("Confirmação registrada. Deixe o eixo parado até a próxima leitura da placa.", "success");
+        } catch (error) {
+          if (!isNetworkError(error)) benchRequests.delete(sensorId);
+          if ($id("benchMessage2")) $id("benchMessage2").textContent = isNetworkError(error) ? "Sem resposta do servidor. Toque de novo: a mesma confirmação é reenviada." : errorText(error);
+          return;
+        }
+        await refresh();
+      });
+  if ($id("benchStop"))
+    $id("benchStop").onclick = async (event) => {
+      const button = event.currentTarget;
+      if (!(await askConfirm({ title: "Sair do Modo bancada", okLabel: "Sair do Modo bancada", danger: false,
+        html: `<p>O sensor volta à série de campo. As leituras de bancada ficam no histórico, identificadas como bancada.</p><p>Para acompanhar o curso de ajuste restante será preciso registrar o engaxetamento de novo.</p>` }))) return;
+      await withBusy(button, async () => {
+        try {
+          await callRpc("gaxeta_mag_bench_stop", { p_sensor_id: sensorId });
+          Object.assign(form, { open: false, preview: null, error: "", bands: false });
+          showMessage("Modo bancada desligado.", "success");
+        } catch (error) {
+          showMessage(errorText(error), "error");
+        }
+        await refresh();
+      });
+    };
+  if ($id("benchBands"))
+    $id("benchBands").onchange = () => {
+      form.bands = $id("benchBands").checked;
+      redraw();
+    };
 }
 
 // ---- 65-assets.js ----
@@ -3088,7 +3600,7 @@ function parentPathLine(asset) {
   return parents.length ? `<p class="inspector-path" title="${esc(parents.join(" / "))}">${esc(parents.join(" / "))}</p>` : "";
 }
 
-function equipmentInspector(asset, overview, problem) {
+function equipmentInspector(asset, overview, problem, magInfo = null) {
   const details = overview?.details || null;
   const type = equipCatalog.get(details?.equipment_type) || details?.equipment_type_label || "";
   const access = overview?.asset?.access || asset.access;
@@ -3116,7 +3628,12 @@ function equipmentInspector(asset, overview, problem) {
       `<section><h4>${group.title}</h4><dl class="detail-fields">` +
       group.fields.map(([key, label]) => `<dt>${esc(label)}</dt><dd${details?.[key] == null ? ' class="absent"' : ""}>${details?.[key] == null ? "—" : esc(details[key])}</dd>`).join("") +
       `</dl></section>`,
-  ).join("");
+  ).join("") +
+    // Sensor magnético: curso disponível típico do TAG (estimativa), editado em Editar.
+    (magInfo
+      ? `<section><h4>Sensor magnético</h4><dl class="detail-fields"><dt>Curso disponível típico</dt><dd${magInfo.suggested_course_mm == null ? ' class="absent"' : ""}>${esc(magAssetSummaryText(magInfo))}</dd>` +
+        `<dt>Revisão sugerida</dt><dd${magInfo.geometry ? "" : ' class="absent"'}>${magInfo.geometry ? esc(geomText(magInfo.geometry)) : "—"}</dd></dl></section>`
+      : "");
   const childKinds = allowedChildKinds({ ...asset, access });
   return (
     `<div class="inspector-card equip-card">` +
@@ -3174,7 +3691,9 @@ async function renderInspector() {
   }
   if (state.assetId !== assetId || state.page !== "assets") return;
   if (asset.kind === "equipment") {
-    box.innerHTML = equipmentInspector(asset, overview, problem);
+    const equipMag = await magAssetInfo(assetId);
+    if (state.assetId !== assetId || state.page !== "assets") return;
+    box.innerHTML = equipmentInspector(asset, overview, problem, equipMag);
     renderTree();
     renderIcons();
     return;
@@ -3190,10 +3709,18 @@ async function renderInspector() {
           (canLinkAt(asset.access) ? `<div class="row-actions"><button class="primary compact" data-act="link">Vincular sensor</button></div>` : "") +
           `</div>`;
   const fields = [];
+  let magInfo = null;
   if (asset.kind === "point") {
     const equip = assetIndex.get(asset.parent_id);
     if (equip) fields.push(["TAG", `${equipTag(equip)} · ${equipTypeLabel(equip.id) || TYPE_UNKNOWN}`]);
     fields.push(["Posição de montagem", asset.position || "Não informada"]);
+    // Sensor magnético: curso típico com a origem (spot ou TAG) e a revisão da montagem.
+    magInfo = await magAssetInfo(assetId);
+    if (state.assetId !== assetId || state.page !== "assets") return;
+    if (magInfo) {
+      fields.push(["Curso disponível típico", magAssetSummaryText(magInfo)]);
+      fields.push(["Revisão da montagem", magInfo.effective?.geometry ? geomText(magInfo.effective.geometry) + (magInfo.effective.geometry_source === "equipment" ? " · sugerida no TAG" : "") : "Não vinculada"]);
+    }
   } else if (asset.tag && asset.tag !== asset.name) fields.push(["Código", asset.tag]);
   box.innerHTML =
     `<div class="inspector-card"><header class="inspector-head"><div class="inspector-title"><span class="kind-chip">${KIND_LABEL[asset.kind]}</span><h2>${esc(asset.name)}</h2>${parentPathLine(asset)}</div></header>` +
@@ -3203,6 +3730,7 @@ async function renderInspector() {
     (asset.access === "path" ? '<p class="path-note">Este nível aparece só como caminho de navegação até os ramos concedidos à sua conta.</p>' : "") +
     (fields.length ? `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}</dl>` : "") +
     sensorBlock +
+    (magInfo ? `<div class="inspector-actions"><button class="secondary compact" data-act="mag-setup">${magInfo.can_edit_course || magInfo.can_edit_geometry ? "Configurar montagem do sensor" : "Ver montagem do sensor"}</button></div>` : "") +
     inspectorActions(asset, childKinds) +
     (childKinds.length ? `<p class="form-help">Próxima criação: ${childKinds.map((kind) => KIND_LABEL[kind]).join(" ou ")}.</p>` : "") +
     `</div>`;
@@ -3215,6 +3743,7 @@ $id("assetInspector").onclick = async (event) => {
   const asset = assetIndex.get(state.assetId);
   const fail = (error) => showMessage(errorText(error), "error");
   if (act === "sensor-detail") return openDrawer(button.dataset.sensor, "detail", button);
+  if (act === "mag-setup") return openMagSetupForPoint(state.assetId, state.devices.find((device) => device.measurement_point_id === state.assetId)?.sensor_id || null).catch(fail);
   if (act === "sensor-history") return openHistoryFor(button.dataset.sensor);
   if (act === "spot-link") return openLinkDialog(button.dataset.spot);
   if (act === "open-spot") {
@@ -3266,6 +3795,8 @@ async function openAssetForm({ parentId = null, kind = null, editId = null }) {
     }
   }
   Object.assign(assetFormState, { editId: editing?.id || null, parentId: editing ? editing.parent_id : parentId, hadType: !!details?.equipment_type });
+  // Curso disponível típico do sensor magnético: campos do TAG e do spot (66-mag-setup.js).
+  await magAssetFormPrepare(editing, parent);
   fillSelect($id("assetKind"), kinds.map((value) => ({ value, label: KIND_LABEL[value] })), null, kind && kinds.includes(kind) ? kind : kinds[0]);
   $id("assetKindRow").hidden = kinds.length < 2;
   $id("assetContext").textContent = parent ? "Dentro de: " + assetPathLabel(parent.id) : "Raiz da estrutura";
@@ -3308,6 +3839,7 @@ function syncAssetForm() {
   $id("corpFields").querySelector(".form-help").textContent = editing
     ? "Para atualizar o contato, preencha e-mail e responsável. Em branco, só o nome é alterado."
     : "Contato e responsável podem ser preenchidos depois: a corporação pode nascer como rascunho.";
+  magAssetFormSync(kind);
 }
 $id("assetKind").onchange = syncAssetForm;
 // Lê a ficha do formulário. Campo vazio é ausência de informação; quantidade é inteiro não negativo.
@@ -3342,6 +3874,13 @@ $id("assetForm").onsubmit = async (event) => {
     }
     if (!details.equipment_type && (!editId || assetFormState.hadType)) return void (message.textContent = "Selecione o tipo de equipamento.");
   }
+  // Curso do sensor magnético: validado antes de gravar o ativo, aplicado logo depois.
+  let magWanted = null;
+  try {
+    magWanted = magAssetFormRead(kind);
+  } catch (error) {
+    return void (message.textContent = error.message);
+  }
   message.textContent = "Salvando…";
   const button = event.submitter || $id("assetForm").querySelector('button[type="submit"]');
   button.disabled = true;
@@ -3371,6 +3910,12 @@ $id("assetForm").onsubmit = async (event) => {
               p_sensor_label: null,
             });
     if (kind === "equipment") equipTypeIndex.set(saved.id, saved.details?.equipment_type || null);
+    let magProblem = "";
+    try {
+      await magAssetFormApply(saved, magWanted);
+    } catch (error) {
+      magProblem = " O curso do sensor magnético NÃO foi gravado: " + errorText(error);
+    }
     // Relê o ramo no servidor: o que aparece na árvore é o que ficou gravado.
     await loadKids(parentId || null, { force: true });
     await ensureAssets([saved.id]);
@@ -3385,7 +3930,7 @@ $id("assetForm").onsubmit = async (event) => {
     if (state.page === "assets") await renderInspector();
     renderIcons();
     const next = allowedChildKinds(assetIndex.get(saved.id)).map((value) => KIND_LABEL[value]);
-    showMessage(`${KIND_LABEL[kind]} “${assetLabel(assetIndex.get(saved.id) || saved)}” ${kindDone(kind, editId ? "atualizad" : "gravad")}.${!editId && next.length ? " Próxima criação: " + next.join(" ou ") + "." : ""}`, "success");
+    showMessage(`${KIND_LABEL[kind]} “${assetLabel(assetIndex.get(saved.id) || saved)}” ${kindDone(kind, editId ? "atualizad" : "gravad")}.${!editId && next.length ? " Próxima criação: " + next.join(" ou ") + "." : ""}${magProblem}`, magProblem ? "error" : "success");
   } catch (error) {
     message.textContent = isMissingFeature(error) ? MISSING_FEATURE_TEXT : errorText(error);
   } finally {
@@ -3528,6 +4073,426 @@ $id("linkResults").onclick = async (event) => {
     button.disabled = false;
   }
 };
+
+// ---- 66-mag-setup.js ----
+// =============================================================================
+// Configurar montagem do sensor magnético: curso disponível típico (TAG e exceção por spot) e
+// revisão da montagem (geometria ensaiada). Usa o cadastro que já existe no servidor
+// (gaxeta_mag_*); nenhuma tabela paralela.
+//   * Curso típico: quem edita o TAG ou o spot. É estimativa: o engaxetamento que o usa sai como
+//     "curso estimado". O cadastro do curso não depende de a mecânica estar validada.
+//   * Revisão da montagem: engenharia (ADM nível 1 ou 2), a partir de ensaio com paquímetro.
+//   * O servidor decide a permissão; a tela só mostra o que cada conta pode fazer e o que falta.
+// Chega-se aqui por Sensores → Detalhes → Configurar montagem, pelo botão Configurar do cartão,
+// por Ativos → spot → Montagem do sensor, e pelos campos do formulário Editar do TAG e do spot.
+// =============================================================================
+const magSetup = { pointId: null, sensorId: null, point: null, tag: null, geoms: [], validating: null, message: "", error: false };
+const GEOM_STATUS_TEXT = { draft: "em caracterização", validated: "validada", retired: "retirada" };
+// Curso típico digitado: número positivo até 1000 mm, com até duas casas. Vazio = sem valor.
+function readCourseField(text, label) {
+  const value = parseMm(text);
+  if (value === null) return null;
+  if (Number.isNaN(value) || value <= 0 || value > 1000) throw Error(`${label}: informe um número maior que zero, até 1000 mm (vírgula ou ponto).`);
+  if (Math.abs(Math.round(value * 100) - value * 100) > 1e-6) throw Error(`${label}: use até duas casas decimais.`);
+  return value;
+}
+const geomText = (geom) =>
+  !geom
+    ? "nenhuma"
+    : `${geom.label} (${geom.key} r${geom.revision}) · ${geom.model_kind === "linear" ? `reta de ${fmtNum(geom.mm_per_deg, 4)} mm por grau` : `curva de ${geom.curve?.length || 0} pontos`} · aperto ${Number(geom.direction) > 0 ? "aumenta" : "diminui"} o ângulo · arco de ${fmtNum(geom.unique_arc_deg, 0)}° · ${GEOM_STATUS_TEXT[geom.status] || geom.status}`;
+
+function magSetupDialog() {
+  let dialog = $id("magSetupDialog");
+  if (dialog) return dialog;
+  dialog = document.createElement("dialog");
+  dialog.id = "magSetupDialog";
+  dialog.className = "wide-dialog";
+  dialog.innerHTML =
+    `<div class="dialog-heading"><h2>Configurar montagem</h2><button type="button" id="magSetupClose" class="icon-button" aria-label="Fechar">×</button></div>` +
+    `<div id="magSetupBody" class="setup-body"></div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector("#magSetupClose").onclick = () => dialog.close();
+  return dialog;
+}
+async function openMagSetup(sensorId) {
+  const device = findDevice(sensorId);
+  if (!device?.measurement_point_id) return showMessage("Vincule o sensor a um spot antes de configurar a montagem.", "error");
+  return openMagSetupForPoint(device.measurement_point_id, sensorId);
+}
+async function openMagSetupForPoint(pointId, sensorId = null) {
+  Object.assign(magSetup, { pointId, sensorId, point: null, tag: null, geoms: [], validating: null, message: "", error: false });
+  const dialog = magSetupDialog();
+  $id("magSetupBody").innerHTML = `<p class="form-help">Carregando o cadastro…</p>`;
+  if (!dialog.open) dialog.showModal();
+  await loadMagSetup();
+}
+async function loadMagSetup() {
+  try {
+    magSetup.point = await callRpc("gaxeta_mag_asset_setup", { p_asset_id: magSetup.pointId });
+    const tagId = magSetup.point.tag?.asset_id;
+    [magSetup.tag, magSetup.geoms] = await Promise.all([
+      tagId ? callRpc("gaxeta_mag_asset_setup", { p_asset_id: tagId }).catch(() => null) : null,
+      callRpc("gaxeta_mag_geometries").catch(() => []),
+    ]);
+    await ensureAssets([magSetup.pointId]);
+  } catch (error) {
+    $id("magSetupBody").innerHTML = `<p class="form-message is-error">${esc(isMissingFeature(error) ? "Esta tela depende da atualização do banco desta revisão (migração 15), que ainda não foi aplicada." : errorText(error))}</p>`;
+    return;
+  }
+  renderMagSetup();
+}
+// Depois de gravar: relê o cadastro e o estado do sensor, e atualiza o que estiver aberto.
+async function afterMagSetupChange(text) {
+  magSetup.message = text;
+  magSetup.error = false;
+  magAssetInfoCache.clear();
+  await loadMagSetup();
+  if (magSetup.sensorId) {
+    await loadMagSummary([magSetup.sensorId]).catch(() => {});
+    if ($id("magService")) $id("magService").dataset.signature = "";
+    updateDrawerLive();
+  }
+  if (state.page === "sensors") renderSensorGrid();
+  else if (state.page === "assets") await renderInspector().catch(() => {});
+}
+function renderMagSetup() {
+  const { point, tag, geoms } = magSetup;
+  const eff = point.effective || {};
+  const usable = geoms.filter((geom) => geom.status !== "retired");
+  const tagName = point.tag?.tag || "TAG";
+  const own = point.own?.suggested_course_mm;
+  const ownGeom = point.own?.geometry_id || "";
+  const validating = magSetup.validating ? geoms.find((geom) => String(geom.id) === String(magSetup.validating)) : null;
+  $id("magSetupBody").innerHTML =
+    `<p class="form-context">${esc(assetPathLabel(magSetup.pointId) || "Spot")}</p>` +
+    (magSetup.message ? `<p class="form-message${magSetup.error ? " is-error" : " is-success"}" role="status">${esc(magSetup.message)}</p>` : "") +
+    // 1. Curso disponível típico
+    `<section class="setup-block"><h3>1. Curso disponível típico (mm)</h3>` +
+    `<p class="form-help">Quanto o preme-gaxeta costuma poder avançar logo depois de um engaxetamento novo, até o limite de ajuste. É uma estimativa do equipamento: vira o valor proposto no botão <b>Engaxetamento realizado</b> e o resultado aparece como <b>curso estimado</b>. Quem tiver a medida real informa na hora do engaxetamento.</p>` +
+    `<p class="setup-current">Em uso neste spot: <b>${eff.suggested_course_mm != null ? esc(fmtMm(eff.suggested_course_mm, 2)) : "não cadastrado"}</b>${eff.course_source ? " · " + esc(COURSE_SOURCE_TEXT[eff.course_source]) : ""}</p>` +
+    (tag?.can_edit_course
+      ? `<form id="setupTagForm" class="setup-row" novalidate><label>No TAG ${esc(tagName)} (vale para os spots sem valor próprio)<input id="setupTagCourse" type="text" inputmode="decimal" maxlength="8" autocomplete="off" placeholder="Ex.: 20 ou 2,5" value="${esc(fmtMmInput(tag.suggested_course_mm))}"></label>` +
+        `<label>Porte (opcional)<select id="setupTagSize"><option value="">Não informado</option>${Object.entries(SIZE_CLASS_LABEL).map(([value, text]) => `<option value="${value}"${tag.size_class === value ? " selected" : ""}>${text}</option>`).join("")}</select></label>` +
+        `<button class="secondary" type="submit">Salvar no TAG</button></form>`
+      : `<p class="form-help">No TAG ${esc(tagName)}: ${point.tag?.suggested_course_mm != null ? esc(fmtMm(point.tag.suggested_course_mm, 2)) : "não cadastrado"}. Quem cadastra: quem edita o TAG em Ativos (ADM nível 1 ou 2, ou usuário da corporação com permissão de edição neste ramo).</p>`) +
+    (point.can_edit_course
+      ? `<form id="setupSpotForm" class="setup-row" novalidate><fieldset><legend>Neste spot</legend>` +
+        `<label class="check"><input type="radio" name="setupSpotMode" value="inherit"${own == null ? " checked" : ""}> Herdar do TAG${point.tag?.suggested_course_mm != null ? " (" + esc(fmtMm(point.tag.suggested_course_mm, 2)) + ")" : " (TAG sem valor cadastrado)"}</label>` +
+        `<label class="check"><input type="radio" name="setupSpotMode" value="own"${own != null ? " checked" : ""}> Valor específico deste spot</label>` +
+        `<label>Curso deste spot (mm)<input id="setupSpotCourse" type="text" inputmode="decimal" maxlength="8" autocomplete="off" value="${esc(fmtMmInput(own))}"${own == null ? " disabled" : ""}></label></fieldset>` +
+        `<button class="secondary" type="submit">Salvar no spot</button></form>`
+      : `<p class="form-help">Sua conta não edita o curso deste spot.</p>`) +
+    `</section>` +
+    // 2. Revisão da montagem
+    `<section class="setup-block"><h3>2. Revisão da montagem (ensaio)</h3>` +
+    `<p class="form-help">A revisão diz quantos milímetros o preme-gaxeta avança por grau de giro do eixo do sensor, em que sentido e em que arco isso foi comprovado. Vem de um ensaio com paquímetro: a medida do espaço na bomba, sozinha, não diz quantos milímetros valem um grau. Suportes da mesma família, intercambiáveis, podem usar a mesma revisão já comprovada.</p>` +
+    `<p class="setup-current">Em uso neste spot: <b>${esc(geomText(eff.geometry))}</b>${eff.geometry_source ? " · " + (eff.geometry_source === "point" ? "vinculada a este spot" : "sugerida no TAG") : ""}</p>` +
+    (eff.geometry && eff.geometry.status !== "validated" ? `<p class="bench-warn">Esta revisão ainda não foi validada: o curso de ajuste restante só aparece para a engenharia, como provisório.</p>` : "") +
+    (!eff.geometry ? `<p class="bench-warn">Sem revisão vinculada, o curso de ajuste restante fica indisponível, com o motivo à vista. O curso típico acima pode ser cadastrado antes: uma coisa não depende da outra.</p>` : "") +
+    (point.can_edit_geometry
+      ? `<form id="setupGeomForm" class="setup-row" novalidate><label>Revisão vinculada a este spot<select id="setupGeom"><option value="">Nenhuma própria (usar a sugerida no TAG, se houver)</option>` +
+        usable.map((geom) => `<option value="${esc(geom.id)}"${String(geom.id) === String(ownGeom) ? " selected" : ""}>${esc(geom.key)} r${geom.revision} · ${esc(geom.label)} · ${esc(GEOM_STATUS_TEXT[geom.status])}</option>`).join("") +
+        `</select></label>` +
+        `<label>Ângulo bruto no datum mecânico (só para curva)<input id="setupDatum" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0 a 4095" value="${esc(point.own?.datum_raw ?? "")}"></label>` +
+        (point.active_reference ? `<p class="bench-warn">Há um engaxetamento em andamento neste spot. Trocar a revisão <b>encerra essa referência</b>: será preciso registrar o engaxetamento de novo.</p>` : "") +
+        `<button class="secondary" type="submit">Vincular ao spot</button></form>`
+      : `<p class="form-help">Quem vincula e valida a revisão: a engenharia (ADM nível 1 ou 2).</p>`) +
+    `</section>` +
+    // 3. Engenharia: revisões e ensaio
+    (point.can_edit_geometry
+      ? `<section class="setup-block"><h3>3. Revisões cadastradas (engenharia)</h3>` +
+        (geoms.length
+          ? `<ul class="setup-geoms">${geoms
+              .map(
+                (geom) =>
+                  `<li><span>${esc(geomText(geom))} · curso de ${esc(fmtNum(geom.min_course_mm))} a ${esc(fmtNum(geom.max_course_mm))} mm` +
+                  (geom.status === "validated" && geom.evidence?.max_error_pp != null ? ` · erro máximo ${esc(fmtNum(geom.evidence.max_error_pp, 2))} p.p., folga ${esc(fmtNum(geom.evidence.backlash_mm, 2))} mm` : "") +
+                  `</span><span class="row-actions">` +
+                  (geom.status === "draft" ? `<button class="secondary compact" type="button" data-geom-validate="${esc(geom.id)}">Validar…</button>` : "") +
+                  (geom.status !== "retired" ? `<button class="text-button danger-text" type="button" data-geom-retire="${esc(geom.id)}">Retirar</button>` : "") +
+                  `</span></li>`,
+              )
+              .join("")}</ul>`
+          : `<p class="form-help">Nenhuma revisão cadastrada ainda.</p>`) +
+        (validating
+          ? `<form id="setupValidateForm" class="setup-row setup-validate" novalidate><h4>Validar ${esc(validating.key)} r${validating.revision}</h4>` +
+            `<p class="form-help">Só valide com o ensaio aprovado em posições independentes das usadas para ajustar a reta ou a curva. A folga que depende do sentido entra no erro.</p>` +
+            `<label>Erro máximo no curso (mm)<input id="valErrMm" type="text" inputmode="decimal" maxlength="8" autocomplete="off"></label>` +
+            `<label>Erro máximo (pontos percentuais do curso)<input id="valErrPp" type="text" inputmode="decimal" maxlength="8" autocomplete="off"></label>` +
+            `<label>Folga na reversão (mm)<input id="valBacklash" type="text" inputmode="decimal" maxlength="8" autocomplete="off"></label>` +
+            `<label class="span-all">Relatório do ensaio (onde está e o que mediu)<textarea id="valReport" rows="2" maxlength="600"></textarea></label>` +
+            `<div class="row-actions"><button class="primary" type="submit">Validar revisão</button><button class="secondary" type="button" id="valCancel">Cancelar</button></div></form>`
+          : "") +
+        `<details class="technical-detail" id="setupNewGeom"><summary>Nova revisão a partir de um ensaio</summary>` +
+        `<form id="setupNewForm" class="setup-grid" novalidate>` +
+        `<label>Família do suporte (identificador)<input id="ngKey" maxlength="40" autocomplete="off" placeholder="ex.: haste-cremalheira-20"></label>` +
+        `<label>Descrição<input id="ngLabel" maxlength="80" autocomplete="off" placeholder="ex.: Cremalheira, pinhão 12,7 mm"></label>` +
+        `<label>Modelo<select id="ngKind"><option value="linear">Reta: mm por grau constante</option><option value="table">Curva: tabela de pontos medidos</option></select></label>` +
+        `<label>Ao apertar o preme-gaxeta, o ângulo do sensor<select id="ngDir"><option value="1">aumenta</option><option value="-1">diminui</option></select></label>` +
+        `<label id="ngSlopeRow">Avanço por grau de giro (mm por grau)<input id="ngSlope" type="text" inputmode="decimal" maxlength="10" autocomplete="off" placeholder="ex.: 0,111"></label>` +
+        `<label id="ngCurveRow" class="span-all" hidden>Pontos do ensaio, um por linha: graus desde o datum mecânico; mm<textarea id="ngCurve" rows="5" placeholder="0; 0&#10;45; 5,1&#10;90; 10,0"></textarea></label>` +
+        `<label id="ngDatumRow" hidden>Ângulo bruto no datum mecânico (0 a 4095, se o porta-ímã for indexado)<input id="ngDatum" type="text" inputmode="numeric" maxlength="4" autocomplete="off"></label>` +
+        `<label>Arco útil comprovado no ensaio (graus)<input id="ngArc" type="text" inputmode="decimal" maxlength="6" autocomplete="off" placeholder="ex.: 240"></label>` +
+        `<label>Recuo tolerado atrás da referência (graus)<input id="ngBack" type="text" inputmode="decimal" maxlength="5" autocomplete="off" value="15"></label>` +
+        `<label>Tolerância aceita além dos extremos (mm)<input id="ngTol" type="text" inputmode="decimal" maxlength="6" autocomplete="off" placeholder="ex.: 0,5"></label>` +
+        `<label>Menor curso atendido (mm)<input id="ngMin" type="text" inputmode="decimal" maxlength="7" autocomplete="off"></label>` +
+        `<label>Maior curso atendido (mm)<input id="ngMax" type="text" inputmode="decimal" maxlength="7" autocomplete="off"></label>` +
+        `<p class="form-help span-all">A revisão nasce como rascunho (em caracterização). O arco útil tem de ser menor que uma volta e conter o maior curso: fora dele a plataforma suspende o cálculo em vez de extrapolar. Depois de trocar a haste ou o suporte, cadastre uma revisão nova: a curva anterior não vale para a peça nova.</p>` +
+        `<div class="row-actions span-all"><button class="primary" type="submit">Salvar como rascunho</button></div></form></details></section>`
+      : "");
+  bindMagSetup();
+}
+function bindMagSetup() {
+  const fail = (error) => {
+    magSetup.message = errorText(error);
+    magSetup.error = true;
+    renderMagSetup();
+  };
+  const num = (id, label, { required = true } = {}) => {
+    const value = parseMm($id(id).value);
+    if (value === null && !required) return null;
+    if (value === null || Number.isNaN(value)) throw Error(`${label}: informe um número (vírgula ou ponto).`);
+    return value;
+  };
+  if ($id("setupTagForm"))
+    $id("setupTagForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        try {
+          const course = readCourseField($id("setupTagCourse").value, "Curso do TAG");
+          await callRpc("gaxeta_mag_set_equipment_defaults", {
+            p_asset_id: magSetup.point.tag.asset_id, p_size_class: $id("setupTagSize").value || null, p_suggested_course_mm: course,
+            // Preserva a revisão sugerida no TAG (para a engenharia o servidor grava o que vier aqui).
+            p_geometry_id: magSetup.tag?.can_edit_geometry ? (magSetup.tag?.geometry?.id ?? null) : null,
+          });
+          await afterMagSetupChange(course == null ? "Curso típico removido do TAG." : `Curso típico de ${fmtMm(course, 2)} gravado no TAG. Os ciclos já registrados não mudam.`);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+  if ($id("setupSpotForm")) {
+    for (const radio of document.querySelectorAll('input[name="setupSpotMode"]'))
+      radio.onchange = () => {
+        $id("setupSpotCourse").disabled = radio.value !== "own" || !radio.checked;
+        if (radio.value === "own" && radio.checked) $id("setupSpotCourse").focus();
+      };
+    $id("setupSpotForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        try {
+          const ownMode = document.querySelector('input[name="setupSpotMode"]:checked')?.value === "own";
+          const course = ownMode ? readCourseField($id("setupSpotCourse").value, "Curso do spot") : null;
+          if (ownMode && course == null) throw Error("Informe o curso deste spot, ou escolha Herdar do TAG.");
+          await callRpc("gaxeta_mag_set_point_course", { p_point_id: magSetup.pointId, p_course_mm: course });
+          await afterMagSetupChange(course == null ? "Este spot voltou a herdar o curso do TAG." : `Curso de ${fmtMm(course, 2)} gravado só para este spot.`);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+  }
+  if ($id("setupGeomForm"))
+    $id("setupGeomForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        try {
+          const datumText = $id("setupDatum").value.trim();
+          if (datumText && !/^\d{1,4}$/.test(datumText)) throw Error("Datum mecânico: ângulo bruto inteiro, de 0 a 4095.");
+          await callRpc("gaxeta_mag_set_point_geometry", { p_point_id: magSetup.pointId, p_geometry_id: $id("setupGeom").value ? Number($id("setupGeom").value) : null, p_datum_raw: datumText ? Number(datumText) : null, p_note: null });
+          await afterMagSetupChange($id("setupGeom").value ? "Revisão vinculada a este spot." : "Este spot voltou a usar a revisão sugerida no TAG, se houver.");
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+  for (const button of document.querySelectorAll("[data-geom-validate]"))
+    button.onclick = () => {
+      magSetup.validating = button.dataset.geomValidate;
+      magSetup.message = "";
+      renderMagSetup();
+      $id("valErrMm")?.focus();
+    };
+  for (const button of document.querySelectorAll("[data-geom-retire]"))
+    button.onclick = async () => {
+      if (!(await askConfirm({ title: "Retirar revisão", okLabel: "Retirar", html: `<p>A revisão deixa de poder ser vinculada. Os engaxetamentos já registrados com ela continuam no histórico.</p>` }))) return;
+      await withBusy(button, async () => {
+        try {
+          await callRpc("gaxeta_mag_set_geometry_status", { p_geometry_id: Number(button.dataset.geomRetire), p_status: "retired", p_evidence: null });
+          await afterMagSetupChange("Revisão retirada.");
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+  if ($id("valCancel"))
+    $id("valCancel").onclick = () => {
+      magSetup.validating = null;
+      renderMagSetup();
+    };
+  if ($id("setupValidateForm"))
+    $id("setupValidateForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        try {
+          const report = $id("valReport").value.trim();
+          if (!report) throw Error("Informe onde está o relatório do ensaio e o que ele mediu.");
+          const evidence = { max_error_mm: num("valErrMm", "Erro máximo (mm)"), max_error_pp: num("valErrPp", "Erro máximo (p.p.)"), backlash_mm: num("valBacklash", "Folga na reversão (mm)"), report };
+          await callRpc("gaxeta_mag_set_geometry_status", { p_geometry_id: Number(magSetup.validating), p_status: "validated", p_evidence: evidence });
+          magSetup.validating = null;
+          await afterMagSetupChange("Revisão validada com a evidência do ensaio.");
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+  if ($id("ngKind"))
+    $id("ngKind").onchange = () => {
+      const table = $id("ngKind").value === "table";
+      $id("ngSlopeRow").hidden = table;
+      $id("ngCurveRow").hidden = !table;
+      $id("ngDatumRow").hidden = !table;
+    };
+  if ($id("setupNewForm"))
+    $id("setupNewForm").onsubmit = (event) => {
+      event.preventDefault();
+      withBusy(event.submitter, async () => {
+        try {
+          const key = $id("ngKey").value.trim().toLowerCase();
+          if (!/^[a-z][a-z0-9_-]{1,39}$/.test(key)) throw Error("Família do suporte: comece por letra e use só letras minúsculas, números, hífen ou sublinhado (2 a 40 caracteres).");
+          const label = $id("ngLabel").value.trim();
+          if (!label) throw Error("Informe a descrição da revisão.");
+          const table = $id("ngKind").value === "table";
+          const geometry = {
+            key, label, model_kind: table ? "table" : "linear", direction: Number($id("ngDir").value),
+            unique_arc_deg: num("ngArc", "Arco útil"), back_margin_deg: num("ngBack", "Recuo tolerado"), tolerance_mm: num("ngTol", "Tolerância"),
+            min_course_mm: num("ngMin", "Menor curso"), max_course_mm: num("ngMax", "Maior curso"),
+          };
+          if (table) {
+            const points = $id("ngCurve").value.split(/\n/).map((line) => line.trim()).filter(Boolean).map((line) => line.split(/[;\t]/).map((cell) => parseMm(cell)));
+            if (points.length < 2 || points.some((pair) => pair.length !== 2 || pair.some((cell) => cell === null || Number.isNaN(cell))))
+              throw Error("Pontos do ensaio: uma linha por ponto, no formato graus; mm (pelo menos dois pontos).");
+            geometry.curve = points;
+            const datum = $id("ngDatum").value.trim();
+            if (datum && !/^\d{1,4}$/.test(datum)) throw Error("Datum mecânico: ângulo bruto inteiro, de 0 a 4095.");
+            if (datum) geometry.datum_raw = Number(datum);
+          } else geometry.mm_per_deg = num("ngSlope", "Avanço por grau");
+          const saved = await callRpc("gaxeta_mag_save_geometry", { p_geometry: geometry });
+          await afterMagSetupChange(`Revisão ${saved.key} r${saved.revision} gravada como rascunho. Vincule-a ao spot e valide depois do ensaio.`);
+        } catch (error) {
+          fail(error);
+        }
+      });
+    };
+}
+
+// ----- Ativos: campos no formulário Editar do TAG e do spot, e a linha da ficha -----
+const magAssetInfoCache = new Map(); // ativo → resposta de gaxeta_mag_asset_setup (ou null se indisponível)
+async function magAssetInfo(assetId) {
+  if (!assetId) return null;
+  if (magAssetInfoCache.has(assetId)) return magAssetInfoCache.get(assetId);
+  let info = null;
+  try {
+    info = await callRpc("gaxeta_mag_asset_setup", { p_asset_id: assetId });
+  } catch (error) {
+    info = null;
+  }
+  magAssetInfoCache.set(assetId, info);
+  return info;
+}
+// Linha da ficha do spot e do TAG: o valor e de onde ele veio.
+function magAssetSummaryText(info) {
+  if (!info) return null;
+  if (info.kind === "equipment") return info.suggested_course_mm != null ? `${fmtMm(info.suggested_course_mm, 2)}${info.size_class ? " · porte " + SIZE_CLASS_LABEL[info.size_class].toLowerCase() : ""} · estimativa` : "Não cadastrado";
+  const eff = info.effective || {};
+  return eff.suggested_course_mm != null ? `${fmtMm(eff.suggested_course_mm, 2)} · ${COURSE_SOURCE_TEXT[eff.course_source] || ""} · estimativa` : "Não cadastrado";
+}
+const magAssetForm = { info: null, parentInfo: null, available: true };
+function magAssetFormBox() {
+  let box = $id("magAssetBox");
+  if (box) return box;
+  box = document.createElement("div");
+  box.id = "magAssetBox";
+  $id("assetFormMessage").before(box);
+  return box;
+}
+// Prepara os campos ao abrir o formulário (edição ou criação).
+async function magAssetFormPrepare(editing, parent) {
+  const box = magAssetFormBox();
+  Object.assign(magAssetForm, { info: null, parentInfo: null, available: true });
+  if (state.magMissing) magAssetForm.available = false;
+  else
+    try {
+      if (editing && ["equipment", "point"].includes(editing.kind)) magAssetForm.info = await callRpc("gaxeta_mag_asset_setup", { p_asset_id: editing.id });
+      const tagId = editing?.kind === "point" ? editing.parent_id : !editing && parent?.kind === "equipment" ? parent.id : null;
+      if (tagId) magAssetForm.parentInfo = await callRpc("gaxeta_mag_asset_setup", { p_asset_id: tagId }).catch(() => null);
+    } catch (error) {
+      // Banco sem a migração 15 (ou ativo fora do escopo): o formulário segue sem estes campos.
+      magAssetForm.available = false;
+    }
+  const info = magAssetForm.info;
+  const tagCourse = info?.kind === "point" ? info.tag?.suggested_course_mm : magAssetForm.parentInfo?.suggested_course_mm;
+  const own = info?.kind === "point" ? info.own?.suggested_course_mm : null;
+  const canCourse = info ? info.can_edit_course : true;
+  box.innerHTML =
+    `<fieldset class="equip-group mag-asset" id="magAssetEquip" hidden><legend>Sensor magnético: curso do preme-gaxeta</legend>` +
+    `<label>Curso disponível típico (mm)<input id="magTagCourse" type="text" inputmode="decimal" maxlength="8" autocomplete="off" placeholder="Ex.: 20 ou 2,5" value="${esc(info?.kind === "equipment" ? fmtMmInput(info.suggested_course_mm) : "")}"${canCourse ? "" : " disabled"}></label>` +
+    `<label>Porte (opcional)<select id="magTagSize"${canCourse ? "" : " disabled"}><option value="">Não informado</option>${Object.entries(SIZE_CLASS_LABEL).map(([value, text]) => `<option value="${value}"${info?.kind === "equipment" && info.size_class === value ? " selected" : ""}>${text}</option>`).join("")}</select></label>` +
+    `<p class="form-help span-all">Quanto o preme-gaxeta costuma poder avançar depois de um engaxetamento novo. Vale para todos os spots deste TAG sem valor próprio e entra como <b>curso estimado</b>. Em branco = não cadastrado. Mudar este valor não altera os ciclos já registrados.</p></fieldset>` +
+    `<fieldset class="equip-group mag-asset" id="magAssetPoint" hidden><legend>Sensor magnético: curso do preme-gaxeta</legend>` +
+    `<label class="check span-all"><input type="radio" name="magSpotMode" value="inherit"${own == null ? " checked" : ""}${canCourse ? "" : " disabled"}> Herdar do TAG${tagCourse != null ? " (" + esc(fmtMm(tagCourse, 2)) + ")" : " (TAG sem valor cadastrado)"}</label>` +
+    `<label class="check span-all"><input type="radio" name="magSpotMode" value="own"${own != null ? " checked" : ""}${canCourse ? "" : " disabled"}> Valor específico deste spot</label>` +
+    `<label>Curso deste spot (mm)<input id="magSpotCourse" type="text" inputmode="decimal" maxlength="8" autocomplete="off" placeholder="Ex.: 15" value="${esc(fmtMmInput(own))}"${own == null || !canCourse ? " disabled" : ""}></label>` +
+    (info?.kind === "point"
+      ? `<p class="form-help span-all">Em uso: <b>${esc(magAssetSummaryText(info))}</b>. Revisão da montagem: ${esc(geomText(info.effective?.geometry))}.</p>` +
+        `<p class="span-all"><button class="secondary compact" type="button" id="magAssetSetup">${info.can_edit_geometry ? "Revisão da montagem e ensaio…" : "Ver a montagem deste spot…"}</button></p>`
+      : `<p class="form-help span-all">A revisão da montagem (geometria ensaiada) é vinculada pela engenharia depois de o spot existir.</p>`) +
+    `</fieldset>`;
+  for (const radio of box.querySelectorAll('input[name="magSpotMode"]'))
+    radio.onchange = () => {
+      $id("magSpotCourse").disabled = radio.value !== "own" || !radio.checked;
+      if (radio.value === "own" && radio.checked) $id("magSpotCourse").focus();
+    };
+  if ($id("magAssetSetup"))
+    $id("magAssetSetup").onclick = () => {
+      const pointId = magAssetForm.info.asset_id;
+      $id("assetDialog").close();
+      openMagSetupForPoint(pointId).catch((error) => showMessage(errorText(error), "error"));
+    };
+}
+function magAssetFormSync(kind) {
+  if (!$id("magAssetBox")) return;
+  $id("magAssetEquip").hidden = !(magAssetForm.available && kind === "equipment");
+  $id("magAssetPoint").hidden = !(magAssetForm.available && kind === "point");
+}
+// Lê e valida o que foi digitado, antes de gravar o ativo. Devolve null quando não há o que gravar.
+function magAssetFormRead(kind) {
+  if (!magAssetForm.available || !$id("magAssetBox")) return null;
+  const info = magAssetForm.info;
+  if (kind === "equipment") {
+    if (info && !info.can_edit_course) return null;
+    const course = readCourseField($id("magTagCourse").value, "Curso disponível típico");
+    const size = $id("magTagSize").value || null;
+    const changed = !info ? course != null || size != null : Number(info.suggested_course_mm ?? NaN) !== Number(course ?? NaN) || (info.size_class || null) !== size;
+    return changed ? { kind, course, size, geometryId: info?.can_edit_geometry ? (info?.geometry?.id ?? null) : null } : null;
+  }
+  if (kind === "point") {
+    if (info && !info.can_edit_course) return null;
+    const ownMode = document.querySelector('input[name="magSpotMode"]:checked')?.value === "own";
+    const course = ownMode ? readCourseField($id("magSpotCourse").value, "Curso deste spot") : null;
+    if (ownMode && course == null) throw Error("Informe o curso deste spot, ou escolha Herdar do TAG.");
+    const before = info?.own?.suggested_course_mm ?? null;
+    return Number(before ?? NaN) !== Number(course ?? NaN) && !(before == null && course == null) ? { kind, course } : null;
+  }
+  return null;
+}
+async function magAssetFormApply(saved, wanted) {
+  if (!wanted) return;
+  if (wanted.kind === "equipment")
+    await callRpc("gaxeta_mag_set_equipment_defaults", { p_asset_id: saved.id, p_size_class: wanted.size, p_suggested_course_mm: wanted.course, p_geometry_id: wanted.geometryId });
+  else await callRpc("gaxeta_mag_set_point_course", { p_point_id: saved.id, p_course_mm: wanted.course });
+  magAssetInfoCache.clear();
+}
 
 // ---- 70-telemetry.js ----
 // =============================================================================
@@ -4128,6 +5093,21 @@ const TELEM_LABELS = {
     movementHead: ["Horário", "Curso restante anterior", "Novo curso restante", "Variação"],
     historyHead: ["Horário", "Curso restante: estabilizado / média", "Mín. / máx.", "Avanço (mm)", "Ângulo (média circular)", "Leituras válidas / total"],
   },
+  // Modo bancada: série própria, nunca somada nem comparada com a de campo.
+  bench: {
+    rawNow: ["Posição de bancada (%)", "Posição de bancada da leitura atual: demonstração em mesa, limitada a 0–100 %. Não é curso de ajuste restante."],
+    volt: ["Posição contínua (°)", "Posição angular contínua no referencial do chip: passa de 360° e fica negativa conforme as voltas."],
+    stableNow: ["Além do extremo (°)", "Quanto o eixo passou do 100 % (positivo) ou ficou abaixo do 0 % (negativo)."],
+    delta: ["Ângulo do sensor", "Ângulo absoluto do ímã (medido), de 0° a 359,9°."],
+    min: ["Mín. de bancada", "Menor posição de bancada do período"],
+    max: ["Máx. de bancada", "Maior posição de bancada do período"],
+    scale: "MODO BANCADA · Posição de bancada (% entre os dois ângulos configurados) · não é curso de campo",
+    legend: ["Posição de bancada (média por intervalo)", "—", "—"],
+    axis: ["100", "75", "50", "25", "0"],
+    movementTitle: "Mudanças do curso de ajuste restante (5 p.p.)",
+    movementHead: ["Horário", "Curso restante anterior", "Novo curso restante", "Variação"],
+    historyHead: ["Horário", "Posição de bancada (média)", "Mín. / máx.", "Posição contínua desde o 0 % (mín. / máx.)", "Ângulo (média circular)", "Leituras com posição / total"],
+  },
   angle: {
     rawNow: ["Curso restante (%)", "Sem engaxetamento registrado neste período: não há curso restante."],
     volt: ["Avanço (mm)", "Sem engaxetamento registrado: não há avanço."],
@@ -4179,6 +5159,7 @@ function applyChartLabels(mode) {
   $id("movementHead").innerHTML = text.movementHead.map((label) => `<th>${esc(label)}</th>`).join("");
   $id("historyHead").innerHTML = text.historyHead.map((label) => `<th>${esc(label)}</th>`).join("");
   $id("showRawBand").closest("label").hidden = mode === "angle";
+  $id("chartScaleNote").classList.toggle("is-bench", mode === "bench");
 }
 // Que série a Telemetria mostra: a da modalidade atual do sensor, ou a escolhida no seletor.
 function telemetrySeries(device) {
@@ -4189,21 +5170,30 @@ function telemetrySeries(device) {
 // Resposta de gaxeta_mag_history no formato que a tela usa (telem.loaded).
 function magLoaded(base, data) {
   const history = data.history || [];
-  const valid = history.filter((row) => row.remaining_percent != null);
+  const course = history.filter((row) => row.remaining_percent != null);
+  const bench = history.filter((row) => row.bench_percent != null);
+  // A série do gráfico é a da leitura mais recente com valor: bancada ou campo, nunca as duas
+  // no mesmo gráfico. Sem nenhuma das duas, o ângulo.
+  const lastValued = [...history].reverse().find((row) => row.remaining_percent != null || row.bench_percent != null || row.bench_id != null);
+  const series = lastValued?.bench_id != null ? "bench" : course.length ? "course" : bench.length ? "bench" : "angle";
+  const valid = series === "bench" ? bench : course;
+  const low = (row) => Number(series === "bench" ? row.min_bench ?? row.bench_percent : row.min_remaining ?? row.remaining_percent);
+  const high = (row) => Number(series === "bench" ? row.max_bench ?? row.bench_percent : row.max_remaining ?? row.remaining_percent);
   return {
     ...base,
     modality: "as5600_i2c",
-    series: valid.length ? "course" : "angle",
+    series,
     history,
     movements: data.movements || [],
     services: data.services || [],
+    benches: data.benches || [],
     seed: null,
     stats: {
       count: data.stats?.count || 0,
       valid: data.stats?.valid || 0,
       last_received_at: data.stats?.last_received_at || null,
-      min: valid.length ? Math.min(...valid.map((row) => Number(row.min_remaining ?? row.remaining_percent))) : null,
-      max: valid.length ? Math.max(...valid.map((row) => Number(row.max_remaining ?? row.remaining_percent))) : null,
+      min: valid.length ? Math.min(...valid.map(low)) : null,
+      max: valid.length ? Math.max(...valid.map(high)) : null,
     },
     truncated: !!data.movements_truncated,
     bucketSeconds: data.bucket_seconds,
@@ -4216,28 +5206,40 @@ function renderTelemetryLiveMag(device) {
   const view = deviceView(device);
   const computed = view.computed;
   const service = view.service;
-  applySummaryLabels(computed ? "course" : "angle");
+  const bench = view.bench || null;
+  applySummaryLabels(bench ? "bench" : computed ? "course" : "angle");
   $id("historyTitle").textContent = identity.title;
   $id("historyTitle").title = identity.path || "";
-  $id("historyContext").textContent = identity.linked ? `Sensor: ${identity.sensor} · Spot: ${identity.spot} · sensor magnético` : `Sensor magnético sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
+  $id("historyContext").textContent = identity.linked
+    ? `Sensor: ${identity.sensor} · Spot: ${identity.spot} · sensor magnético · série: ${bench ? "BANCADA" : computed ? view.series : "ângulo"}`
+    : `Sensor magnético sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
   $id("historyCurrentLabel").textContent = view.kicker + (view.origin ? ` (${view.origin})` : "");
   $id("historyCurrent").textContent = view.value === "—" ? "—" : `${view.value}${view.unit === "%" ? " %" : view.unit}`;
   $id("historyHealthBox").className = "summary-main health-" + view.key;
   $id("historyHealth").textContent = view.label;
   $id("historyAction").textContent = view.note;
-  $id("historyRawNow").textContent = computed ? fmtNum(computed.remaining_percent, 2) + " %" : "—";
-  $id("historyRawNow").title = computed ? `${fmtMm(computed.remaining_mm, 2)} de ${fmtMm(service?.course_mm, 2)}` + (view.reason === "out_of_range" ? " · fora da faixa validada" : "") : MAG_REASON[view.reason]?.note || "";
-  $id("historyVolt").textContent = computed ? fmtMm(computed.advance_mm, 2) : "—";
-  $id("historyVolt").title = computed ? "Calculado pela geometria " + (service?.geometry || "") : "";
-  $id("historyStableNow").textContent = service?.stable_remaining == null ? "—" : fmtNum(service.stable_remaining) + " %";
+  if (bench) {
+    $id("historyRawNow").textContent = bench.state === "ok" && bench.percent != null ? fmtNum(bench.percent, 2) + " %" : "—";
+    $id("historyRawNow").title = view.note;
+    $id("historyVolt").textContent = bench.continuous_deg == null ? "—" : fmtDeg(bench.continuous_deg, 2);
+    $id("historyVolt").title = bench.continuous_deg == null ? "" : `${bench.turns} volta(s) inteira(s)`;
+    $id("historyStableNow").textContent = bench.over_deg == null ? "—" : fmtDeg(bench.over_deg, 1);
+  } else {
+    $id("historyRawNow").textContent = computed ? fmtNum(computed.remaining_percent, 2) + " %" : "—";
+    $id("historyRawNow").title = computed ? `${fmtMm(computed.remaining_mm, 2)} de ${fmtMm(service?.course_mm, 2)}` + (view.reason === "out_of_range" ? " · fora da faixa validada" : "") : MAG_REASON[view.reason]?.note || "";
+    $id("historyVolt").textContent = computed ? fmtMm(computed.advance_mm, 2) : "—";
+    $id("historyVolt").title = computed ? "Calculado pela geometria " + (service?.geometry || "") : "";
+    $id("historyStableNow").textContent = service?.stable_remaining == null ? "—" : fmtNum(service.stable_shown ?? service.stable_remaining, 2) + " %" + (MAG_BAND[service.band] ? " · " + MAG_BAND[service.band].label : "");
+  }
   $id("historyDelta").textContent = view.raw == null ? "—" : `${fmtDeg(view.degrees, 2)} · bruto ${view.raw}`;
   const cadence = firmwareCadence(device.firmware_version);
   $id("historyReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"} · ${magSignalText(device, view.mag)}` +
     (cadence ? ` · ${cadence.text}` : "") +
+    (bench ? ` · Modo bancada: ${fmtDeg(bench.zero_deg, 1)} = 0 %, ${fmtDeg(bench.full_deg, 1)} = 100 %, ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}` : "") +
     (service ? ` · engaxetamento de ${fmtDateTime(service.captured_at)}: ${fmtMm(service.course_mm)} ${service.course_origin === "estimated" ? "estimados" : "medidos"}, geometria ${service.geometry}` : "");
-  $id("historySince").textContent = service?.stable_since ? "Linha estabilizada desde " + fmtDateTime(service.stable_since) : "";
+  $id("historySince").textContent = bench ? "Modo bancada desde " + fmtDateTime(bench.started_at) + " · a nuvem atualiza a cada envio da placa" : service?.stable_since ? "Linha estabilizada desde " + fmtDateTime(service.stable_since) : "";
   $id("historyEdit").disabled = false;
 }
 
@@ -4258,7 +5260,9 @@ function renderHistoryMag() {
   $id("chartTo").textContent = fmtDateTime(range.to);
   $id("aggregationNote").textContent = loaded.truncated
     ? "Muitas mudanças neste intervalo. Reduza o período para exibir a linha completa."
-    : mode === "course"
+    : mode === "bench"
+      ? "MODO BANCADA: Posição de bancada, média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo · um trecho por configuração · não gera mudanças de 5 p.p. nem evento de manutenção."
+      : mode === "course"
       ? "Curso restante: média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas · um trecho por engaxetamento · linha estabilizada: 5 p.p."
       : "Ângulo: média circular de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas. Sem engaxetamento no período não há curso restante.";
   $id("movementCount").textContent = loaded.truncated ? "Mais de 5.000 registros — reduza o período" : movements.length + " mudanças de 5 p.p. no período";
@@ -4268,10 +5272,10 @@ function renderHistoryMag() {
       .reverse()
       .map((move) => `<tr><td>${fmtDateTime(move.received_at)}</td><td>${fmtNum(move.previous_remaining)} %</td><td>${fmtNum(move.stable_remaining)} %</td><td>${fmtNum(move.stable_remaining - move.previous_remaining)} p.p.</td></tr>`)
       .join("") ||
-    `<tr><td colspan="4">${mode === "course" ? "Nenhuma mudança de 5 pontos no curso restante neste período." : "Sem engaxetamento registrado neste período: não há curso restante para acompanhar."}</td></tr>`;
+    `<tr><td colspan="4">${mode === "course" ? "Nenhuma mudança de 5 pontos no curso restante neste período." : mode === "bench" ? "Série de bancada: a bancada não registra mudanças de 5 pontos nem evento de campo." : "Sem engaxetamento registrado neste período: não há curso restante para acompanhar."}</td></tr>`;
   const px = (time) => Math.max(0, Math.min(1e3, ((new Date(time) - range.from) / (range.to - range.from)) * 1e3)).toFixed(2);
   const py = (percent) => (280 - clampPercent(percent) * 2.8).toFixed(2);
-  const valueOf = (row) => (mode === "course" ? row.remaining_percent : row.angle_deg == null ? null : (Number(row.angle_deg) / 360) * 100);
+  const valueOf = (row) => (mode === "course" ? row.remaining_percent : mode === "bench" ? row.bench_percent : row.angle_deg == null ? null : (Number(row.angle_deg) / 360) * 100);
   const gapDevice = currentDevice();
   const gapMs = Math.max(3 * (Number(loaded.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(gapDevice ? deviceInterval(gapDevice) : 0) || 0) * 1000);
   // A linha quebra em lacunas, em intervalos sem leitura válida, na troca de referência e, no
@@ -4280,6 +5284,7 @@ function renderHistoryMag() {
     !previous ||
     new Date(row.received_at) - new Date(previous.last_at || previous.received_at) > gapMs ||
     (mode === "course" && row.service_id !== previous.service_id) ||
+    (mode === "bench" && row.bench_id !== previous.bench_id) ||
     (mode === "angle" && Math.abs(Number(row.angle_deg) - Number(previous.angle_deg)) > 180);
   let rawPath = "", stablePath = "", risers = "", band = "", bandUp = [], bandDown = [];
   let previous = null, previousStable = null;
@@ -4293,6 +5298,11 @@ function renderHistoryMag() {
     const x = px(row.received_at);
     const broke = breaks(row, previous);
     rawPath += `${broke ? "M" : "L"}${x} ${py(valueOf(row))} `;
+    if (mode === "bench") {
+      if (broke) closeBand();
+      bandUp.push(`${x} ${py(row.max_bench ?? row.bench_percent)}`);
+      bandDown.push(`${x} ${py(row.min_bench ?? row.bench_percent)}`);
+    }
     if (mode === "course") {
       if (broke) closeBand();
       bandUp.push(`${x} ${py(row.max_remaining ?? row.remaining_percent)}`);
@@ -4313,12 +5323,13 @@ function renderHistoryMag() {
   }
   closeBand();
   // Marca vertical em cada engaxetamento capturado dentro do período.
-  const marks = loaded.services
+  // No modo bancada a marca é a confirmação do início de cada configuração.
+  const marks = (mode === "bench" ? (loaded.benches || []).filter((bench) => bench.anchor_at).map((bench) => ({ captured_at: bench.anchor_at })) : loaded.services)
     .filter((service) => new Date(service.captured_at) >= range.from && new Date(service.captured_at) <= range.to)
     .map((service) => `M${px(service.captured_at)} 0V280`)
     .join("");
   $id("historyChart").innerHTML = rows.length
-    ? `<path class="chart-band" d="${$id("showRawBand").checked && mode === "course" ? band : ""}"/>` +
+    ? `<path class="chart-band" d="${$id("showRawBand").checked && mode !== "angle" ? band : ""}"/>` +
       `<path class="chart-service" d="${marks}"/>` +
       `<path class="chart-riser" d="${risers}"/>` +
       `<path class="chart-line chart-electric" d="${stablePath}"/>` +
@@ -4327,7 +5338,9 @@ function renderHistoryMag() {
     : "";
   $id("historyChart").setAttribute(
     "aria-label",
-    mode === "course"
+    mode === "bench"
+      ? `Modo bancada: posição de bancada em percentual. ${rows.length} intervalos, mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Não é curso de campo. Arraste para ampliar.`
+      : mode === "course"
       ? `Curso de ajuste restante. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. ${loaded.services.length} engaxetamento(s) no período. Arraste para ampliar.`
       : `Ângulo absoluto do sensor magnético. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Sem curso restante no período. Arraste para ampliar.`,
   );
@@ -4337,6 +5350,12 @@ function renderHistoryMag() {
       .reverse()
       .map(
         (row) =>
+          mode === "bench"
+            ? `<tr><td>${fmtDateTime(row.received_at)}</td><td>${row.bench_percent == null ? "—" : fmtNum(row.bench_percent, 2) + " %"}${row.bench_id != null ? '<small class="raw-average">bancada</small>' : ""}</td>` +
+              `<td>${row.bench_percent == null ? "—" : fmtNum(row.min_bench, 2) + " / " + fmtNum(row.max_bench, 2) + " %"}</td>` +
+              `<td>${row.min_bench_u_deg == null ? "—" : fmtDeg(row.min_bench_u_deg, 1) + " / " + fmtDeg(row.max_bench_u_deg, 1)}</td>` +
+              `<td>${fmtDeg(row.angle_deg, 2)}</td><td>${fmtNum(row.bench_ok, 0)} / ${fmtNum(row.samples, 0)}${magRowFlags(row)}</td></tr>`
+            :
           `<tr><td>${fmtDateTime(row.received_at)}</td><td>${row.remaining_percent == null ? "—" : fmtNum(row.stable_remaining) + " %"}<small class="raw-average">Média: ${row.remaining_percent == null ? "—" : fmtNum(row.remaining_percent, 2) + "%"}</small></td>` +
           `<td>${row.remaining_percent == null ? "—" : fmtNum(row.min_remaining) + " / " + fmtNum(row.max_remaining) + " %"}</td><td>${row.advance_mm == null ? "—" : fmtNum(row.advance_mm, 2)}</td>` +
           `<td>${fmtDeg(row.angle_deg, 2)}</td><td>${fmtNum(row.valid, 0)} / ${fmtNum(row.samples, 0)}${magRowFlags(row)}</td></tr>`,
@@ -4345,14 +5364,17 @@ function renderHistoryMag() {
 }
 // Motivos das leituras inválidas de um intervalo, em poucas palavras.
 function magRowFlags(row) {
-  const flags = [row.bus_fail ? `${row.bus_fail} sem resposta` : "", row.no_magnet ? `${row.no_magnet} sem ímã` : "", row.field_out ? `${row.field_out} campo fora` : "", row.out_of_range ? `${row.out_of_range} fora da faixa` : ""].filter(Boolean);
+  const flags = [row.bus_fail ? `${row.bus_fail} sem resposta` : "", row.no_magnet ? `${row.no_magnet} sem ímã` : "", row.field_out ? `${row.field_out} campo fora` : "", row.out_of_range ? `${row.out_of_range} fora da faixa` : "",
+    row.bench_reposition ? `${row.bench_reposition} reposicionar` : "", row.bench_waiting ? `${row.bench_waiting} sem início confirmado` : ""].filter(Boolean);
   return flags.length ? `<small class="raw-average">${esc(flags.join(" · "))}</small>` : "";
 }
 function magTooltipText(row, loaded) {
   const service = loaded.services.find((item) => item.id === row.service_id);
   return (
     `${fmtDateTime(row.received_at)}\n` +
-    (row.remaining_percent == null
+    (row.bench_percent != null
+      ? `MODO BANCADA · Posição de bancada: ${fmtNum(row.bench_percent, 2)}% (mín. ${fmtNum(row.min_bench, 2)}, máx. ${fmtNum(row.max_bench, 2)}) · posição contínua ${fmtDeg(row.min_bench_u_deg, 1)} a ${fmtDeg(row.max_bench_u_deg, 1)} desde o 0 % · ângulo ${fmtDeg(row.angle_deg, 2)}`
+      : row.remaining_percent == null
       ? `Ângulo do sensor: ${fmtDeg(row.angle_deg, 2)} (média circular) · sem curso restante neste intervalo`
       : `Curso restante: ${fmtNum(row.remaining_percent, 2)}% (${fmtMm(row.remaining_mm, 2)}) · estabilizado ${fmtNum(row.stable_remaining)}% · avanço ${fmtMm(row.advance_mm, 2)} · ângulo ${fmtDeg(row.angle_deg, 2)}`) +
     (service ? `\nEngaxetamento de ${fmtDateTime(service.captured_at)} · ${fmtMm(service.course_mm)} ${service.course_origin === "estimated" ? "estimados" : "medidos"} · ${service.geometry}` : "") +
@@ -4361,17 +5383,28 @@ function magTooltipText(row, loaded) {
 }
 async function exportMagCsv(loaded) {
   const byId = new Map(loaded.services.map((service) => [service.id, service]));
+  const benchById = new Map((loaded.benches || []).map((bench) => [bench.id, bench]));
+  // Cada linha diz a que série pertence: bancada, campo (curso medido ou estimado) ou só ângulo.
+  const seriesOf = (row, service) => (row.bench_id != null ? "bancada" : service ? (service.course_origin === "estimated" ? "campo_curso_estimado" : "campo_curso_medido") : "angulo_sem_referencia");
   const text = [
-    ["horario", "modalidade", "engaxetamento_id", "engaxetamento_capturado_em", "geometria_revisao", "curso_disponivel_mm", "origem_do_curso",
+    ["horario", "serie", "modalidade", "engaxetamento_id", "engaxetamento_capturado_em", "geometria_revisao", "curso_disponivel_mm", "origem_do_curso",
       "curso_restante_estabilizado_pct", "curso_restante_medio_pct", "curso_restante_min_pct", "curso_restante_max_pct", "curso_restante_medio_mm", "avanco_medio_mm",
-      "angulo_medio_circular_graus", "leituras", "leituras_validas", "falha_de_barramento", "ima_ausente", "campo_fora_da_faixa", "fora_da_faixa_validada", "metodo"],
+      "angulo_medio_circular_graus", "leituras", "leituras_validas", "falha_de_barramento", "ima_ausente", "campo_fora_da_faixa", "fora_da_faixa_validada",
+      "bancada_config", "bancada_posicao_media_pct", "bancada_posicao_min_pct", "bancada_posicao_max_pct", "bancada_continua_min_graus_desde_0pct", "bancada_continua_max_graus_desde_0pct",
+      "bancada_leituras_com_posicao", "bancada_leituras_reposicionar", "maior_passo_entre_amostras_contagens", "maior_lacuna_entre_amostras_ms", "metodo"],
     ...loaded.history.map((row) => {
       const service = byId.get(row.service_id);
-      return [row.received_at, "as5600_i2c", row.service_id ?? "", service?.captured_at ?? "", service ? service.geometry + (service.provisional ? " (provisoria)" : "") : "",
+      const bench = benchById.get(row.bench_id);
+      return [row.received_at, seriesOf(row, service), "as5600_i2c", row.service_id ?? "", service?.captured_at ?? "", service ? service.geometry + (service.provisional ? " (provisoria)" : "") : "",
         service?.course_mm ?? "", service ? (service.course_origin === "estimated" ? "estimado" : "medido") : "",
         row.remaining_percent == null ? "" : row.stable_remaining ?? "", row.remaining_percent ?? "", row.min_remaining ?? "", row.max_remaining ?? "", row.remaining_mm ?? "", row.advance_mm ?? "",
         row.angle_deg ?? "", row.samples, row.valid, row.bus_fail, row.no_magnet, row.field_out, row.out_of_range,
-        "angulo medido (media circular das leituras validas); avanco e curso restante calculados pela geometria da referencia"];
+        bench ? `0%=${bench.zero_deg} graus; 100%=${bench.full_deg} graus; sentido ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}` : "",
+        row.bench_percent ?? "", row.min_bench ?? "", row.max_bench ?? "", row.min_bench_u_deg ?? "", row.max_bench_u_deg ?? "", row.bench_id != null ? row.bench_ok : "", row.bench_id != null ? row.bench_reposition : "",
+        row.ct_step ?? "", row.ct_gap_ms ?? "",
+        row.bench_id != null
+          ? "MODO BANCADA: posicao de bancada calculada pela contagem continua da placa, limitada a 0-100 %; nao e curso de ajuste restante"
+          : "angulo medido (media circular das leituras validas); avanco e curso restante calculados pela geometria da referencia"];
     }),
   ].map((row) => row.map(csvCell).join(";")).join("\r\n");
   await exportCsvFile(text, `gaxeta-${loaded.sensorId}-magnetico-intervalos.csv`);

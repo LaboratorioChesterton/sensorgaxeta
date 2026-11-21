@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Capacidade para 15 dias de ensaio com o contrato magnético (migração 14), em CÓPIA ISOLADA.
+# Capacidade para 15 dias de ensaio com o contrato magnético (migrações 14 e 15), em CÓPIA ISOLADA.
+# Desde a migração 15 cada leitura magnética leva também a contagem contínua (ct_*).
 # Não toca a produção nem o banco das suítes: cria gaxeta_cap a partir de gaxeta_dev (rode
 # dev/run_all.sh antes). Carga: N placas magnéticas enviando a cada 30 s por 15 dias (43.200
 # leituras por placa) mais uma placa de potenciômetro no mesmo ritmo, para comparação.
@@ -26,7 +27,8 @@ update gaxeta_private.mag_services set requested_at = now() - interval '15 days 
 insert into public.gaxeta_devices (sensor_id, origin) select 'ESP32-CAP' || lpad(g::text, 9, '0'), 'esp32' from generate_series(2, $N) g;
 insert into public.gaxeta_readings (sensor_id, boot_id, sequence, received_at, sampled_at, rssi, uptime_ms, acq_method,
     modality, schema_version, raw_angle, angle_pp, mag_status, bus_status, agc, magnitude,
-    service_id, advance_mm, remaining_mm, remaining_percent, range_state, stable_remaining)
+    service_id, advance_mm, remaining_mm, remaining_percent, range_state, stable_remaining,
+    ct_session, ct_count, ct_origin, ct_loss, ct_step, ct_gap_ms)
   select d.sensor_id, md5(d.sensor_id || (i / 2880)::text), (i % 2880) + 1,
          now() - interval '15 days' + make_interval(secs => i * 30 + d.k * 0.9), now() - interval '15 days' + make_interval(secs => i * 30 + d.k * 0.9 - 1.2),
          -55 - (i % 9), ((i % 2880) + 1) * 30000::bigint, 'as5600-i2c-n20-circ',
@@ -36,7 +38,9 @@ insert into public.gaxeta_readings (sensor_id, boot_id, sequence, received_at, s
          case when d.k = 1 then round((30 - (r.raw - 700) * 360.0 / 4096 * 0.25)::numeric, 4) end,
          case when d.k = 1 then round((100 * (30 - (r.raw - 700) * 360.0 / 4096 * 0.25) / 30)::numeric, 4) end,
          case when d.k = 1 then 'ok' end,
-         case when d.k = 1 then round((100 - 5 * floor((r.raw - 700) * 360.0 / 4096 * 0.25 / 30 * 20))::numeric, 4) end
+         case when d.k = 1 then round((100 - 5 * floor((r.raw - 700) * 360.0 / 4096 * 0.25 / 30 * 20))::numeric, 4) end,
+         -- Migração 15: contagem contínua do firmware 4.5.0 em TODA leitura magnética (uma sessão por boot).
+         substr(md5(d.sensor_id || (i / 2880)::text), 1, 8), r.raw - 700 + (i % 7) * 4096, 700, 'boot', 3 + (i % 40), 5 + (i % 9)
     from (select '$S'::text sensor_id, 1 k union all select 'ESP32-CAP' || lpad(g::text, 9, '0'), g from generate_series(2, $N) g) d
     cross join generate_series(0, 43198) i
     cross join lateral (select (700 + (i * 1300 / 43200))::int raw) r;

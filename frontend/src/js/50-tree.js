@@ -54,7 +54,10 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
-  return `<strong class="tree-electric" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}</strong>`;
+  // Sensor magnético: a árvore diz a série (bancada, curso estimado) e a faixa, além do número.
+  const tag = view.bench ? " · bancada" : view.estimated ? " · estimado" : "";
+  const band = view.magnetic && !view.bench && view.computed && MAG_BAND[view.band] ? ` ${MAG_BAND[view.band].label}` : view.magnetic && view.value === "—" ? ` ${view.label}` : "";
+  return `<strong class="tree-electric health-${esc(view.key)}" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}<small>${esc(band + tag)}</small></strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));

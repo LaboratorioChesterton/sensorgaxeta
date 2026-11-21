@@ -65,6 +65,8 @@ function renderSensorGrid() {
   const first = view.total ? view.offset + 1 : 0;
   const last = Math.min(view.offset + CONFIG.pageSize, view.total);
   $id("visibleCount").textContent = view.total ? `${first}–${last} de ${view.total}` : "";
+  // Com um ramo da árvore selecionado, o caminho de volta para "todos" fica sempre à vista.
+  $id("scopeClear").hidden = !state.assetId;
   grid.innerHTML =
     devices
       .map((device) => {
@@ -122,6 +124,7 @@ $id("sensorGrid").onclick = (event) => {
   const sensorId = event.target.closest("[data-card]")?.dataset.card;
   if (!button || !sensorId) return;
   if (button.dataset.act === "history") openHistoryFor(sensorId);
+  else if (button.dataset.act === "setup") openMagSetup(sensorId).catch((error) => showMessage(errorText(error), "error"));
   else openDrawer(sensorId, button.dataset.act, button);
 };
 $id("sensorPager").onclick = (event) => {
@@ -135,11 +138,21 @@ $id("sensorSearch").oninput = debounce(() => {
   state.sensors.offset = 0;
   loadSensors().catch((error) => showMessage(errorText(error), "error"));
 }, 350);
+// Sai do recorte da árvore: todos os sensores do escopo da conta, inclusive os sem spot.
+function clearSensorScope() {
+  state.assetId = "";
+  state.sensors.offset = 0;
+  renderTree();
+  loadSensors().catch((error) => showMessage(errorText(error), "error"));
+}
 $id("statusFilter").onchange = () => {
   state.sensors.filter = $id("statusFilter").value;
   state.sensors.offset = 0;
+  // "Todos" é todos mesmo: escolher essa opção com um ramo selecionado desfaz o recorte.
+  if (state.sensors.filter === "all" && state.assetId) return clearSensorScope();
   loadSensors().catch((error) => showMessage(errorText(error), "error"));
 };
+$id("scopeClear").onclick = () => clearSensorScope();
 
 // ----- Seletor de localização em cascata (lê cada nível sob demanda) -----
 const PICK_LEVELS = ["corporation", "company", "area", "subarea", "equipment", "point"];
@@ -195,6 +208,38 @@ async function afterSensorChange() {
     renderTelemetryLive();
   }
   renderIcons();
+}
+
+// Desvincular do spot (ADM nível 1 e 2), a partir de Detalhes ou de Editar. A confirmação mostra
+// TAG, equipamento e spot. O vínculo e a sua referência são encerrados; as leituras ficam.
+async function unlinkSensorFlow(sensorId, button) {
+  const device = findDevice(sensorId);
+  if (!device?.measurement_point_id) return;
+  await ensureAssets([device.measurement_point_id]);
+  const point = assetIndex.get(device.measurement_point_id);
+  const equip = point ? assetIndex.get(point.parent_id) : null;
+  const magnetic = isMagnetic(device, deviceLive(device));
+  const ok = await askConfirm({
+    title: "Desvincular sensor do spot",
+    okLabel: "Desvincular",
+    html:
+      `<dl class="detail-fields"><dt>Sensor</dt><dd>${esc(deviceLabel(device))} · ${esc(device.sensor_id)}</dd>` +
+      `<dt>TAG</dt><dd>${esc(equip ? equipTag(equip) : "—")}</dd><dt>Equipamento</dt><dd>${esc((equip && equipTypeLabel(equip.id)) || TYPE_UNKNOWN)}</dd>` +
+      `<dt>Spot</dt><dd>${esc(point ? point.name + (point.position ? " · " + point.position : "") : "—")}</dd>` +
+      `<dt>Caminho</dt><dd>${esc(assetPathLabel(device.measurement_point_id))}</dd></dl>` +
+      `<p>O vínculo é encerrado e o sensor volta à fila de associação, livre para outro spot. As leituras continuam chegando e todo o histórico é preservado.</p>` +
+      (magnetic ? `<p>A referência de engaxetamento deste vínculo (e o Modo bancada, se estiver ativo) é encerrada: no novo spot será preciso registrar o engaxetamento de novo.</p>` : "") +
+      `<p>Nada é apagado da nuvem.</p>`,
+  });
+  if (!ok) return;
+  await withBusy(button, async () => {
+    const saved = await callRpc("gaxeta_unlink_sensor", { p_sensor_id: sensorId, p_reason: "desvínculo pela interface" });
+    mergeDevices([saved]);
+    await loadMagSummary([sensorId]).catch(() => {});
+    showMessage("Sensor desvinculado. Ele está na fila de associação (Sensores → filtro Sem vínculo).", "success");
+    openDrawer(sensorId, "detail");
+    await afterSensorChange();
+  });
 }
 
 // ----- Painel lateral -----
@@ -291,7 +336,7 @@ async function renderDrawer() {
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
     (isMagnetic(device, deviceLive(device))
-      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span>Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
+      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span id="detailElectricLabel">Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span id="detailVoltLabel">Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
       : `<div class="drawer-values four" id="detailLive" data-mode="adc"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`) +
     `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
@@ -345,17 +390,7 @@ async function renderDrawer() {
         }
       });
     };
-    if ($id("unlinkSensor"))
-      $id("unlinkSensor").onclick = async (event) => {
-        if (!(await askConfirm({ title: "Desvincular sensor", html: `<p>O sensor <b>${esc(deviceLabel(device))}</b> sai de <b>${esc(path)}</b> e volta à fila de associação. As leituras continuam chegando e o histórico é preservado.</p>`, okLabel: "Desvincular" }))) return;
-        await withBusy(event.target, async () => {
-          const saved = await callRpc("gaxeta_unlink_sensor", { p_sensor_id: sensorId, p_reason: "desvínculo pela interface" });
-          mergeDevices([saved]);
-          showMessage("Sensor desvinculado. Ele está na fila de associação.", "success");
-          openDrawer(sensorId, "detail");
-          await afterSensorChange();
-        });
-      };
+    if ($id("unlinkSensor")) $id("unlinkSensor").onclick = (event) => unlinkSensorFlow(sensorId, event.currentTarget);
   } else {
     const gateway = device.gateway_id ? (await unwrap(sb.from("gaxeta_gateways").select("name,identifier").eq("id", device.gateway_id).limit(1)))[0] : null;
     if (state.drawer.sensorId !== sensorId) return;
@@ -374,6 +409,7 @@ async function renderDrawer() {
       head +
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
+      (isAdminWriter() && device.measurement_point_id ? `<button class="text-button danger-text" id="detailUnlink">Desvincular do spot…</button>` : "") +
       `</div>` +
       (isMagnetic(device, deviceLive(device)) ? magServiceSection() : "") +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
@@ -394,6 +430,7 @@ async function renderDrawer() {
       openHistoryFor(sensorId);
     };
     if ($id("detailEdit")) $id("detailEdit").onclick = () => openDrawer(sensorId, "edit");
+    if ($id("detailUnlink")) $id("detailUnlink").onclick = (event) => unlinkSensorFlow(sensorId, event.currentTarget);
     if ($id("applyBleName"))
       $id("applyBleName").onclick = (event) =>
         withBusy(event.currentTarget, async () => {
