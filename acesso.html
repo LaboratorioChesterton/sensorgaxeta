@@ -163,6 +163,7 @@
       <div class="telemetry-pick">
         <label class="search"><i data-lucide="search"></i><input id="historySearch" placeholder="Buscar TAG, sensor, ID ou MAC" aria-label="Buscar sensor por TAG, nome, ID ou MAC" autocomplete="off"></label>
         <select id="historySensor" aria-label="Sensor exibido"></select>
+        <select id="historySeries" aria-label="Série exibida" title="A série elétrica (potenciômetro) e a magnética (AS5600) nunca são misturadas no mesmo gráfico."><option value="auto">Série da modalidade atual</option><option value="adc_pot">Série elétrica (potenciômetro)</option><option value="as5600_i2c">Série magnética (AS5600)</option></select>
       </div>
       <div class="telemetry-actions">
         <button id="historyEdit" class="secondary compact">Detalhes</button>
@@ -175,12 +176,12 @@
         <div class="summary-condition"><span id="historyHealth" class="adjustment-badge">Sem leitura</span><small id="historyAction"></small><small id="historySince" class="summary-since"></small></div>
       </div>
       <dl class="summary-stats">
-        <div><dt title="Leitura atual do potenciômetro, em % da escala elétrica da placa (0 % no mínimo, 100 % no máximo).">Posição elétrica (%)</dt><dd id="historyRawNow">—</dd></div>
+        <div><dt id="lblRawNow" title="Leitura atual do potenciômetro, em % da escala elétrica da placa (0 % no mínimo, 100 % no máximo).">Posição elétrica (%)</dt><dd id="historyRawNow">—</dd></div>
         <div><dt id="historyVoltLabel">Tensão (V)</dt><dd id="historyVolt">—</dd></div>
-        <div><dt title="Posição elétrica estabilizada: só muda com variação de 5 pontos percentuais ou mais.">Linha estabilizada (%)</dt><dd id="historyStableNow">—</dd></div>
-        <div><dt title="Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p.">Variação desde o envio anterior</dt><dd id="historyDelta">—</dd></div>
-        <div><dt title="Menor posição elétrica do período">Mín. elétrico</dt><dd id="historyMin">—</dd></div>
-        <div><dt title="Maior posição elétrica do período">Máx. elétrico</dt><dd id="historyMax">—</dd></div>
+        <div><dt id="lblStableNow" title="Posição elétrica estabilizada: só muda com variação de 5 pontos percentuais ou mais.">Linha estabilizada (%)</dt><dd id="historyStableNow">—</dd></div>
+        <div><dt id="lblDelta" title="Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p.">Variação desde o envio anterior</dt><dd id="historyDelta">—</dd></div>
+        <div><dt id="lblMin" title="Menor posição elétrica do período">Mín. elétrico</dt><dd id="historyMin">—</dd></div>
+        <div><dt id="lblMax" title="Maior posição elétrica do período">Máx. elétrico</dt><dd id="historyMax">—</dd></div>
         <div><dt>Leituras</dt><dd id="historyCount">—</dd></div>
       </dl>
       <p id="historyReading" class="summary-reading" role="status"></p>
@@ -194,20 +195,20 @@
     <div class="chart-panel">
       <div class="chart-caption">
         <span id="historyShown" class="chart-shown" role="status" aria-live="polite"></span>
-        <span class="chart-scale-note" title="Posição do potenciômetro em % da escala elétrica do ADC. A leitura atual é a média de cada intervalo, sem filtro; a linha estabilizada só muda com variação de 5 pontos ou mais. É a série elétrica do sensor.">Posição elétrica do sensor (% da escala elétrica)</span>
-        <ul class="chart-legend" aria-label="Legenda da série elétrica">
+        <span class="chart-scale-note" id="chartScaleNote" title="Posição do potenciômetro em % da escala elétrica do ADC. A leitura atual é a média de cada intervalo, sem filtro; a linha estabilizada só muda com variação de 5 pontos ou mais. É a série elétrica do sensor.">Posição elétrica do sensor (% da escala elétrica)</span>
+        <ul class="chart-legend" id="chartLegend" aria-label="Legenda da série em tela">
           <li class="legend-raw"><i></i>Leitura atual (média por intervalo)</li><li class="legend-stable"><i></i>Linha estabilizada (5 p.p.)</li><li class="legend-change"><i></i>Mudança da linha estabilizada</li>
         </ul>
         <label class="raw-toggle"><input id="showRawBand" type="checkbox"> Faixa mín./máx. bruta</label>
         <button id="resetZoom" class="text-button" hidden>Voltar ao período anterior</button>
       </div>
-      <div class="chart-layout"><div class="y-axis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico da posição elétrica do sensor. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
+      <div class="chart-layout"><div class="y-axis" id="chartYAxis"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div><div class="chart-surface"><svg id="historyChart" viewBox="0 0 1000 280" preserveAspectRatio="none" role="img" aria-label="Histórico da posição elétrica do sensor. Arraste para selecionar um intervalo."></svg><div id="chartEmpty" class="chart-empty">Nenhuma leitura neste período.</div><div id="chartTooltip" class="chart-tooltip" hidden></div></div></div>
       <div class="x-axis"><span id="chartFrom">—</span><span id="chartTo">—</span></div>
       <div class="chart-footer"><span>Arraste sobre o gráfico para ampliar. Horário local do aparelho.</span><span id="aggregationNote"></span></div>
     </div>
-    <div class="movement-heading"><div><h3>Mudanças da linha estabilizada (posição elétrica)</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
-    <div class="table-wrap"><table class="movement-table"><thead><tr><th>Horário</th><th>Posição elétrica anterior</th><th>Nova posição elétrica</th><th>Variação</th></tr></thead><tbody id="movementRows"></tbody></table></div>
-    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr><th>Horário</th><th>Posição elétrica: estabilizada / leitura (média)</th><th>Mín. / máx. elétrico</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
+    <div class="movement-heading"><div><h3 id="movementTitle">Mudanças da linha estabilizada (posição elétrica)</h3><span id="movementCount"></span></div><button id="exportMovements" class="secondary compact">CSV de mudanças</button></div>
+    <div class="table-wrap"><table class="movement-table"><thead><tr id="movementHead"><th>Horário</th><th>Posição elétrica anterior</th><th>Nova posição elétrica</th><th>Variação</th></tr></thead><tbody id="movementRows"></tbody></table></div>
+    <details class="raw-details"><summary>Consultar leituras brutas e médias por intervalo</summary><div class="table-wrap"><table><thead><tr id="historyHead"><th>Horário</th><th>Posição elétrica: estabilizada / leitura (média)</th><th>Mín. / máx. elétrico</th><th>Tensão estimada</th><th>Tensão calibrada</th><th>Leituras</th></tr></thead><tbody id="historyRows"></tbody></table></div></details>
   </section>
 
   <!-- Gateways -->
@@ -334,7 +335,7 @@
   <div id="bleDevices" class="ble-devices"></div>
   <div id="bleLive" hidden>
     <div class="ble-identity"><strong id="bleName">—</strong><code id="bleIdentity">—</code></div>
-    <div class="ble-values"><div><strong id="blePercent">—</strong><span>posição elétrica</span></div><div><strong id="bleVoltage">—</strong><span>tensão estimada</span></div></div>
+    <div class="ble-values"><div><strong id="blePercent">—</strong><span id="blePercentLabel">posição elétrica</span></div><div><strong id="bleVoltage">—</strong><span id="bleVoltageLabel">tensão estimada</span></div></div>
     <p id="bleTimestamp"></p>
     <button id="identifyBle" class="secondary">Identificar: piscar LED</button>
     <button id="linkBle" class="primary">Abrir este sensor na plataforma</button>

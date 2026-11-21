@@ -29,8 +29,10 @@ frontend/
         ├── 40-shell     estado, permissões, navegação, atualização periódica
         ├── 50-tree      árvore de ativos por ramo, busca
         ├── 60-sensors   lista paginada e painel lateral
+        ├── 63-magnetic  sensor magnético AS5600: cartão, diagnóstico, Engaxetamento realizado, curso de ajuste restante
         ├── 65-assets    ficha do nível, TAG + ficha técnica, spots do TAG, Excluir equipamento, vínculo sensor–spot
         ├── 70-telemetry identidade, histórico por contexto, gráfico por condição, CSV
+        ├── 72-telemetry-mag  telemetria magnética: curso restante e ângulo, CSV por referência
         ├── 75-gateways  cadastro e edição
         ├── 80-users     usuários, três escolhas de escopo, regra por ramo, convites, auditoria
         ├── 85-auth      entrada explícita, convite, recuperação

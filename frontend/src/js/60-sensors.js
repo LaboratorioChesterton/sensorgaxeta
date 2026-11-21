@@ -77,6 +77,8 @@ function renderSensorGrid() {
         // Tensão sempre com a origem: calibrada pelo ADC (firmware 4.3.0+) ou estimada.
         const volt = voltageInfo(device, deviceLive(device));
         const name = deviceLabel(device);
+        // Sensor magnético: cartão próprio (curso restante ou ângulo; nunca tensão nem % do ADC).
+        if (view.magnetic) return magCardHtml(device, view, status, identity, place, name);
         return (
           `<article class="sensor-card health-${view.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
@@ -228,6 +230,9 @@ function updateDrawerLive() {
   const status = deviceStatus(device);
   const live = deviceLive(device);
   const view = deviceView(device);
+  // A placa trocou de modalidade com o painel aberto: redesenha o painel inteiro.
+  if ($id("detailLive") && ($id("detailLive").dataset.mode === "mag") !== !!view.magnetic) return void renderDrawer().catch(() => {});
+  if (view.magnetic) return updateDrawerLiveMag(device, view, status);
   const electric = view.electric;
   const volt = voltageInfo(device, live);
   $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
@@ -285,7 +290,9 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>` +
+    (isMagnetic(device, deviceLive(device))
+      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span>Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
+      : `<div class="drawer-values four" id="detailLive" data-mode="adc"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`) +
     `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
@@ -368,15 +375,20 @@ async function renderDrawer() {
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
       `</div>` +
+      (isMagnetic(device, deviceLive(device)) ? magServiceSection() : "") +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
+      (isMagnetic(device, deviceLive(device)) ? magDrawerSections() :
       // Dados elétricos da leitura atual: servem para diagnosticar ligação, ruído e saturação.
-      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
+      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>`) +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`;
+      (isMagnetic(device, deviceLive(device))
+        ? `<small class="drawer-note">Sensor magnético AS5600: mede o ângulo absoluto do ímã (medido). O avanço e o curso de ajuste restante são calculados a partir do engaxetamento registrado e da geometria da montagem. O curso restante não indica força de aperto, pressão, qualidade de vedação nem vida útil da gaxeta.</small></div>`
+        : `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`);
+    if (isMagnetic(device, deviceLive(device))) bindMagDrawer(sensorId);
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);

@@ -15,8 +15,11 @@ function onBleReading(t, e) {
     ($id("bleLive").hidden = !1),
     ($id("bleName").textContent = t.device || e?.name || "Sensor"),
     ($id("bleIdentity").textContent = t.sensor_id || "Firmware sem identificação; atualize para configurar."),
-    ($id("blePercent").textContent = `${fmtNum(t.travel_percent)} %`),
-    ($id("bleVoltage").textContent = `${fmtNum(t.voltage_v, 3)} V`),
+    // Placa magnética (firmware 4.4.0): ângulo absoluto e saúde. Não há tensão nem percentual.
+    ($id("blePercentLabel").textContent = t.modality === "as5600_i2c" ? "ângulo do sensor" : "posição elétrica"),
+    ($id("bleVoltageLabel").textContent = t.modality === "as5600_i2c" ? "sinal" : "tensão estimada"),
+    ($id("blePercent").textContent = t.modality === "as5600_i2c" ? fmtDeg(t.angle_deg, 2) : `${fmtNum(t.travel_percent)} %`),
+    ($id("bleVoltage").textContent = t.modality === "as5600_i2c" ? (t.bus !== "ok" ? MAG_BUS_TEXT[t.bus] || "sem resposta" : MAG_FIELD_TEXT[t.mag] || "—") : `${fmtNum(t.voltage_v, 3)} V`),
     ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
 }
 function setBleStatus(t) {

@@ -1485,6 +1485,74 @@ function electricView(device, live) {
   const quality = BLOCK_QUALITY[electric.block] || BLOCK_QUALITY.ok;
   return { key: quality.key, label: quality.label, note: quality.note, value: fmtNum(electric.percent), unit: "%", scale: electric.percent, electric };
 }
+// ----- Modalidade magnética (AS5600 por I²C) -----
+// Três grandezas que não se misturam: o ÂNGULO absoluto do ímã (medido, 0 a 4095 = 0° a 359,9°),
+// o AVANÇO do preme-gaxeta desde o engaxetamento (calculado, mm) e o CURSO DE AJUSTE RESTANTE
+// (calculado, % e mm). Nada aqui usa percentual do ADC, tensão ou milímetro nominal.
+const isMagnetic = (device, live) => (live?.modality || device?.last_modality) === "as5600_i2c";
+const magDegrees = (raw) => (raw == null || !Number.isFinite(Number(raw)) ? null : (Number(raw) * 360) / 4096);
+const fmtDeg = (degrees, digits = 1) => (degrees == null || !Number.isFinite(Number(degrees)) ? "—" : fmtNum(degrees, digits) + "°");
+const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
+const clampPercent = (value) => Math.max(0, Math.min(100, Number(value)));
+// Por que não há curso restante agora, e o que fazer. key escolhe a cor (como na série elétrica).
+const MAG_REASON = {
+  no_reading: { key: "unknown", label: "Sem leitura", note: "Aguardando a primeira leitura da placa." },
+  bus_no_ack: { key: "warn", label: "Sensor sem resposta", note: "O AS5600 não respondeu no I²C. Confira alimentação de 3,3 V, GND e os fios SDA e SCL." },
+  bus_read_error: { key: "warn", label: "Falha de leitura I²C", note: "O sensor responde, mas a leitura veio incompleta. Confira solda, cabo e contatos." },
+  bus_timeout: { key: "warn", label: "I²C sem resposta a tempo", note: "Barramento travado ou cabo longo demais. Confira o cabo e os pull-ups." },
+  no_magnet: { key: "warn", label: "Ímã ausente", note: "O sensor não detecta o ímã. Confira o ímã no eixo e a distância até o chip." },
+  field_weak: { key: "warn", label: "Campo fraco", note: "Ímã longe ou descentrado. Aproxime e centralize o ímã." },
+  field_strong: { key: "warn", label: "Campo forte", note: "Ímã perto demais do chip. Afaste o ímã." },
+  no_link: { key: "electric", label: "Sem vínculo", note: "Ângulo absoluto do sensor. Vincule a um spot para acompanhar o curso." },
+  no_geometry: { key: "limit", label: "Sem geometria", note: "O spot ainda não tem montagem caracterizada. Peça à engenharia para vincular a geometria." },
+  no_reference: { key: "limit", label: "Sem referência", note: "Informe o curso disponível e toque em Engaxetamento realizado, em Detalhes." },
+  awaiting_reference: { key: "limit", label: "Aguardando leitura", note: "Engaxetamento solicitado. Mantenha a haste parada até a confirmação." },
+  not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
+  out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
+};
+// Sem o resumo magnético (banco antigo ou sem permissão), a saúde sai dos campos do próprio sensor.
+function magReasonFromDevice(device) {
+  if (!device || device.last_bus_status == null) return "no_reading";
+  if (device.last_bus_status !== "ok") return "bus_" + device.last_bus_status;
+  if (device.last_mag_status === "no_magnet") return "no_magnet";
+  if (device.last_mag_status === "weak") return "field_weak";
+  if (device.last_mag_status === "strong") return "field_strong";
+  return device.measurement_point_id ? "no_reference" : "no_link";
+}
+// Como apresentar um sensor magnético em cartões, árvore, Detalhes e Telemetria. `mag` é o item
+// de gaxeta_mag_summary. O número principal é o Curso de ajuste restante (%), quando existe e é
+// válido; sem ele, o ângulo absoluto. Amostra inválida não mostra número: mostra o motivo.
+// A barra fica limitada a 0–100 %; o valor com sinal segue em `computed`.
+function magView(device, mag) {
+  const reading = mag?.reading || null;
+  const raw = reading ? reading.raw_angle : (device?.last_raw_angle ?? null);
+  const degrees = magDegrees(raw);
+  const reason = mag ? mag.reason || null : magReasonFromDevice(device);
+  const computed = mag?.computed || null;
+  const service = mag?.service || null;
+  const electric = { percent: null, text: "—", label: "", block: null, ceiling: false, scale: null };
+  const base = { magnetic: true, mag: mag || null, reason, degrees, raw, electric, computed, service, origin: "medido" };
+  const info = MAG_REASON[reason] || null;
+  if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {
+    const percent = clampPercent(computed.remaining_percent);
+    const tags = [service?.course_origin === "estimated" ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    return {
+      ...base, origin: "calculado", key: info ? info.key : "electric", kicker: "Curso de ajuste restante",
+      label: info ? info.label : service?.provisional ? "Provisório" : "Calculado",
+      note: info ? info.note : `${fmtMm(computed.remaining_mm)} de ${fmtMm(service?.course_mm)} · avanço ${fmtMm(computed.advance_mm)}` + (tags.length ? " · " + tags.join(" · ") : ""),
+      value: fmtNum(percent), unit: "%", scale: percent,
+    };
+  }
+  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
+  return {
+    ...base, key: info?.key || "electric", kicker: "Ângulo do sensor", label: info?.label || "Ângulo do sensor", note: info?.note || "Ângulo absoluto do ímã.",
+    value: sampleBad || degrees == null ? "—" : fmtNum(degrees), unit: sampleBad || degrees == null ? "" : "°", scale: null,
+  };
+}
+// Identificador da solicitação de engaxetamento: o mesmo em cada nova tentativa do mesmo clique.
+const newRequestId = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ ((Math.random() * 16) >> (Number(c) / 4))).toString(16));
 // Cadência declarada pelo firmware no sufixo da versão: -hib180 (hibernação, um envio a cada
 // 180 s) ou -cont30 (contínuo, sem hibernação, um envio a cada 30 s). Versão sem sufixo: contínuo, 10 s.
 function firmwareCadence(version) {
@@ -1680,6 +1748,9 @@ const state = {
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
   live: new Map(), // leitura elétrica atual e cadência por sensor (gaxeta_telemetry_summary)
   liveMissing: false, // o banco ainda não tem o resumo de telemetria (migração 12 não aplicada)
+  mag: new Map(), // estado magnético por sensor (gaxeta_mag_summary): ângulo, saúde, referência e curso restante
+  magMissing: false, // o banco ainda não tem o contrato magnético (migração 14 não aplicada)
+  magRequests: new Map(), // sensor → solicitação de engaxetamento em envio (mesmo identificador nas novas tentativas)
 };
 const assetIndex = new Map();
 // Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
@@ -1695,7 +1766,9 @@ const deviceInterval = (device) => {
 };
 const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, deviceInterval(device));
 const deviceLive = (device) => state.live.get(device?.sensor_id) || null;
-const deviceView = (device) => electricView(device, deviceLive(device));
+const deviceMag = (device) => state.mag.get(device?.sensor_id) || null;
+// Um único ponto decide o que cada tela mostra: sensor magnético nunca passa pela leitura elétrica.
+const deviceView = (device) => (isMagnetic(device, deviceLive(device)) ? magView(device, deviceMag(device)) : electricView(device, deviceLive(device)));
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
 // O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
@@ -1896,6 +1969,22 @@ async function loadTelemetrySummary(ids) {
     if (isMissingFeature(error)) state.liveMissing = true;
     else throw error;
   }
+  await loadMagSummary(wanted);
+}
+// Estado magnético dos sensores AS5600 entre os indicados (uma chamada para todos, só quando há algum).
+async function loadMagSummary(ids) {
+  const magnetic = ids.filter((id) => isMagnetic(findDevice(id), state.live.get(id)));
+  for (const id of ids) if (!magnetic.includes(id)) state.mag.delete(id);
+  if (!magnetic.length || state.magMissing) return;
+  try {
+    const result = await callRpc("gaxeta_mag_summary", { p_sensor_ids: magnetic });
+    for (const id of magnetic) state.mag.delete(id);
+    for (const item of result.items || []) state.mag.set(item.sensor_id, item);
+  } catch (error) {
+    // Banco sem a migração 14: o cartão segue com ângulo e saúde dos campos do sensor.
+    if (isMissingFeature(error)) state.magMissing = true;
+    else throw error;
+  }
 }
 // Atualiza só os sensores em uso (selecionado e painel aberto): uma chamada por ciclo.
 async function refreshKnownDevices() {
@@ -2045,6 +2134,9 @@ function clearSessionData() {
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
   state.live.clear();
   state.liveMissing = false;
+  state.mag.clear();
+  state.magMissing = false;
+  state.magRequests.clear();
   assetIndex.clear();
   resetTree();
   closeDrawer(false);
@@ -2110,7 +2202,7 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
-  return `<strong class="tree-electric" title="Posição elétrica: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${view.unit ? "%" : ""}</strong>`;
+  return `<strong class="tree-electric" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}</strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));
@@ -2352,6 +2444,8 @@ function renderSensorGrid() {
         // Tensão sempre com a origem: calibrada pelo ADC (firmware 4.3.0+) ou estimada.
         const volt = voltageInfo(device, deviceLive(device));
         const name = deviceLabel(device);
+        // Sensor magnético: cartão próprio (curso restante ou ângulo; nunca tensão nem % do ADC).
+        if (view.magnetic) return magCardHtml(device, view, status, identity, place, name);
         return (
           `<article class="sensor-card health-${view.key}" data-card="${esc(device.sensor_id)}">` +
           `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
@@ -2503,6 +2597,9 @@ function updateDrawerLive() {
   const status = deviceStatus(device);
   const live = deviceLive(device);
   const view = deviceView(device);
+  // A placa trocou de modalidade com o painel aberto: redesenha o painel inteiro.
+  if ($id("detailLive") && ($id("detailLive").dataset.mode === "mag") !== !!view.magnetic) return void renderDrawer().catch(() => {});
+  if (view.magnetic) return updateDrawerLiveMag(device, view, status);
   const electric = view.electric;
   const volt = voltageInfo(device, live);
   $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
@@ -2560,7 +2657,9 @@ async function renderDrawer() {
     `<div class="drawer-head"><div><small>${mode === "edit" ? "Editar sensor" : "Sensor"}${identity.linked ? " · " + esc(identity.title) : ""}</small><h2>${esc(deviceLabel(device))}</h2></div>` +
     `<button id="drawerClose" class="icon-button" aria-label="Fechar painel">×</button></div>` +
     `<div class="drawer-body"><div class="live-line" id="detailStatus"></div>` +
-    `<div class="drawer-values four" id="detailLive"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>` +
+    (isMagnetic(device, deviceLive(device))
+      ? `<div class="drawer-values four" id="detailLive" data-mode="mag"><div><span>Curso de ajuste restante</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Avanço desde engaxetamento</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Ângulo do sensor</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`
+      : `<div class="drawer-values four" id="detailLive" data-mode="adc"><div><span>Posição elétrica (%)</span><strong id="detailElectric" class="volt-value"></strong></div><div><span>Tensão (V)</span><strong id="detailVolt" class="volt-value"></strong></div><div><span>Linha estabilizada (%)</span><strong id="detailStableLine" class="volt-value"></strong></div><div><span>Sinal</span><strong id="detailSignal" class="volt-value"></strong></div></div>`) +
     `<p id="detailReading" class="live-reading"></p>` +
     `<div id="detailHealth" class="health-banner"></div>` +
     `<p class="drawer-path">${icon("map-pin")}${esc(path || "Sem vínculo com spot (fila de associação)")}</p>`;
@@ -2643,15 +2742,20 @@ async function renderDrawer() {
       `<div class="drawer-actions"><button class="primary" id="detailHistory">Ver histórico</button>` +
       (canEditDevice(device) ? `<button class="secondary" id="detailEdit">Editar nome e spot</button>` : "") +
       `</div>` +
+      (isMagnetic(device, deviceLive(device)) ? magServiceSection() : "") +
       `<dl class="detail-fields">${fields.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("")}` +
       `<dt>Sequência</dt><dd id="detailSequence"></dd><dt>Sinal Wi-Fi</dt><dd id="detailRssi"></dd></dl>` +
+      (isMagnetic(device, deviceLive(device)) ? magDrawerSections() :
       // Dados elétricos da leitura atual: servem para diagnosticar ligação, ruído e saturação.
-      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>` +
+      `<details class="technical-detail"><summary>Leitura elétrica (diagnóstico)</summary><p class="form-help">A posição elétrica é a leitura do potenciômetro em % da escala elétrica da placa: 0 % no mínimo e 100 % no máximo. A tensão é a do pino do ADC. Os avisos de limite indicam saturação do ADC; bloco instável ou misto indica cursor solto, falta de potenciômetro ou giro durante a leitura.</p><dl class="detail-fields" id="detailDiag"></dl></details>`) +
       // Gravar o nome na placa é um comando local por Bluetooth: só existe no aplicativo nativo.
       (canEditDevice(device) && bleAvailable()
         ? `<details class="technical-detail"><summary>Nome anunciado por Bluetooth (opcional)</summary><p class="form-help">O nome da plataforma não depende do Bluetooth. Para gravar o nome na placa, conecte o sensor pelo Bluetooth e use o PIN de 6 dígitos. Nada é enviado à placa sem esta ação.</p><button id="applyBleName" class="secondary compact">Gravar nome na placa</button></details>`
         : "") +
-      `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`;
+      (isMagnetic(device, deviceLive(device))
+        ? `<small class="drawer-note">Sensor magnético AS5600: mede o ângulo absoluto do ímã (medido). O avanço e o curso de ajuste restante são calculados a partir do engaxetamento registrado e da geometria da montagem. O curso restante não indica força de aperto, pressão, qualidade de vedação nem vida útil da gaxeta.</small></div>`
+        : `<small class="drawer-note">Sensor: potenciômetro rotativo de uma volta. A plataforma mostra a posição elétrica (%) e a tensão (V) da leitura atual, com ou sem vínculo a spot. A tensão traz a origem: calibrada pelo ADC da placa ou estimada. O histórico de mudanças registra variações de 5 pontos percentuais ou mais.</small></div>`);
+    if (isMagnetic(device, deviceLive(device))) bindMagDrawer(sensorId);
     $id("detailHistory").onclick = () => {
       closeDrawer(false);
       openHistoryFor(sensorId);
@@ -2674,6 +2778,258 @@ async function renderDrawer() {
   updateDrawerLive();
   renderIcons();
   (mode === "edit" ? $id("sensorName") : $id("drawerClose")).focus({ preventScroll: true });
+}
+
+// ---- 63-magnetic.js ----
+// =============================================================================
+// Sensor magnético (AS5600): cartão, painel de Detalhes e "Engaxetamento realizado".
+//   * Sem vínculo: ângulo absoluto e saúde.
+//   * Com vínculo e referência: Curso de ajuste restante (% e mm) em destaque; Avanço desde
+//     engaxetamento e Ângulo do sensor em Detalhes.
+//   * Medido (ângulo, campo, barramento), calculado (avanço, curso restante) e estimado (curso
+//     sugerido pela ficha) aparecem com esses nomes, nunca misturados.
+//   * O técnico informa uma medida (quanto curso ainda resta até o limite de ajuste) e toca em
+//     um botão. A referência é capturada pelo servidor na primeira leitura válida depois do
+//     clique; aqui só se mostra o estado: aguardando, confirmada, expirada.
+//   * O curso restante não é força de aperto, pressão, qualidade de vedação nem vida útil.
+// =============================================================================
+const MAG_BUS_TEXT = { ok: "barramento I²C bom", no_ack: "módulo sem resposta (I²C)", read_error: "leitura I²C incompleta", timeout: "I²C sem resposta a tempo" };
+const MAG_FIELD_TEXT = { ok: "campo magnético bom", no_magnet: "ímã ausente", weak: "campo fraco", strong: "campo forte" };
+
+// Sinal em uma linha: barramento e campo da leitura atual.
+function magSignalText(device, mag) {
+  const bus = mag?.reading?.bus_status ?? device?.last_bus_status;
+  const field = mag?.reading?.mag_status ?? device?.last_mag_status;
+  if (!bus) return "sem leitura";
+  return bus !== "ok" ? MAG_BUS_TEXT[bus] || bus : MAG_FIELD_TEXT[field] || "—";
+}
+function magCardHtml(device, view, status, identity, place, name) {
+  const mag = view.mag;
+  const stable = view.service?.stable_remaining;
+  return (
+    `<article class="sensor-card health-${view.key} is-magnetic" data-card="${esc(device.sensor_id)}">` +
+    `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
+    `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
+    `<div class="card-main"><div class="card-value" title="${esc(view.kicker)} (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
+    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}</span><span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+    `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="${esc(view.kicker)}: ${esc(view.value)} ${esc(view.unit)}"><i style="width:${view.scale ?? 0}%"></i></div>` +
+    `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
+    (view.computed
+      ? `<span title="Linha estabilizada do curso restante: só muda com variação de 5 pontos percentuais ou mais, dentro do mesmo engaxetamento">Estável ${fmtNum(stable)} %</span>`
+      : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
+    `<span title="Última leitura recebida">${fmtDateTime(device.last_received_at)}</span></div>` +
+    `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
+    (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
+    `</footer></article>`
+  );
+}
+
+// ----- Painel de Detalhes -----
+// O bloco do engaxetamento fica logo abaixo das ações, antes da ficha do sensor: no celular o
+// técnico chega ao campo e ao botão sem percorrer a lista de identificação.
+const magServiceSection = () => `<section class="mag-service" id="magService" aria-live="polite"></section>`;
+function magDrawerSections() {
+  return (
+    `<details class="technical-detail"><summary>Leitura magnética (diagnóstico)</summary><p class="form-help">O ângulo é a posição absoluta do ímã, de 0° a 359,9° (12 bits). O avanço e o curso restante só existem depois de um engaxetamento registrado e dentro da geometria validada da montagem. Campo fraco, campo forte, ímã ausente e falha do barramento deixam a leitura sem posição: a placa segue online e o motivo aparece aqui.</p><dl class="detail-fields" id="detailDiag"></dl></details>`
+  );
+}
+function updateDrawerLiveMag(device, view, status) {
+  const mag = view.mag;
+  const reading = mag?.reading || null;
+  const computed = view.computed;
+  const service = view.service;
+  $id("detailStatus").innerHTML = `<i class="dot ${status.className}"></i>${esc(status.label)} · ${fmtDateTime(device.last_received_at)}`;
+  const tile = (id, value, note) => ($id(id).innerHTML = `${esc(value)}<small>${esc(note)}</small>`);
+  const outside = view.reason === "out_of_range";
+  tile("detailElectric", computed ? fmtNum(clampPercent(computed.remaining_percent)) + " %" : "—",
+    computed ? `${fmtMm(computed.remaining_mm)} · calculado${outside ? " · fora da faixa" : ""}` : "sem referência válida");
+  tile("detailVolt", computed ? fmtMm(computed.advance_mm, 2) : "—", computed ? "calculado" : "sem referência válida");
+  tile("detailStableLine", view.value === "—" && !computed ? "—" : fmtDeg(view.degrees, 2), view.raw == null ? "sem ângulo" : `medido · bruto ${view.raw}`);
+  tile("detailSignal", (MAG_REASON[view.reason]?.key === "warn" && view.reason !== "out_of_range" ? view.label : "Sinal válido"), magSignalText(device, mag));
+  const cadence = firmwareCadence(device.firmware_version);
+  $id("detailReading").textContent =
+    `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` + (cadence ? ` · ${cadence.text}` : "");
+  $id("detailHealth").textContent = (computed && !view.reason ? "Curso de ajuste restante" : view.label) + " · " + view.note;
+  $id("detailHealth").className = "health-banner health-" + view.key;
+  renderMagService(device, view);
+  if ($id("detailDiag")) {
+    const lastValid = mag?.last_valid;
+    const rows = [
+      ["Ângulo do sensor (medido)", view.raw == null ? "sem ângulo nesta leitura" : `${fmtDeg(view.degrees, 3)} · bruto ${view.raw} de 4095`],
+      ["Estabilidade do bloco", reading?.angle_pp == null && device.last_angle_pp == null ? "—" : `${reading?.angle_pp ?? device.last_angle_pp} contagens entre amostras (até 6 = estável)`],
+      ["Barramento I²C", MAG_BUS_TEXT[reading?.bus_status ?? device.last_bus_status] || "—"],
+      ["Campo magnético", MAG_FIELD_TEXT[reading?.mag_status ?? device.last_mag_status] || "—"],
+      ["AGC / magnitude", `${reading?.agc ?? device.last_agc ?? "—"} / ${reading?.magnitude ?? device.last_magnitude ?? "—"}`],
+      ...(view.reason && MAG_REASON[view.reason] ? [["O que fazer", MAG_REASON[view.reason].note]] : []),
+      ...(lastValid && (view.raw == null || /^(bus_|no_magnet|field_)/.test(view.reason || ""))
+        ? [["Último ângulo válido", `${fmtDeg(lastValid.angle_deg, 3)} em ${fmtDateTime(lastValid.at)} (não é a leitura atual)`]]
+        : []),
+      ["Avanço desde engaxetamento (calculado)", computed ? fmtMm(computed.advance_mm, 3) + (Number(computed.advance_mm) < 0 ? " · recuo" : "") : "—"],
+      ["Curso de ajuste restante (calculado)", computed ? `${fmtNum(computed.remaining_percent, 2)} % · ${fmtMm(computed.remaining_mm, 3)}` + (outside ? " · fora da faixa validada" : "") : "—"],
+      ["Linha estabilizada", service?.stable_remaining == null ? "—" : `${fmtNum(service.stable_remaining)} % · muda só com variação de 5 p.p. ou mais` + (service.stable_since ? ` · desde ${fmtDateTime(service.stable_since)}` : "")],
+      ["Curso disponível no engaxetamento", service ? `${fmtMm(service.course_mm, 3)} · ${service.course_origin === "estimated" ? "estimado" : "medido"}` : "—"],
+      ["Geometria da referência", service ? service.geometry + (service.provisional ? " · em caracterização (resultado provisório)" : " · validada") + (service.geometry_current === false ? " · o spot já usa outra revisão" : "") : "—"],
+      ["Ângulo de referência", service ? `${fmtDeg(service.ref_angle_deg, 3)} · bruto ${service.ref_raw_angle} · ${fmtDateTime(service.ref_sampled_at || service.captured_at)}` : "—"],
+      ["Montagem do spot", mag?.setup?.key ? `${mag.setup.label} (${mag.setup.key} r${mag.setup.revision}) · ${mag.setup.status === "validated" ? "validada" : mag.setup.status === "draft" ? "em caracterização" : "retirada"}` : "não definida"],
+      ["Cadência", [cadence ? "declarada pelo firmware: " + cadence.text : "", mag?.interval_s ? "anunciada pela placa: " + fmtInterval(mag.interval_s) : ""].filter(Boolean).join(" · ") || "—"],
+      ["Método de aquisição", device.last_acq_method || "—"],
+      ["Amostra colhida", fmtDateTime(device.last_sampled_at)],
+      ["Recebida no servidor", fmtDateTime(device.last_received_at)],
+    ];
+    $id("detailDiag").innerHTML = rows.map(([name, value]) => `<dt>${esc(name)}</dt><dd>${esc(value)}</dd>`).join("");
+  }
+  if ($id("detailSequence")) $id("detailSequence").textContent = device.last_sequence ?? "—";
+  if ($id("detailRssi")) $id("detailRssi").textContent = `${device.last_rssi ?? "—"} dBm`;
+}
+
+// ----- Engaxetamento realizado -----
+// O bloco só é redesenhado quando o estado muda, para não apagar o que a pessoa está digitando.
+function renderMagService(device, view) {
+  const box = $id("magService");
+  if (!box) return;
+  const mag = view.mag;
+  const pending = mag?.pending || null;
+  const service = view.service;
+  const setup = mag?.setup || null;
+  const sending = state.magRequests.get(device.sensor_id) || null;
+  const sampleBad = /^(bus_|no_magnet|field_|no_reading)/.test(view.reason || "");
+  const mode = !mag
+    ? "unavailable"
+    : !mag.linked
+      ? "no_link"
+      : pending && !pending.expired
+        ? "pending"
+        : !setup?.key
+          ? "no_geometry"
+          : !mag.can_operate
+            ? "readonly"
+            : "form";
+  const signature = [mode, pending?.id, pending?.expired, service?.id, setup?.geometry_id, setup?.status, sampleBad, mag?.can_operate, sending?.error || "", sending ? "s" : ""].join("|");
+  const current = service
+    ? `<p class="mag-current">Referência atual: ${esc(fmtDateTime(service.captured_at))} · ${esc(fmtMm(service.course_mm))} ${service.course_origin === "estimated" ? "estimados" : "medidos"} · ângulo de referência ${esc(fmtDeg(service.ref_angle_deg))}${service.provisional ? " · provisório" : ""}</p>`
+    : "";
+  if (box.dataset.signature === signature) {
+    // Mesmo estado: só a contagem da espera muda.
+    if (mode === "pending" && $id("magWait")) $id("magWait").textContent = magWaitText(device, pending);
+    return;
+  }
+  box.dataset.signature = signature;
+  if (mode === "unavailable") {
+    box.innerHTML = `<h3>Engaxetamento</h3><p class="form-help">Estado do engaxetamento indisponível no momento. O ângulo e a saúde do sensor seguem acima.</p>`;
+  } else if (mode === "no_link") {
+    box.innerHTML = `<h3>Engaxetamento</h3><p class="form-help">Sensor sem vínculo com spot. Associe o sensor a um spot para registrar o engaxetamento e acompanhar o curso restante.</p>`;
+  } else if (mode === "pending") {
+    box.innerHTML =
+      `<h3>Aguardando leitura</h3>` +
+      `<p class="mag-wait"><strong>Mantenha a haste parada.</strong> <span id="magWait">${esc(magWaitText(device, pending))}</span></p>` +
+      `<p class="form-help">Solicitado ${pending.mine ? "por você" : "por outro operador"} às ${esc(fmtDateTime(pending.requested_at))}, com ${esc(fmtMm(pending.course_mm))} ${pending.course_origin === "estimated" ? "estimados" : "medidos"}. A referência é a primeira leitura válida e estável colhida depois do toque. Se a haste foi movida, cancele e repita.</p>` +
+      current +
+      (mag.can_operate ? `<div class="drawer-actions"><button class="secondary" type="button" id="magCancel">Cancelar solicitação</button></div>` : "") +
+      `<p id="magMessage" class="form-message" role="status"></p>`;
+  } else if (mode === "no_geometry") {
+    box.innerHTML =
+      `<h3>Engaxetamento</h3><p class="form-help">Este spot ainda não tem geometria de montagem caracterizada. Sem ela a plataforma mostra só o ângulo e a saúde do sensor. A engenharia vincula a revisão da montagem ao spot.</p>` +
+      (setup?.suggested_course_mm ? `<p class="form-help">Curso típico da ficha: ${esc(fmtMm(setup.suggested_course_mm))} (estimativa, não é medida).</p>` : "");
+  } else if (mode === "readonly") {
+    box.innerHTML = `<h3>Engaxetamento</h3>${current || '<p class="form-help">Nenhum engaxetamento registrado neste vínculo.</p>'}<p class="form-help">Sua conta consulta este sensor, sem permissão para registrar engaxetamento.</p>`;
+  } else {
+    const suggestion = setup.suggested_course_mm;
+    const draft = setup.status !== "validated";
+    box.innerHTML =
+      `<h3>Engaxetamento realizado</h3>` +
+      (pending?.expired ? `<p class="form-message is-error">A solicitação anterior venceu sem uma leitura válida. Confira o sensor e repita.</p>` : "") +
+      (draft ? `<p class="form-message">Geometria ainda em caracterização: o resultado sai como provisório e só a engenharia registra.</p>` : "") +
+      `<form id="magForm" novalidate><label>Curso ainda disponível até o limite de ajuste (mm)` +
+      `<input id="magCourse" type="text" inputmode="decimal" pattern="[0-9]+([.,][0-9]{1,3})?" maxlength="9" required autocomplete="off" value="${esc(sending?.course == null ? "" : String(sending.course).replace(".", ","))}" aria-describedby="magCourseHelp"></label>` +
+      `<p id="magCourseHelp" class="form-help">Meça agora, na direção do ajuste, quanto o preme-gaxeta ainda pode avançar. Faixa desta montagem: ${esc(fmtNum(setup.min_course_mm))} a ${esc(fmtNum(setup.max_course_mm))} mm.` +
+      (suggestion ? ` Curso típico da ficha: ${esc(fmtMm(suggestion))} (estimativa).` : "") + `</p>` +
+      (suggestion ? `<label class="mag-estimate"><input id="magEstimated" type="checkbox"${sending?.origin === "estimated" ? " checked" : ""}> Não medi: usar a estimativa de ${esc(fmtMm(suggestion))}</label>` : "") +
+      `<p id="magMessage" class="form-message${sending?.error ? " is-error" : ""}" role="status">${esc(sending?.error || (sampleBad ? MAG_REASON[view.reason]?.note || "" : ""))}</p>` +
+      `<div class="drawer-actions"><button class="primary" type="submit" id="magSubmit">${sending?.error ? "Tentar de novo" : "Engaxetamento realizado"}</button></div></form>` +
+      current +
+      `<p class="form-help">Depois do toque, mantenha a haste parada até a confirmação. A leitura de referência passa a valer como avanço zero e curso restante de 100 %.</p>`;
+  }
+  bindMagDrawer(device.sensor_id);
+}
+// Espera estimada pela cadência anunciada: quanto falta para a próxima leitura da placa.
+function magWaitText(device, pending) {
+  const period = Number(deviceInterval(device)) || 30;
+  const now = Date.now() + state.clockOffset;
+  const sinceLast = (now - new Date(device.last_received_at).getTime()) / 1000;
+  const next = Math.max(0, Math.round(period - (sinceLast % period)));
+  const left = Math.max(0, Math.round((new Date(pending.expires_at).getTime() - now) / 1000));
+  return `Próxima leitura em cerca de ${fmtInterval(next)} (um envio a cada ${fmtInterval(period)}). A solicitação vale por mais ${fmtInterval(left)}.`;
+}
+function bindMagDrawer(sensorId) {
+  const estimated = $id("magEstimated");
+  if (estimated)
+    estimated.onchange = () => {
+      const device = findDevice(sensorId);
+      const suggestion = deviceMag(device)?.setup?.suggested_course_mm;
+      if (estimated.checked && suggestion != null) $id("magCourse").value = Number(suggestion).toLocaleString("pt-BR", { maximumFractionDigits: 3, useGrouping: false });
+      $id("magCourse").readOnly = estimated.checked;
+    };
+  if (estimated?.checked) $id("magCourse").readOnly = true;
+  if ($id("magForm"))
+    $id("magForm").onsubmit = (event) => {
+      event.preventDefault();
+      submitMagService(sensorId, event.submitter).catch((error) => showMessage(errorText(error), "error"));
+    };
+  if ($id("magCancel"))
+    $id("magCancel").onclick = (event) =>
+      withBusy(event.currentTarget, async () => {
+        const device = findDevice(sensorId);
+        const pending = deviceMag(device)?.pending;
+        if (!pending) return;
+        try {
+          await callRpc("gaxeta_mag_cancel_service", { p_sensor_id: sensorId, p_service_id: pending.id });
+          showMessage("Solicitação cancelada. A referência anterior continua valendo.", "success");
+        } catch (error) {
+          if ($id("magMessage")) $id("magMessage").textContent = errorText(error);
+        }
+        await loadMagSummary([sensorId]).catch(() => {});
+        updateDrawerLive();
+      });
+}
+async function submitMagService(sensorId, button) {
+  const device = findDevice(sensorId);
+  const setup = deviceMag(device)?.setup;
+  const message = $id("magMessage");
+  const raw = String($id("magCourse").value).replace(",", ".").trim();
+  const course = Number(raw);
+  const estimated = !!$id("magEstimated")?.checked;
+  // Validação local só para a mensagem imediata; quem decide é o servidor.
+  if (!raw || !/^\d+(\.\d+)?$/.test(raw) || !Number.isFinite(course) || course <= 0) return void ((message.textContent = "Informe o curso disponível em mm (maior que zero)."), message.classList.add("is-error"));
+  if (Math.round(course * 1000) !== course * 1000 && Math.abs(Math.round(course * 1000) - course * 1000) > 1e-6)
+    return void ((message.textContent = "Use até três casas decimais."), message.classList.add("is-error"));
+  if (setup && (course < Number(setup.min_course_mm) || course > Number(setup.max_course_mm)))
+    return void ((message.textContent = `Curso fora da faixa desta montagem (${fmtNum(setup.min_course_mm)} a ${fmtNum(setup.max_course_mm)} mm).`), message.classList.add("is-error"));
+  // O mesmo identificador vale para as novas tentativas do mesmo toque (resposta perdida, toque duplo).
+  const previous = state.magRequests.get(sensorId);
+  const origin = estimated ? "estimated" : "measured";
+  const request = previous && previous.course === course && previous.origin === origin ? previous : { id: newRequestId(), course, origin };
+  request.error = "";
+  state.magRequests.set(sensorId, request);
+  message.classList.remove("is-error");
+  message.textContent = "Registrando…";
+  await withBusy(button, async () => {
+    try {
+      await callRpc("gaxeta_mag_request_service", { p_sensor_id: sensorId, p_request_id: request.id, p_course_mm: course, p_course_origin: origin });
+      state.magRequests.delete(sensorId);
+      showMessage("Engaxetamento registrado. Aguardando a próxima leitura: mantenha a haste parada.", "success");
+    } catch (error) {
+      // Falha de transporte: guarda a solicitação para repetir com o mesmo identificador.
+      if (isNetworkError(error)) request.error = "Sem resposta do servidor. Toque de novo: a mesma solicitação é reenviada, sem duplicar.";
+      else {
+        // Recusa do servidor: a mensagem fica no formulário; a próxima tentativa é uma solicitação nova.
+        request.error = errorText(error);
+        request.id = newRequestId();
+      }
+    }
+    await loadMagSummary([sensorId]).catch(() => {});
+    if ($id("magService")) $id("magService").dataset.signature = "";
+    updateDrawerLive();
+  });
 }
 
 // ---- 65-assets.js ----
@@ -2705,7 +3061,7 @@ const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.c
 // Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
 const spotReading = (device) => {
   const view = deviceView(device);
-  return `<span class="spot-reading" title="Posição elétrica do potenciômetro (leitura atual)">${esc(view.value)}${view.unit ? " %" : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
+  return `<span class="spot-reading" title="${esc(view.magnetic ? view.kicker + " (sensor magnético)" : "Posição elétrica do potenciômetro (leitura atual)")}">${esc(view.value)}${view.unit ? (view.unit === "%" ? " %" : view.unit) : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);
@@ -3323,7 +3679,7 @@ async function loadHistory({ auto = false } = {}) {
   if (auto && telem.pending) return;
   // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
   const range = telem.custom ? { from: telem.range.from, to: telem.range.to } : presetRange(telem.period, new Date(Date.now() + state.clockOffset));
-  const key = sensorId + "|" + (telem.custom ? range.from.toISOString() + "|" + range.to.toISOString() : "preset:" + telem.period);
+  const key = sensorId + "|" + telemetrySeries(currentDevice()) + "|" + (telem.custom ? range.from.toISOString() + "|" + range.to.toISOString() : "preset:" + telem.period);
   if (!auto && telem.pending && !telem.pending.auto && telem.pending.key === key) return; // mesmo pedido já em andamento
   telem.controller?.abort();
   const controller = new AbortController();
@@ -3333,9 +3689,11 @@ async function loadHistory({ auto = false } = {}) {
   renderHistoryState();
   try {
     // Fuso local só na tela: a consulta vai em ISO UTC, com os limites e a inclusividade da RPC.
-    const data = await unwrap(sb.rpc("gaxeta_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() }).abortSignal(controller.signal));
+    // Uma série por modalidade: a magnética tem consulta, gráfico e CSV próprios.
+    const series = telemetrySeries(currentDevice());
+    const data = await unwrap(sb.rpc(series === "as5600_i2c" ? "gaxeta_mag_history" : "gaxeta_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() }).abortSignal(controller.signal));
     if (token !== telem.request || sensorId !== state.sensorId || !state.authorized) return;
-    telem.loaded = {
+    telem.loaded = series === "as5600_i2c" ? magLoaded({ sensorId, range, label, custom: telem.custom }, data) : {
       sensorId,
       range,
       label,
@@ -3418,6 +3776,9 @@ function renderTelemetryLive() {
   const identity = deviceIdentity(device);
   // Os mesmos números de Sensores → Detalhes: os dois saem de state.devices e state.live.
   const live = device ? deviceLive(device) : null;
+  if ($id("historySeries")) $id("historySeries").hidden = !device;
+  if (device && isMagnetic(device, live)) return renderTelemetryLiveMag(device);
+  applySummaryLabels("electric");
   const view = electricView(device, live);
   const electric = view.electric;
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
@@ -3483,6 +3844,9 @@ function renderHistoryState() {
 function renderHistory() {
   renderTelemetryLive();
   renderHistoryState();
+  if (telem.loaded?.modality === "as5600_i2c") return renderHistoryMag();
+  // Série elétrica em tela (ou nada carregado num sensor elétrico): rótulos elétricos no gráfico e nas tabelas.
+  if (telem.loaded || !isMagnetic(currentDevice(), currentDevice() ? deviceLive(currentDevice()) : null)) applyChartLabels("electric");
   const loaded = telem.loaded;
   const rows = loaded?.history || [];
   const movements = loaded?.movements || [];
@@ -3646,6 +4010,7 @@ $id("historyChart").onpointermove = (event) => {
   const nearest = loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
   if (!nearest) return;
   $id("chartTooltip").hidden = false;
+  if (loaded.modality === "as5600_i2c") return void ($id("chartTooltip").textContent = magTooltipText(nearest, loaded));
   $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
 Posição elétrica: leitura ${fmtNum(nearest.travel_percent, 2)}% · linha estabilizada ${fmtNum(nearest.stable_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
 ${fmtNum(nearest.samples, 0)} leituras`;
@@ -3680,6 +4045,7 @@ $id("historyChart").onpointerup = (event) => {
 $id("exportCsv").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.history.length) return;
+  if (loaded.modality === "as5600_i2c") return void exportMagCsv(loaded).catch((error) => showMessage(errorText(error), "error"));
   const text = [
     // Só telemetria elétrica. A tensão é a calibrada pelo ADC quando o firmware a envia; senão,
     // a estimada (ADC × 3,3 ÷ 4095). A última coluna diz em que escala o percentual foi calculado.
@@ -3703,6 +4069,7 @@ $id("exportMovements").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.movements.length) return;
   if (loaded.truncated) return showMessage("Reduza o período para exportar todas as mudanças.");
+  if (loaded.modality === "as5600_i2c") return void exportMagMovementsCsv(loaded).catch((error) => showMessage(errorText(error), "error"));
   const text = [
     ["horario", "posicao_eletrica_anterior_pct", "posicao_eletrica_estabilizada_pct", "variacao_pontos", "regra"],
     ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), "mudanca de 5 p.p. ou mais na posicao eletrica"]),
@@ -3716,9 +4083,311 @@ $id("exportMovements").onclick = async () => {
   }
 };
 $id("showRawBand").onchange = renderHistory;
+$id("historySeries").onchange = () => loadHistory();
 $id("historyEdit").onclick = () => {
   if (state.sensorId) openSensorEditor(state.sensorId);
 };
+
+// ---- 72-telemetry-mag.js ----
+// =============================================================================
+// Telemetria da modalidade magnética (AS5600).
+//   * A série magnética nunca entra na conta da série elétrica: % do ADC e % de curso são
+//     gráficos, tabelas e CSV separados (telem.loaded.modality).
+//   * Com referência no período: Curso de ajuste restante (%), média física por intervalo,
+//     um trecho por engaxetamento. A linha quebra em lacunas e na troca de referência.
+//   * Sem referência: ângulo absoluto (0° a 360°), em média CIRCULAR calculada no servidor. A
+//     linha quebra na passagem por 0° em vez de atravessar o gráfico.
+//   * CSV com unidade, método, qualidade, revisão da geometria e referência em cada linha.
+// =============================================================================
+const TELEM_LABELS = {
+  electric: {
+    rawNow: ["Posição elétrica (%)", "Leitura atual do potenciômetro, em % da escala elétrica da placa (0 % no mínimo, 100 % no máximo)."],
+    volt: null,
+    stableNow: ["Linha estabilizada (%)", "Posição elétrica estabilizada: só muda com variação de 5 pontos percentuais ou mais."],
+    delta: ["Variação desde o envio anterior", "Diferença entre o envio anterior e o atual, sem a estabilização de 5 p.p."],
+    min: ["Mín. elétrico", "Menor posição elétrica do período"],
+    max: ["Máx. elétrico", "Maior posição elétrica do período"],
+    scale: "Posição elétrica do sensor (% da escala elétrica)",
+    legend: ["Leitura atual (média por intervalo)", "Linha estabilizada (5 p.p.)", "Mudança da linha estabilizada"],
+    axis: ["100", "75", "50", "25", "0"],
+    movementTitle: "Mudanças da linha estabilizada (posição elétrica)",
+    movementHead: ["Horário", "Posição elétrica anterior", "Nova posição elétrica", "Variação"],
+    historyHead: ["Horário", "Posição elétrica: estabilizada / leitura (média)", "Mín. / máx. elétrico", "Tensão estimada", "Tensão calibrada", "Leituras"],
+  },
+  course: {
+    rawNow: ["Curso restante (%)", "Curso de ajuste restante da leitura atual: calculado pela geometria a partir do engaxetamento registrado."],
+    volt: ["Avanço (mm)", "Avanço do preme-gaxeta desde o engaxetamento (calculado). Negativo = recuo."],
+    stableNow: ["Linha estabilizada (%)", "Curso restante estabilizado: só muda com variação de 5 pontos percentuais ou mais, dentro do mesmo engaxetamento."],
+    delta: ["Ângulo do sensor", "Ângulo absoluto do ímã (medido). Não é avanço nem curso."],
+    min: ["Mín. do período", "Menor curso restante válido do período"],
+    max: ["Máx. do período", "Maior curso restante válido do período"],
+    scale: "Curso de ajuste restante (% do curso disponível no engaxetamento)",
+    legend: ["Curso restante (média por intervalo)", "Linha estabilizada (5 p.p.)", "Engaxetamento registrado"],
+    axis: ["100", "75", "50", "25", "0"],
+    movementTitle: "Mudanças do curso de ajuste restante (5 p.p.)",
+    movementHead: ["Horário", "Curso restante anterior", "Novo curso restante", "Variação"],
+    historyHead: ["Horário", "Curso restante: estabilizado / média", "Mín. / máx.", "Avanço (mm)", "Ângulo (média circular)", "Leituras válidas / total"],
+  },
+  angle: {
+    rawNow: ["Curso restante (%)", "Sem engaxetamento registrado neste período: não há curso restante."],
+    volt: ["Avanço (mm)", "Sem engaxetamento registrado: não há avanço."],
+    stableNow: ["Linha estabilizada (%)", "Só existe depois de um engaxetamento registrado."],
+    delta: ["Ângulo do sensor", "Ângulo absoluto do ímã (medido). Não é avanço nem curso."],
+    min: ["Mín. do período", "Sem curso restante no período"],
+    max: ["Máx. do período", "Sem curso restante no período"],
+    scale: "Ângulo absoluto do sensor (0° a 360°, média circular por intervalo)",
+    legend: ["Ângulo (média circular)", "—", "—"],
+    axis: ["360°", "270°", "180°", "90°", "0°"],
+    movementTitle: "Mudanças do curso de ajuste restante (5 p.p.)",
+    movementHead: ["Horário", "Curso restante anterior", "Novo curso restante", "Variação"],
+    historyHead: ["Horário", "Curso restante: estabilizado / média", "Mín. / máx.", "Avanço (mm)", "Ângulo (média circular)", "Leituras válidas / total"],
+  },
+};
+// Os rótulos do resumo seguem a modalidade da leitura ATUAL; os do gráfico e das tabelas seguem
+// a série CARREGADA. Assim, um sensor que voltou ao potenciômetro pode mostrar o histórico
+// magnético antigo sem trocar os rótulos da leitura atual, e vice-versa.
+let telemSummaryMode = "electric";
+let telemChartMode = "electric";
+function applySummaryLabels(mode) {
+  if (mode === telemSummaryMode) return;
+  telemSummaryMode = mode;
+  const text = TELEM_LABELS[mode];
+  const set = (id, pair) => {
+    if (!pair || !$id(id)) return;
+    $id(id).textContent = pair[0];
+    $id(id).title = pair[1];
+  };
+  set("lblRawNow", text.rawNow);
+  set("historyVoltLabel", text.volt);
+  set("lblStableNow", text.stableNow);
+  set("lblDelta", text.delta);
+}
+function applyChartLabels(mode) {
+  if (mode === telemChartMode) return;
+  telemChartMode = mode;
+  const text = TELEM_LABELS[mode];
+  for (const [id, pair] of [["lblMin", text.min], ["lblMax", text.max]]) {
+    $id(id).textContent = pair[0];
+    $id(id).title = pair[1];
+  }
+  $id("chartScaleNote").textContent = text.scale;
+  $id("chartLegend").innerHTML =
+    `<li class="legend-raw"><i></i>${esc(text.legend[0])}</li>` +
+    (text.legend[1] === "—" ? "" : `<li class="legend-stable"><i></i>${esc(text.legend[1])}</li><li class="legend-change"><i></i>${esc(text.legend[2])}</li>`);
+  $id("chartYAxis").innerHTML = text.axis.map((label) => `<span>${esc(label)}</span>`).join("");
+  $id("movementTitle").textContent = text.movementTitle;
+  $id("movementHead").innerHTML = text.movementHead.map((label) => `<th>${esc(label)}</th>`).join("");
+  $id("historyHead").innerHTML = text.historyHead.map((label) => `<th>${esc(label)}</th>`).join("");
+  $id("showRawBand").closest("label").hidden = mode === "angle";
+}
+// Que série a Telemetria mostra: a da modalidade atual do sensor, ou a escolhida no seletor.
+function telemetrySeries(device) {
+  const chosen = $id("historySeries")?.value || "auto";
+  if (chosen !== "auto") return chosen;
+  return isMagnetic(device, device ? deviceLive(device) : null) ? "as5600_i2c" : "adc_pot";
+}
+// Resposta de gaxeta_mag_history no formato que a tela usa (telem.loaded).
+function magLoaded(base, data) {
+  const history = data.history || [];
+  const valid = history.filter((row) => row.remaining_percent != null);
+  return {
+    ...base,
+    modality: "as5600_i2c",
+    series: valid.length ? "course" : "angle",
+    history,
+    movements: data.movements || [],
+    services: data.services || [],
+    seed: null,
+    stats: {
+      count: data.stats?.count || 0,
+      valid: data.stats?.valid || 0,
+      last_received_at: data.stats?.last_received_at || null,
+      min: valid.length ? Math.min(...valid.map((row) => Number(row.min_remaining ?? row.remaining_percent))) : null,
+      max: valid.length ? Math.max(...valid.map((row) => Number(row.max_remaining ?? row.remaining_percent))) : null,
+    },
+    truncated: !!data.movements_truncated,
+    bucketSeconds: data.bucket_seconds,
+  };
+}
+
+// Leitura atual de um sensor magnético (a cada ciclo, sem refazer o histórico).
+function renderTelemetryLiveMag(device) {
+  const identity = deviceIdentity(device);
+  const view = deviceView(device);
+  const computed = view.computed;
+  const service = view.service;
+  applySummaryLabels(computed ? "course" : "angle");
+  $id("historyTitle").textContent = identity.title;
+  $id("historyTitle").title = identity.path || "";
+  $id("historyContext").textContent = identity.linked ? `Sensor: ${identity.sensor} · Spot: ${identity.spot} · sensor magnético` : `Sensor magnético sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
+  $id("historyContext").title = identity.path || "";
+  $id("historyCurrentLabel").textContent = view.kicker + (view.origin ? ` (${view.origin})` : "");
+  $id("historyCurrent").textContent = view.value === "—" ? "—" : `${view.value}${view.unit === "%" ? " %" : view.unit}`;
+  $id("historyHealthBox").className = "summary-main health-" + view.key;
+  $id("historyHealth").textContent = view.label;
+  $id("historyAction").textContent = view.note;
+  $id("historyRawNow").textContent = computed ? fmtNum(computed.remaining_percent, 2) + " %" : "—";
+  $id("historyRawNow").title = computed ? `${fmtMm(computed.remaining_mm, 2)} de ${fmtMm(service?.course_mm, 2)}` + (view.reason === "out_of_range" ? " · fora da faixa validada" : "") : MAG_REASON[view.reason]?.note || "";
+  $id("historyVolt").textContent = computed ? fmtMm(computed.advance_mm, 2) : "—";
+  $id("historyVolt").title = computed ? "Calculado pela geometria " + (service?.geometry || "") : "";
+  $id("historyStableNow").textContent = service?.stable_remaining == null ? "—" : fmtNum(service.stable_remaining) + " %";
+  $id("historyDelta").textContent = view.raw == null ? "—" : `${fmtDeg(view.degrees, 2)} · bruto ${view.raw}`;
+  const cadence = firmwareCadence(device.firmware_version);
+  $id("historyReading").textContent =
+    `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"} · ${magSignalText(device, view.mag)}` +
+    (cadence ? ` · ${cadence.text}` : "") +
+    (service ? ` · engaxetamento de ${fmtDateTime(service.captured_at)}: ${fmtMm(service.course_mm)} ${service.course_origin === "estimated" ? "estimados" : "medidos"}, geometria ${service.geometry}` : "");
+  $id("historySince").textContent = service?.stable_since ? "Linha estabilizada desde " + fmtDateTime(service.stable_since) : "";
+  $id("historyEdit").disabled = false;
+}
+
+function renderHistoryMag() {
+  const loaded = telem.loaded;
+  const mode = loaded.series;
+  applyChartLabels(mode);
+  const rows = loaded.history;
+  const movements = loaded.movements;
+  const stats = loaded.stats;
+  const range = loaded.range;
+  $id("historyMin").textContent = stats.min == null ? "—" : `${fmtNum(stats.min)} %`;
+  $id("historyMax").textContent = stats.max == null ? "—" : `${fmtNum(stats.max)} %`;
+  $id("historyCount").textContent = `${fmtNum(stats.valid, 0)} válidas de ${fmtNum(stats.count, 0)}`;
+  $id("chartEmpty").hidden = rows.length > 0;
+  $id("chartEmpty").textContent = "Nenhuma leitura magnética neste período.";
+  $id("chartFrom").textContent = fmtDateTime(range.from);
+  $id("chartTo").textContent = fmtDateTime(range.to);
+  $id("aggregationNote").textContent = loaded.truncated
+    ? "Muitas mudanças neste intervalo. Reduza o período para exibir a linha completa."
+    : mode === "course"
+      ? "Curso restante: média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas · um trecho por engaxetamento · linha estabilizada: 5 p.p."
+      : "Ângulo: média circular de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas. Sem engaxetamento no período não há curso restante.";
+  $id("movementCount").textContent = loaded.truncated ? "Mais de 5.000 registros — reduza o período" : movements.length + " mudanças de 5 p.p. no período";
+  $id("movementRows").innerHTML =
+    movements
+      .slice(-30)
+      .reverse()
+      .map((move) => `<tr><td>${fmtDateTime(move.received_at)}</td><td>${fmtNum(move.previous_remaining)} %</td><td>${fmtNum(move.stable_remaining)} %</td><td>${fmtNum(move.stable_remaining - move.previous_remaining)} p.p.</td></tr>`)
+      .join("") ||
+    `<tr><td colspan="4">${mode === "course" ? "Nenhuma mudança de 5 pontos no curso restante neste período." : "Sem engaxetamento registrado neste período: não há curso restante para acompanhar."}</td></tr>`;
+  const px = (time) => Math.max(0, Math.min(1e3, ((new Date(time) - range.from) / (range.to - range.from)) * 1e3)).toFixed(2);
+  const py = (percent) => (280 - clampPercent(percent) * 2.8).toFixed(2);
+  const valueOf = (row) => (mode === "course" ? row.remaining_percent : row.angle_deg == null ? null : (Number(row.angle_deg) / 360) * 100);
+  const gapDevice = currentDevice();
+  const gapMs = Math.max(3 * (Number(loaded.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(gapDevice ? deviceInterval(gapDevice) : 0) || 0) * 1000);
+  // A linha quebra em lacunas, em intervalos sem leitura válida, na troca de referência e, no
+  // modo ângulo, na passagem por 0° (um salto de mais de 180° é a volta do contador, não um giro).
+  const breaks = (row, previous) =>
+    !previous ||
+    new Date(row.received_at) - new Date(previous.last_at || previous.received_at) > gapMs ||
+    (mode === "course" && row.service_id !== previous.service_id) ||
+    (mode === "angle" && Math.abs(Number(row.angle_deg) - Number(previous.angle_deg)) > 180);
+  let rawPath = "", stablePath = "", risers = "", band = "", bandUp = [], bandDown = [];
+  let previous = null, previousStable = null;
+  const closeBand = () => {
+    if (bandUp.length > 1) band += "M" + bandUp.join(" L") + " L" + bandDown.reverse().join(" L") + " Z ";
+    bandUp = [];
+    bandDown = [];
+  };
+  const drawn = rows.filter((row) => valueOf(row) != null);
+  for (const row of drawn) {
+    const x = px(row.received_at);
+    const broke = breaks(row, previous);
+    rawPath += `${broke ? "M" : "L"}${x} ${py(valueOf(row))} `;
+    if (mode === "course") {
+      if (broke) closeBand();
+      bandUp.push(`${x} ${py(row.max_remaining ?? row.remaining_percent)}`);
+      bandDown.push(`${x} ${py(row.min_remaining ?? row.remaining_percent)}`);
+      if (row.stable_remaining != null) {
+        if (broke || previousStable == null) stablePath += `M${x} ${py(row.stable_remaining)}`;
+        else {
+          stablePath += `H${x}`;
+          if (Number(row.stable_remaining) !== Number(previousStable)) {
+            risers += `M${x} ${py(previousStable)}V${py(row.stable_remaining)}`;
+            stablePath += `M${x} ${py(row.stable_remaining)}`;
+          }
+        }
+        previousStable = row.stable_remaining;
+      }
+    }
+    previous = row;
+  }
+  closeBand();
+  // Marca vertical em cada engaxetamento capturado dentro do período.
+  const marks = loaded.services
+    .filter((service) => new Date(service.captured_at) >= range.from && new Date(service.captured_at) <= range.to)
+    .map((service) => `M${px(service.captured_at)} 0V280`)
+    .join("");
+  $id("historyChart").innerHTML = rows.length
+    ? `<path class="chart-band" d="${$id("showRawBand").checked && mode === "course" ? band : ""}"/>` +
+      `<path class="chart-service" d="${marks}"/>` +
+      `<path class="chart-riser" d="${risers}"/>` +
+      `<path class="chart-line chart-electric" d="${stablePath}"/>` +
+      `<path class="chart-raw" d="${rawPath.trim()}"/>` +
+      (drawn.length === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${px(drawn[0].received_at)}" cy="${py(valueOf(drawn[0]))}" r="4"/>` : "")
+    : "";
+  $id("historyChart").setAttribute(
+    "aria-label",
+    mode === "course"
+      ? `Curso de ajuste restante. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. ${loaded.services.length} engaxetamento(s) no período. Arraste para ampliar.`
+      : `Ângulo absoluto do sensor magnético. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Sem curso restante no período. Arraste para ampliar.`,
+  );
+  $id("historyRows").innerHTML =
+    rows
+      .slice(-30)
+      .reverse()
+      .map(
+        (row) =>
+          `<tr><td>${fmtDateTime(row.received_at)}</td><td>${row.remaining_percent == null ? "—" : fmtNum(row.stable_remaining) + " %"}<small class="raw-average">Média: ${row.remaining_percent == null ? "—" : fmtNum(row.remaining_percent, 2) + "%"}</small></td>` +
+          `<td>${row.remaining_percent == null ? "—" : fmtNum(row.min_remaining) + " / " + fmtNum(row.max_remaining) + " %"}</td><td>${row.advance_mm == null ? "—" : fmtNum(row.advance_mm, 2)}</td>` +
+          `<td>${fmtDeg(row.angle_deg, 2)}</td><td>${fmtNum(row.valid, 0)} / ${fmtNum(row.samples, 0)}${magRowFlags(row)}</td></tr>`,
+      )
+      .join("") || '<tr><td colspan="6">Nenhuma leitura magnética neste período.</td></tr>';
+}
+// Motivos das leituras inválidas de um intervalo, em poucas palavras.
+function magRowFlags(row) {
+  const flags = [row.bus_fail ? `${row.bus_fail} sem resposta` : "", row.no_magnet ? `${row.no_magnet} sem ímã` : "", row.field_out ? `${row.field_out} campo fora` : "", row.out_of_range ? `${row.out_of_range} fora da faixa` : ""].filter(Boolean);
+  return flags.length ? `<small class="raw-average">${esc(flags.join(" · "))}</small>` : "";
+}
+function magTooltipText(row, loaded) {
+  const service = loaded.services.find((item) => item.id === row.service_id);
+  return (
+    `${fmtDateTime(row.received_at)}\n` +
+    (row.remaining_percent == null
+      ? `Ângulo do sensor: ${fmtDeg(row.angle_deg, 2)} (média circular) · sem curso restante neste intervalo`
+      : `Curso restante: ${fmtNum(row.remaining_percent, 2)}% (${fmtMm(row.remaining_mm, 2)}) · estabilizado ${fmtNum(row.stable_remaining)}% · avanço ${fmtMm(row.advance_mm, 2)} · ângulo ${fmtDeg(row.angle_deg, 2)}`) +
+    (service ? `\nEngaxetamento de ${fmtDateTime(service.captured_at)} · ${fmtMm(service.course_mm)} ${service.course_origin === "estimated" ? "estimados" : "medidos"} · ${service.geometry}` : "") +
+    `\n${fmtNum(row.valid, 0)} leituras válidas de ${fmtNum(row.samples, 0)}`
+  );
+}
+async function exportMagCsv(loaded) {
+  const byId = new Map(loaded.services.map((service) => [service.id, service]));
+  const text = [
+    ["horario", "modalidade", "engaxetamento_id", "engaxetamento_capturado_em", "geometria_revisao", "curso_disponivel_mm", "origem_do_curso",
+      "curso_restante_estabilizado_pct", "curso_restante_medio_pct", "curso_restante_min_pct", "curso_restante_max_pct", "curso_restante_medio_mm", "avanco_medio_mm",
+      "angulo_medio_circular_graus", "leituras", "leituras_validas", "falha_de_barramento", "ima_ausente", "campo_fora_da_faixa", "fora_da_faixa_validada", "metodo"],
+    ...loaded.history.map((row) => {
+      const service = byId.get(row.service_id);
+      return [row.received_at, "as5600_i2c", row.service_id ?? "", service?.captured_at ?? "", service ? service.geometry + (service.provisional ? " (provisoria)" : "") : "",
+        service?.course_mm ?? "", service ? (service.course_origin === "estimated" ? "estimado" : "medido") : "",
+        row.remaining_percent == null ? "" : row.stable_remaining ?? "", row.remaining_percent ?? "", row.min_remaining ?? "", row.max_remaining ?? "", row.remaining_mm ?? "", row.advance_mm ?? "",
+        row.angle_deg ?? "", row.samples, row.valid, row.bus_fail, row.no_magnet, row.field_out, row.out_of_range,
+        "angulo medido (media circular das leituras validas); avanco e curso restante calculados pela geometria da referencia"];
+    }),
+  ].map((row) => row.map(csvCell).join(";")).join("\r\n");
+  await exportCsvFile(text, `gaxeta-${loaded.sensorId}-magnetico-intervalos.csv`);
+}
+async function exportMagMovementsCsv(loaded) {
+  const byId = new Map(loaded.services.map((service) => [service.id, service]));
+  const text = [
+    ["horario", "engaxetamento_id", "geometria_revisao", "curso_disponivel_mm", "origem_do_curso", "curso_restante_anterior_pct", "curso_restante_estabilizado_pct", "variacao_pontos", "regra"],
+    ...loaded.movements.map((move) => {
+      const service = byId.get(move.service_id);
+      return [move.received_at, move.service_id, service?.geometry ?? "", service?.course_mm ?? "", service ? (service.course_origin === "estimated" ? "estimado" : "medido") : "",
+        move.previous_remaining, move.stable_remaining, Number(move.stable_remaining) - Number(move.previous_remaining), "mudanca de 5 p.p. ou mais no curso de ajuste restante, dentro do mesmo engaxetamento"];
+    }),
+  ].map((row) => row.map(csvCell).join(";")).join("\r\n");
+  await exportCsvFile(text, `gaxeta-${loaded.sensorId}-magnetico-mudancas.csv`);
+}
 
 // ---- 75-gateways.js ----
 // =============================================================================
@@ -4748,8 +5417,11 @@ function onBleReading(t, e) {
     ($id("bleLive").hidden = !1),
     ($id("bleName").textContent = t.device || e?.name || "Sensor"),
     ($id("bleIdentity").textContent = t.sensor_id || "Firmware sem identificação; atualize para configurar."),
-    ($id("blePercent").textContent = `${fmtNum(t.travel_percent)} %`),
-    ($id("bleVoltage").textContent = `${fmtNum(t.voltage_v, 3)} V`),
+    // Placa magnética (firmware 4.4.0): ângulo absoluto e saúde. Não há tensão nem percentual.
+    ($id("blePercentLabel").textContent = t.modality === "as5600_i2c" ? "ângulo do sensor" : "posição elétrica"),
+    ($id("bleVoltageLabel").textContent = t.modality === "as5600_i2c" ? "sinal" : "tensão estimada"),
+    ($id("blePercent").textContent = t.modality === "as5600_i2c" ? fmtDeg(t.angle_deg, 2) : `${fmtNum(t.travel_percent)} %`),
+    ($id("bleVoltage").textContent = t.modality === "as5600_i2c" ? (t.bus !== "ok" ? MAG_BUS_TEXT[t.bus] || "sem resposta" : MAG_FIELD_TEXT[t.mag] || "—") : `${fmtNum(t.voltage_v, 3)} V`),
     ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
 }
 function setBleStatus(t) {

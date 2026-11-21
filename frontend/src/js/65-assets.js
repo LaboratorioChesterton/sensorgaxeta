@@ -26,7 +26,7 @@ const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.c
 // Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
 const spotReading = (device) => {
   const view = deviceView(device);
-  return `<span class="spot-reading" title="Posição elétrica do potenciômetro (leitura atual)">${esc(view.value)}${view.unit ? " %" : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
+  return `<span class="spot-reading" title="${esc(view.magnetic ? view.kicker + " (sensor magnético)" : "Posição elétrica do potenciômetro (leitura atual)")}">${esc(view.value)}${view.unit ? (view.unit === "%" ? " %" : view.unit) : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
   const status = deviceStatus(device);

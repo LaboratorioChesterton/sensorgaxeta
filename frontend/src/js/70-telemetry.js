@@ -147,7 +147,7 @@ async function loadHistory({ auto = false } = {}) {
   if (auto && telem.pending) return;
   // Preset = janela móvel, calculada só quando há carga. Intervalo manual ou ampliado = fixo.
   const range = telem.custom ? { from: telem.range.from, to: telem.range.to } : presetRange(telem.period, new Date(Date.now() + state.clockOffset));
-  const key = sensorId + "|" + (telem.custom ? range.from.toISOString() + "|" + range.to.toISOString() : "preset:" + telem.period);
+  const key = sensorId + "|" + telemetrySeries(currentDevice()) + "|" + (telem.custom ? range.from.toISOString() + "|" + range.to.toISOString() : "preset:" + telem.period);
   if (!auto && telem.pending && !telem.pending.auto && telem.pending.key === key) return; // mesmo pedido já em andamento
   telem.controller?.abort();
   const controller = new AbortController();
@@ -157,9 +157,11 @@ async function loadHistory({ auto = false } = {}) {
   renderHistoryState();
   try {
     // Fuso local só na tela: a consulta vai em ISO UTC, com os limites e a inclusividade da RPC.
-    const data = await unwrap(sb.rpc("gaxeta_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() }).abortSignal(controller.signal));
+    // Uma série por modalidade: a magnética tem consulta, gráfico e CSV próprios.
+    const series = telemetrySeries(currentDevice());
+    const data = await unwrap(sb.rpc(series === "as5600_i2c" ? "gaxeta_mag_history" : "gaxeta_history", { p_sensor_id: sensorId, p_from: range.from.toISOString(), p_to: range.to.toISOString() }).abortSignal(controller.signal));
     if (token !== telem.request || sensorId !== state.sensorId || !state.authorized) return;
-    telem.loaded = {
+    telem.loaded = series === "as5600_i2c" ? magLoaded({ sensorId, range, label, custom: telem.custom }, data) : {
       sensorId,
       range,
       label,
@@ -242,6 +244,9 @@ function renderTelemetryLive() {
   const identity = deviceIdentity(device);
   // Os mesmos números de Sensores → Detalhes: os dois saem de state.devices e state.live.
   const live = device ? deviceLive(device) : null;
+  if ($id("historySeries")) $id("historySeries").hidden = !device;
+  if (device && isMagnetic(device, live)) return renderTelemetryLiveMag(device);
+  applySummaryLabels("electric");
   const view = electricView(device, live);
   const electric = view.electric;
   $id("historyTitle").textContent = device ? identity.title : "Telemetria";
@@ -307,6 +312,9 @@ function renderHistoryState() {
 function renderHistory() {
   renderTelemetryLive();
   renderHistoryState();
+  if (telem.loaded?.modality === "as5600_i2c") return renderHistoryMag();
+  // Série elétrica em tela (ou nada carregado num sensor elétrico): rótulos elétricos no gráfico e nas tabelas.
+  if (telem.loaded || !isMagnetic(currentDevice(), currentDevice() ? deviceLive(currentDevice()) : null)) applyChartLabels("electric");
   const loaded = telem.loaded;
   const rows = loaded?.history || [];
   const movements = loaded?.movements || [];
@@ -470,6 +478,7 @@ $id("historyChart").onpointermove = (event) => {
   const nearest = loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
   if (!nearest) return;
   $id("chartTooltip").hidden = false;
+  if (loaded.modality === "as5600_i2c") return void ($id("chartTooltip").textContent = magTooltipText(nearest, loaded));
   $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
 Posição elétrica: leitura ${fmtNum(nearest.travel_percent, 2)}% · linha estabilizada ${fmtNum(nearest.stable_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
 ${fmtNum(nearest.samples, 0)} leituras`;
@@ -504,6 +513,7 @@ $id("historyChart").onpointerup = (event) => {
 $id("exportCsv").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.history.length) return;
+  if (loaded.modality === "as5600_i2c") return void exportMagCsv(loaded).catch((error) => showMessage(errorText(error), "error"));
   const text = [
     // Só telemetria elétrica. A tensão é a calibrada pelo ADC quando o firmware a envia; senão,
     // a estimada (ADC × 3,3 ÷ 4095). A última coluna diz em que escala o percentual foi calculado.
@@ -527,6 +537,7 @@ $id("exportMovements").onclick = async () => {
   const loaded = telem.loaded;
   if (!loaded?.movements.length) return;
   if (loaded.truncated) return showMessage("Reduza o período para exportar todas as mudanças.");
+  if (loaded.modality === "as5600_i2c") return void exportMagMovementsCsv(loaded).catch((error) => showMessage(errorText(error), "error"));
   const text = [
     ["horario", "posicao_eletrica_anterior_pct", "posicao_eletrica_estabilizada_pct", "variacao_pontos", "regra"],
     ...loaded.movements.map((move) => [move.received_at, move.previous_percent, move.stable_percent, move.previous_percent == null ? "" : Number(move.stable_percent) - Number(move.previous_percent), "mudanca de 5 p.p. ou mais na posicao eletrica"]),
@@ -540,6 +551,7 @@ $id("exportMovements").onclick = async () => {
   }
 };
 $id("showRawBand").onchange = renderHistory;
+$id("historySeries").onchange = () => loadHistory();
 $id("historyEdit").onclick = () => {
   if (state.sensorId) openSensorEditor(state.sensorId);
 };

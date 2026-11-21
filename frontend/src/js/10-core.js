@@ -327,6 +327,74 @@ function electricView(device, live) {
   const quality = BLOCK_QUALITY[electric.block] || BLOCK_QUALITY.ok;
   return { key: quality.key, label: quality.label, note: quality.note, value: fmtNum(electric.percent), unit: "%", scale: electric.percent, electric };
 }
+// ----- Modalidade magnética (AS5600 por I²C) -----
+// Três grandezas que não se misturam: o ÂNGULO absoluto do ímã (medido, 0 a 4095 = 0° a 359,9°),
+// o AVANÇO do preme-gaxeta desde o engaxetamento (calculado, mm) e o CURSO DE AJUSTE RESTANTE
+// (calculado, % e mm). Nada aqui usa percentual do ADC, tensão ou milímetro nominal.
+const isMagnetic = (device, live) => (live?.modality || device?.last_modality) === "as5600_i2c";
+const magDegrees = (raw) => (raw == null || !Number.isFinite(Number(raw)) ? null : (Number(raw) * 360) / 4096);
+const fmtDeg = (degrees, digits = 1) => (degrees == null || !Number.isFinite(Number(degrees)) ? "—" : fmtNum(degrees, digits) + "°");
+const fmtMm = (value, digits = 1) => (value == null || !Number.isFinite(Number(value)) ? "—" : fmtNum(value, digits) + " mm");
+const clampPercent = (value) => Math.max(0, Math.min(100, Number(value)));
+// Por que não há curso restante agora, e o que fazer. key escolhe a cor (como na série elétrica).
+const MAG_REASON = {
+  no_reading: { key: "unknown", label: "Sem leitura", note: "Aguardando a primeira leitura da placa." },
+  bus_no_ack: { key: "warn", label: "Sensor sem resposta", note: "O AS5600 não respondeu no I²C. Confira alimentação de 3,3 V, GND e os fios SDA e SCL." },
+  bus_read_error: { key: "warn", label: "Falha de leitura I²C", note: "O sensor responde, mas a leitura veio incompleta. Confira solda, cabo e contatos." },
+  bus_timeout: { key: "warn", label: "I²C sem resposta a tempo", note: "Barramento travado ou cabo longo demais. Confira o cabo e os pull-ups." },
+  no_magnet: { key: "warn", label: "Ímã ausente", note: "O sensor não detecta o ímã. Confira o ímã no eixo e a distância até o chip." },
+  field_weak: { key: "warn", label: "Campo fraco", note: "Ímã longe ou descentrado. Aproxime e centralize o ímã." },
+  field_strong: { key: "warn", label: "Campo forte", note: "Ímã perto demais do chip. Afaste o ímã." },
+  no_link: { key: "electric", label: "Sem vínculo", note: "Ângulo absoluto do sensor. Vincule a um spot para acompanhar o curso." },
+  no_geometry: { key: "limit", label: "Sem geometria", note: "O spot ainda não tem montagem caracterizada. Peça à engenharia para vincular a geometria." },
+  no_reference: { key: "limit", label: "Sem referência", note: "Informe o curso disponível e toque em Engaxetamento realizado, em Detalhes." },
+  awaiting_reference: { key: "limit", label: "Aguardando leitura", note: "Engaxetamento solicitado. Mantenha a haste parada até a confirmação." },
+  not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
+  out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
+};
+// Sem o resumo magnético (banco antigo ou sem permissão), a saúde sai dos campos do próprio sensor.
+function magReasonFromDevice(device) {
+  if (!device || device.last_bus_status == null) return "no_reading";
+  if (device.last_bus_status !== "ok") return "bus_" + device.last_bus_status;
+  if (device.last_mag_status === "no_magnet") return "no_magnet";
+  if (device.last_mag_status === "weak") return "field_weak";
+  if (device.last_mag_status === "strong") return "field_strong";
+  return device.measurement_point_id ? "no_reference" : "no_link";
+}
+// Como apresentar um sensor magnético em cartões, árvore, Detalhes e Telemetria. `mag` é o item
+// de gaxeta_mag_summary. O número principal é o Curso de ajuste restante (%), quando existe e é
+// válido; sem ele, o ângulo absoluto. Amostra inválida não mostra número: mostra o motivo.
+// A barra fica limitada a 0–100 %; o valor com sinal segue em `computed`.
+function magView(device, mag) {
+  const reading = mag?.reading || null;
+  const raw = reading ? reading.raw_angle : (device?.last_raw_angle ?? null);
+  const degrees = magDegrees(raw);
+  const reason = mag ? mag.reason || null : magReasonFromDevice(device);
+  const computed = mag?.computed || null;
+  const service = mag?.service || null;
+  const electric = { percent: null, text: "—", label: "", block: null, ceiling: false, scale: null };
+  const base = { magnetic: true, mag: mag || null, reason, degrees, raw, electric, computed, service, origin: "medido" };
+  const info = MAG_REASON[reason] || null;
+  if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {
+    const percent = clampPercent(computed.remaining_percent);
+    const tags = [service?.course_origin === "estimated" ? "curso estimado" : "", service?.provisional ? "geometria em caracterização" : ""].filter(Boolean);
+    return {
+      ...base, origin: "calculado", key: info ? info.key : "electric", kicker: "Curso de ajuste restante",
+      label: info ? info.label : service?.provisional ? "Provisório" : "Calculado",
+      note: info ? info.note : `${fmtMm(computed.remaining_mm)} de ${fmtMm(service?.course_mm)} · avanço ${fmtMm(computed.advance_mm)}` + (tags.length ? " · " + tags.join(" · ") : ""),
+      value: fmtNum(percent), unit: "%", scale: percent,
+    };
+  }
+  const sampleBad = reason && /^(bus_|no_magnet|field_|no_reading)/.test(reason);
+  return {
+    ...base, key: info?.key || "electric", kicker: "Ângulo do sensor", label: info?.label || "Ângulo do sensor", note: info?.note || "Ângulo absoluto do ímã.",
+    value: sampleBad || degrees == null ? "—" : fmtNum(degrees), unit: sampleBad || degrees == null ? "" : "°", scale: null,
+  };
+}
+// Identificador da solicitação de engaxetamento: o mesmo em cada nova tentativa do mesmo clique.
+const newRequestId = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ ((Math.random() * 16) >> (Number(c) / 4))).toString(16));
 // Cadência declarada pelo firmware no sufixo da versão: -hib180 (hibernação, um envio a cada
 // 180 s) ou -cont30 (contínuo, sem hibernação, um envio a cada 30 s). Versão sem sufixo: contínuo, 10 s.
 function firmwareCadence(version) {

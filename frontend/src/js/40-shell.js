@@ -22,6 +22,9 @@ const state = {
   drawer: { open: false, mode: "detail", sensorId: "", opener: null },
   live: new Map(), // leitura elétrica atual e cadência por sensor (gaxeta_telemetry_summary)
   liveMissing: false, // o banco ainda não tem o resumo de telemetria (migração 12 não aplicada)
+  mag: new Map(), // estado magnético por sensor (gaxeta_mag_summary): ângulo, saúde, referência e curso restante
+  magMissing: false, // o banco ainda não tem o contrato magnético (migração 14 não aplicada)
+  magRequests: new Map(), // sensor → solicitação de engaxetamento em envio (mesmo identificador nas novas tentativas)
 };
 const assetIndex = new Map();
 // Tipo de equipamento por TAG (id do ativo → chave do catálogo; null = não informado).
@@ -37,7 +40,9 @@ const deviceInterval = (device) => {
 };
 const deviceStatus = (device) => connectionStatus(device, Date.now() + state.clockOffset, deviceInterval(device));
 const deviceLive = (device) => state.live.get(device?.sensor_id) || null;
-const deviceView = (device) => electricView(device, deviceLive(device));
+const deviceMag = (device) => state.mag.get(device?.sensor_id) || null;
+// Um único ponto decide o que cada tela mostra: sensor magnético nunca passa pela leitura elétrica.
+const deviceView = (device) => (isMagnetic(device, deviceLive(device)) ? magView(device, deviceMag(device)) : electricView(device, deviceLive(device)));
 const currentDevice = () => state.devices.find((device) => device.sensor_id === state.sensorId);
 const findDevice = (sensorId) => state.devices.find((device) => device.sensor_id === sensorId);
 // O TAG é o identificador do equipamento: o código gravado em `tag`, ou o nome nos registros antigos.
@@ -238,6 +243,22 @@ async function loadTelemetrySummary(ids) {
     if (isMissingFeature(error)) state.liveMissing = true;
     else throw error;
   }
+  await loadMagSummary(wanted);
+}
+// Estado magnético dos sensores AS5600 entre os indicados (uma chamada para todos, só quando há algum).
+async function loadMagSummary(ids) {
+  const magnetic = ids.filter((id) => isMagnetic(findDevice(id), state.live.get(id)));
+  for (const id of ids) if (!magnetic.includes(id)) state.mag.delete(id);
+  if (!magnetic.length || state.magMissing) return;
+  try {
+    const result = await callRpc("gaxeta_mag_summary", { p_sensor_ids: magnetic });
+    for (const id of magnetic) state.mag.delete(id);
+    for (const item of result.items || []) state.mag.set(item.sensor_id, item);
+  } catch (error) {
+    // Banco sem a migração 14: o cartão segue com ângulo e saúde dos campos do sensor.
+    if (isMissingFeature(error)) state.magMissing = true;
+    else throw error;
+  }
 }
 // Atualiza só os sensores em uso (selecionado e painel aberto): uma chamada por ciclo.
 async function refreshKnownDevices() {
@@ -387,6 +408,9 @@ function clearSessionData() {
   state.sensors = { search: "", filter: "all", offset: 0, total: 0, ids: [], request: 0 };
   state.live.clear();
   state.liveMissing = false;
+  state.mag.clear();
+  state.magMissing = false;
+  state.magRequests.clear();
   assetIndex.clear();
   resetTree();
   closeDrawer(false);

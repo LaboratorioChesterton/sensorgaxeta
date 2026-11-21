@@ -54,7 +54,7 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
-  return `<strong class="tree-electric" title="Posição elétrica: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${view.unit ? "%" : ""}</strong>`;
+  return `<strong class="tree-electric" title="${esc(view.kicker || "Posição elétrica")}: ${esc(view.label)} · ${esc(view.note)}">${esc(view.value)}${esc(view.unit || "")}</strong>`;
 }
 function treeBranch(parentId) {
   const entry = tree.kids.get(kidsKey(parentId));
