@@ -1,5 +1,31 @@
 # Estado da produção — SensorGaxeta
 
+## 22/11/2026, 10:40: migração 16 APLICADA (faixas simuladas da bancada) e site novo PUBLICADO; APK 1.8.0 ainda não instalado
+
+Aplicada em 22/11/2026 pelo conector do Supabase, com a autorização dada no pedido da demonstração. Conferido às 10:10 (horário de Brasília).
+
+| # | Arquivo | Versão no histórico | Aplicada às |
+|---|---|---|---|
+| 13 | `20261119142500_desativa_calibracao_mecanica.sql` | — | **Não aplicada**, como antes. |
+| 15a–d | quatro arquivos de 21/11 | `20261121232208` a `20261121232554` | 21/11. **Não reaplicadas.** |
+| 16 | `20261122130446_faixas_simuladas_da_bancada.sql` | `20261122130446` | 22/11, 10:04:46, na primeira tentativa |
+
+- Histórico de migrações: 18 linhas. SQL gravado: 8.503 bytes, MD5 `8184b492…3d15`, byte a byte o arquivo enviado. O arquivo do repositório difere em uma linha de comentário (a linha 22 cita o arquivo de reversão, que ganhou a versão definitiva; MD5 do arquivo `dd34931e…7c01`). Nenhuma instrução difere.
+- O que entrou: tabela `gaxeta_private.mag_bench_prefs` (preferência de apresentação por vínculo sensor–spot; RLS ligada, nenhuma política, nenhum privilégio para `anon`, `authenticated` e `service_role`; 0 linhas), função `public.gaxeta_mag_bench_set_bands(text, boolean)` (só `authenticated`; confere `can_operate_point`) e um acréscimo pontual em duas funções da migração 15.
+- Antes da aplicação, `gaxeta_mag_bench_start` e `gaxeta_mag_summary` tinham em produção o corpo da migração 15 (`e724ac7c…fd82`, `29fdba4b…1887`), com o trecho de encaixe presente uma única vez. Depois: `9f055939…dcbc` e `dd9fdc37…aed`; a função nova, `f19a3057…87f1`. São os mesmos hashes do banco local em que as 1079 verificações rodaram. Permissões e configuração (`search_path`, tempo máximo de 5 s do resumo) iguais às de antes.
+- As outras 122 funções dos esquemas `public`, `gaxeta_private` e `gaxeta_authz` (corpo e permissões): mesma impressão agregada antes e depois (`fd59f9e5…7ddc`). `gaxeta_ingest`, `gaxeta_ingest_v3` e `gaxeta_ingest_v4` não foram tocadas.
+- Ingestão durante a aplicação: a placa `ESP32-4070298DBD44` (L2-956, `4.5.0-cont30`) entrou às 10:03:40, 10:04:10, 10:04:40, 10:05:10, 10:05:40 e seguiu a cada 30 s até 10:09:10 (leituras 107262 a 107273). Maior intervalo em 15 min: 30,5 s. Nenhum envio perdido.
+- Bancada do piloto (configuração 3 do vínculo 7, 80° = 0 %, 180° = 100 %, crescente): igual antes e depois. Ativa, início confirmado às 08:26:04, âncora na leitura 107067 (contagem −420, sessão `d881360c`), última posição 42,6076 %. A migração não abriu sessão, não pediu referência e não reescreveu histórico.
+- Contagens antes e depois: 3 configurações de bancada, 0 movimentos de campo, 0 engaxetamentos, 0 registros de manutenção, 99 linhas de auditoria.
+- Resumo lido com a identidade de nível 1, sem gravar nada: `bench_bands = true` (padrão, sem linha na tabela), Posição de bancada 42,608 %, estado `ok`.
+- Consultor de segurança do Supabase depois da aplicação: nenhum item de nível ERRO. Os avisos são dos mesmos tipos de antes, agora também para os dois objetos novos (tabela privada com RLS e sem política, intencional; função `security definer` chamável por conta autenticada, que confere o escopo). Continua o aviso de proteção contra senha vazada desligada no Auth.
+- Não exercitado em produção: ninguém chamou `gaxeta_mag_bench_set_bands` (a tabela está vazia) nem reenviou a mesma faixa a `gaxeta_mag_bench_start`. Os dois caminhos estão cobertos pela suíte 88 no banco local, com as funções no mesmo hash.
+- Site: **publicado em 22/11 às 10:36:52** (commit `9ed071a`; os commits `8236801` a `139ac21`, das 10:29 às 10:36, levaram testes, migração, reversão e fonte). No ar às 10:37:44: `index.html`, `acesso.html`, `app.js`, `styles.css` e `operacao.html` baixados do endereço público são byte a byte os do build ensaiado (`app.js` MD5 `bee4d636…c0f7`). Aberto com a sessão do Ítalo às 10:38: o cartão do L2-956 mostra 42,61 % · Baixo ajuste, atualizado às 10:37:41; a Telemetria de 1 hora mostra 120 leituras válidas de 120. Nenhuma ação foi feita na tela além de abrir Sensores e o histórico.
+- Aplicativo Android 1.8.0 (código 9): montado e assinado, **não instalado em nenhum aparelho**.
+- Firmware: sem alteração.
+
+Reversão: `supabase/rollback/20261122130446_faixas_simuladas_da_bancada.down.sql` (catálogo idêntico ao da migração 15, conferido no banco local). A escolha de cada sensor é descartada; leituras, sessões, âncoras e histórico ficam.
+
 ## 21/11/2026, 21:10: migração 15 APLICADA, site novo publicado, firmware 4.5.0 gravado e bancada ensaiada
 
 Aplicada em 21/11/2026 com autorização do Ítalo, pelo conector do Supabase, uma parte por vez. Conferido às 20:26 (horário de Brasília).
