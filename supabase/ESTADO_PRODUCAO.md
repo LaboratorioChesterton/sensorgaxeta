@@ -1,5 +1,46 @@
 # Estado da produção — SensorGaxeta
 
+## 21/11/2026, 21:10: migração 15 APLICADA, site novo publicado, firmware 4.5.0 gravado e bancada ensaiada
+
+Aplicada em 21/11/2026 com autorização do Ítalo, pelo conector do Supabase, uma parte por vez. Conferido às 20:26 (horário de Brasília).
+
+| # | Arquivo | Versão no histórico | Aplicada às |
+|---|---|---|---|
+| 13 | `20261119142500_desativa_calibracao_mecanica.sql` | — | **Não aplicada**, como antes. |
+| 15a | `20261121232208_a_modo_bancada_estrutura.sql` | `20261121232208` | 20:22:08 |
+| 15b | `20261121232341_b_ingestao_contagem_continua.sql` | `20261121232341` | 20:23:41 |
+| 15c | `20261121232459_c_bancada_cadastro_funcoes.sql` | `20261121232459` | 20:24:59 |
+| 15d | `20261121232554_d_resumo_e_historico_magnetico.sql` | `20261121232554` | 20:25:54 |
+
+- Histórico de migrações: 17 linhas. As quatro entraram na primeira tentativa (a trava da parte a não coincidiu com envio da placa).
+- SQL gravado no histórico: partes b, c e d byte a byte iguais aos arquivos (28.436, 23.407 e 17.869 bytes; MD5 `56f79d60…038c`, `82fdd6e5…dd81`, `c7a2c444…acf7`). Parte a: o histórico tem o mesmo SQL do arquivo a partir do `begin;`, com um cabeçalho de comentário de duas linhas no lugar do de 29 (14.681 bytes, MD5 `07dcc08d…4945`; o arquivo tem 16.789 bytes). Nenhuma instrução difere.
+- Impressão do resultado: as 149 linhas de conferência (33 funções com corpo e permissões, 64 colunas, 43 restrições, 7 índices, RLS das 2 tabelas novas) são iguais em produção e no banco local em que as 1008 verificações rodaram (mesma impressão agregada, `8fd267d9…1f40`).
+- Ingestão durante a aplicação: a placa `ESP32-4070298DBD44` (firmware `4.4.0-cont30`) entrou às 20:21:52, 20:22:22, 20:22:53, 20:23:23, 20:23:52, 20:24:23, 20:24:53, 20:25:23, 20:25:52 e 20:26:22, sempre com campo e barramento `ok`, bruto 1673 e transporte de cerca de 3 s. Nenhum intervalo perdido. Com o 4.4.0 as colunas novas ficam nulas (`ct_session`, `bench_state`), como previsto.
+- Tabelas novas `gaxeta_private.mag_bench_modes` e `mag_maintenance_notes`: vazias, RLS ligada e nenhuma política. Funções novas `gaxeta_mag_*`: só o papel `authenticated`. `gaxeta_ingest_v4` continua aceitando `anon`, como antes.
+- Consultor de segurança do Supabase depois da aplicação: nenhum item de nível ERRO. Os avisos são os de antes, agora também para os objetos novos (tabelas privadas com RLS e sem política, intencional; funções `security definer` expostas, cada uma conferindo papel e escopo). Continua o aviso antigo de proteção contra senha vazada desligada no Auth.
+- Site: `frontend/src/js/62-gland.js` apagado no commit `4fc7bc5` (20:04) e 21 arquivos enviados no commit `52e1baf` (20:08). `index.html`, `acesso.html`, `app.js`, `styles.css` e `operacao.html` baixados do endereço público são byte a byte os do build ensaiado (`app.js` MD5 `989d97ef…468f`).
+- Firmware 4.5.0 gravado na C3 do L2-956 às 20:46 (Arduino IDE, janela `Sensor_Gaxeta_AS5600`; 1.416.221 bytes). Primeira leitura às 20:46:47: `4.5.0-cont30`, método `as5600-i2c-n20-circ-ct5`, sessão `8d8b4dd9`. O binário do 4.4.0 foi exportado antes e está guardado fora do repositório.
+- Modo bancada ligado no vínculo 7 às 20:52 (80° = 0 %, 180° = 100 %, crescente), início confirmado às 20:52:47 em 147,04° = 67,04 %. Ensaio manual até 21:06: 100 % com o eixo 20,9° além do extremo, 0 % com 19,2° aquém, retorno medido do ponto real, e queda de Wi-Fi de 5 min 35 s com giro durante a queda. 42 leituras sem salto de sequência, uma sessão, nenhuma inválida; contagem contínua e ângulo absoluto com diferença máxima de 1 contagem; maior lacuna 13 ms, maior passo 24 contagens. Nenhuma referência ou movimento de campo criado.
+- Não ensaiado na placa: mais de uma volta além do extremo, reinício e ímã ausente. Cadastro magnético: 0 geometrias, 0 cursos, 0 engaxetamentos.
+
+## 21/11/2026, 19:45: antes da aplicação — migração 15 escrita e ensaiada, ainda não aplicada
+
+Conferido em 21/11/2026 entre 18:34 e 19:45 (horário de Brasília), só com leitura.
+
+| # | Arquivo | Versão no histórico | Situação |
+|---|---|---|---|
+| 13 | `20261119142500_desativa_calibracao_mecanica.sql` | — | **Não aplicada**, como antes. |
+| 14 | `20261121154407_as5600_contrato_magnetico.sql` | `20261121154407` | Aplicada (12:44). Última linha do histórico. |
+| 15a–d | `20261121230001_a_…` a `20261121230004_d_…` | a definir na aplicação | **Não aplicadas.** A aplicação pelo Claude foi barrada pelo controle de permissões da sessão. |
+
+- Histórico de migrações em produção: 13 linhas, de `20261111173402` a `20261121154407`. Nenhuma linha nova desde as 12:44.
+- As 15 funções que a migração 15 substitui ou das quais depende (`gaxeta_ingest_v4`, `gaxeta_mag_request_service`, `gaxeta_mag_summary`, `gaxeta_mag_history`, `mag_setup`, `mag_close_services`, `gaxeta_ingest`, `gaxeta_ingest_v3`, `gaxeta_history`, `gaxeta_telemetry_summary`, `mag_compute`, `mag_stabilize`, `gaxeta_unlink_sensor`, `gaxeta_mag_set_equipment_defaults`, `gaxeta_mag_set_point_setup`) têm em produção o mesmo hash do banco local montado na forma da produção (migrações 01–12 e 14, sem a 13). Nenhuma alteração manual.
+- Nesse banco local, com a migração 15 aplicada por cima: suíte 84, 168 de 168; suíte 85, 6 de 6; suíte 87, 196 de 196.
+- Site publicado: commit `9f3505b` (21/11, 13:29). `index.html`, `acesso.html`, `app.js`, `styles.css` e `operacao.html` são byte a byte os da entrega AS5600. Esse build passa as 52 verificações dele contra o banco com a migração 15.
+- Piloto: `ESP32-4070298DBD44`, firmware `4.4.0-cont30`, vinculado desde 13:33 ao spot UNICO do L2-956 (vínculo 7). Leitura a cada 30 s; às 18:34:47, sequência 433, bruto 1672 (146,953°), dispersão 1, campo e barramento `ok`, AGC 66, magnitude 2117. 647 leituras magnéticas no total.
+- Cadastro magnético em produção: 0 geometrias, 0 montagens de spot, 0 sugestões de TAG, 0 engaxetamentos, 0 mudanças. O L2-956 mostra "Sem geometria".
+- Banco: 65 MB, 106.633 leituras.
+
 ## 21/11/2026: migração 14 (contrato magnético AS5600) aplicada; migração 13 continua pendente
 
 Conferido em 21/11/2026 às 13:12 (horário de Brasília).
