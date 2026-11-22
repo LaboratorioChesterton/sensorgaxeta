@@ -1,102 +1,103 @@
-# Como publicar — Modo bancada, Configurar montagem e faixas de ajuste (21/11/2026, entrega da noite)
+# Como publicar — Demonstração do L2-956: faixas simuladas da bancada, prévia automática e Bluetooth (22/11/2026)
 
-Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit publicado `9f3505b` (entrega AS5600 de 21/11; `app.js` com MD5 `5e1b484c…6d8`, igual ao do site). Extraia sobre a cópia local, confira com `git status` e faça o commit.
+Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit publicado `cf792a3` (21/11; `app.js` com MD5 `989d97ef…468f`, igual ao do site). **Tudo já está no repositório e no ar**; este arquivo fica como registro do que entrou e de como reverter.
 
-## Ordem
+## Estado em 22/11/2026, 10:40
 
-A ordem entre os três passos é livre: cada combinação foi ensaiada.
-
-| Passo | Estado em 21/11, 21:10 | Compatibilidade |
+| Passo | Estado | Compatibilidade |
 |---|---|---|
-| **1. Banco, migração 15** (quatro arquivos, versões `20261121232208`, `…232341`, `…232459` e `…232554`) | **Aplicada em produção em 21/11, das 20:22 às 20:25**, com autorização do Ítalo. As 149 impressões de funções, colunas, restrições, índices e RLS são iguais às do banco ensaiado; a placa não perdeu nenhum envio. Ver `supabase/ESTADO_PRODUCAO.md`. | O site publicado antes e o firmware 4.4.0 continuaram aceitos. |
-| **2. Site** | **Publicado em 21/11 às 20:08** (commit `52e1baf`, depois da exclusão do `62-gland.js` no `4fc7bc5`). Os cinco arquivos servidos são byte a byte os do build ensaiado. | Com a migração 15 aplicada, as telas novas respondem. |
-| **3. Firmware 4.5.0** na C3 piloto | **Gravado em 21/11 às 20:46**; bancada ensaiada na placa até 21:06 (extremos e queda de Wi-Fi). Ver `supabase/ESTADO_PRODUCAO.md`. | O banco grava a contagem contínua e calcula a Posição de bancada. |
+| **1. Banco, migração 16** (`20261122130446_faixas_simuladas_da_bancada.sql`) | **Aplicada em produção em 22/11 às 10:04:46**, pelo conector do Supabase, na primeira tentativa. Ver `supabase/ESTADO_PRODUCAO.md`. | O site publicado hoje (`cf792a3`) continua funcionando com ela: 118 verificações, 0 falhas. |
+| **2. Site** | **Publicado em 22/11 às 10:36:52** (commit `9ed071a`; no ar às 10:37:44). Os cinco arquivos servidos são byte a byte os do build ensaiado. Feito pelo Claude no navegador do Ítalo, a pedido dele, em dez commits por pasta (`8236801` a `9ed071a`). | O site novo também funciona com o banco na migração 15 (guarda a preferência só no aparelho): 8 verificações, 0 falhas. |
+| **3. Aplicativo Android 1.8.0** | APK assinado na pasta da entrega. **Não instalado em nenhum aparelho.** | Embarca este mesmo build. Não depende do passo 2. |
+| **Firmware** | Sem alteração: a C3 do L2-956 segue no `4.5.0-cont30`. | — |
 
-Para o Modo bancada mostrar percentual são necessários os três.
+**Não reaplique a migração 15 nem a 16. Não aplique a 13 (`20261119142500`).**
 
 ## 1. Arquivos servidos pelo Pages (raiz do repositório)
 
 | Arquivo | Ação |
 |---|---|
-| `index.html` | **Substituir** (botão "Ver todos os sensores") |
-| `app.js` | **Substituir** (de 446 KB para 519 KB) |
+| `index.html` | **Substituir** (seletor "Árvore de ativos" no telefone, quadro do Bluetooth) |
+| `app.js` | **Substituir** (de 519 KB para 587 KB) |
 | `styles.css` | **Substituir** |
-| `operacao.html` | **Substituir** (Manual: faixas, Configurar montagem, um toque, Modo bancada, desvincular) |
+| `operacao.html` | **Substituir** (Manual: faixas simuladas, Alterar faixa da bancada, Bluetooth, árvore no telefone) |
 | `acesso.html` | **Substituir** (gerado a partir do `index.html`) |
 | `COMO_PUBLICAR.md` | **Substituir** (este arquivo) |
 | Demais arquivos da raiz | Iguais aos atuais |
+
+MD5 do build: `index.html` `8cd68063…dbca7`, `acesso.html` `09a2b522…2c1d`, `app.js` `bee4d636…c0f7`, `styles.css` `a7f853b2…9abd`, `operacao.html` `0961db24…e8f`.
 
 ## 2. Fonte, banco e testes
 
 | Arquivo | Ação |
 |---|---|
-| `frontend/src/js/64-bench.js` | **Novo**: Modo bancada (prévia, ativar, confirmar início, reposicionar, sair, simulação das faixas) |
-| `frontend/src/js/66-mag-setup.js` | **Novo**: Configurar montagem (curso no TAG e no spot, revisões e ensaio) e campos do formulário de Ativos |
-| `frontend/src/js/62-gland.js` | **Apagado** do repositório em 21/11 (commit `4fc7bc5`). Com ele presente, `node build.mjs` gerava um `app.js` com erro de sintaxe (`newRequestId` declarado duas vezes). |
-| `frontend/src/js/10-core.js` | Substituir (faixas, motivos de bancada, `magView` com série e estabilizado em duas casas) |
-| `frontend/src/js/63-magnetic.js` | Substituir (cartão com selo de série e botão Configurar; um toque com o curso do cadastro; registro sem referência) |
-| `frontend/src/js/60-sensors.js` | Substituir (Ver todos, Desvincular em Detalhes com TAG, equipamento e spot) |
-| `frontend/src/js/50-tree.js`, `65-assets.js`, `72-telemetry-mag.js` | Substituir (árvore com série e faixa; curso no formulário do TAG e do spot; gráfico e CSV da bancada) |
+| `frontend/src/js/10-core.js` | Substituir: tabela única das faixas simuladas (`BENCH_SIM`), `benchShown`, `benchSimOf`, preferência por sensor (`benchBandsOn`), `magView` com a faixa simulada |
+| `frontend/src/js/63-magnetic.js` | Substituir: cartão de bancada (percentual, faixa, barra, horário, última leitura válida) |
+| `frontend/src/js/64-bench.js` | Substituir: "Alterar faixa da bancada…" com prévia automática, faixa em uso, progresso da confirmação e a preferência "Mostrar faixas simuladas da bancada" |
+| `frontend/src/js/50-tree.js`, `65-assets.js` | Substituir: faixa no item do sensor, na linha do spot e no cartão do spot; árvore em tela cheia no telefone |
+| `frontend/src/js/70-telemetry.js`, `72-telemetry-mag.js` | Substituir: curva colorida pela altura de cada trecho, legenda, leitura por toque, interrupções, CSV com a faixa |
+| `frontend/src/js/20-ble.js`, `90-ble-ui.js` | Substituir: "Buscar sensor por Bluetooth" com estados, cancelar e repetir, leitura local ao lado da leitura da nuvem |
+| `frontend/src/js/40-shell.js`, `60-sensors.js`, `95-boot.js` | Substituir: botão Voltar do Android fecha a camada aberta, ação de busca na página Sensores |
 | `frontend/src/index.html`, `frontend/src/operacao.html`, `frontend/src/styles/app.css` | Substituir |
-| `supabase/migrations/20261121232208_a_modo_bancada_estrutura.sql` | **Novo** |
-| `supabase/migrations/20261121232341_b_ingestao_contagem_continua.sql` | **Novo** |
-| `supabase/migrations/20261121232459_c_bancada_cadastro_funcoes.sql` | **Novo** |
-| `supabase/migrations/20261121232554_d_resumo_e_historico_magnetico.sql` | **Novo** |
-| `supabase/rollback/20261121232208_a_modo_bancada_estrutura.down.sql` | **Novo**: reverte as quatro partes de uma vez |
+| `supabase/migrations/20261122130446_faixas_simuladas_da_bancada.sql` | **Novo** (já com a versão gravada no histórico) |
+| `supabase/rollback/20261122130446_faixas_simuladas_da_bancada.down.sql` | **Novo** |
 | `supabase/ESTADO_PRODUCAO.md` | Substituir |
-| `tests/87_modo_bancada.sql` | **Novo** (196 verificações) |
-| `tests/85_concorrencia_magnetica.sh` | Substituir (horário da amostra com milissegundos: tirava uma falha intermitente do ensaio) |
-| `tests/86_capacidade_15_dias.sh` | Substituir (carga com a contagem contínua) |
-| `dev/run_all.sh` | Substituir (migração 15 e suíte 87) |
+| `tests/88_faixas_simuladas.sql` | **Novo** (71 verificações) |
+| `tests/ui/faixas_fronteiras.mjs` | **Novo** (36 verificações das fronteiras, sem navegador: `node tests/ui/faixas_fronteiras.mjs`) |
+| `dev/run_all.sh` | Substituir (migração 16 e suíte 88) |
+| `frontend/README.md` | Substituir (seção das faixas simuladas) |
 
-Os quatro arquivos e o `.down.sql` já estão com as versões que o Supabase gravou no histórico ao aplicar (21/11, 20:22 a 20:25).
+Nenhum arquivo traz chave, token, hash de ingestão, senha, PIN ou e-mail real. `frontend/dist/` não entra no commit.
 
-Nenhum arquivo traz chave, token, hash de ingestão, senha, PIN ou e-mail real.
+## 3. Commit — já feito
 
-## 3. Commit
+Enviado pelo site do GitHub ("Add files via upload"), uma pasta por commit, em 22/11 das 10:29 às 10:36:
 
-```bash
-cd <sua cópia do repositório, no commit 9f3505b>
-unzip -o "<pasta da entrega>/repositorio/SensorGaxeta_bancada_commit.zip"
-git rm -q frontend/src/js/62-gland.js      # o ZIP não apaga arquivo
-git status
-git add -A && git commit -F "<pasta da entrega>/MENSAGEM_DO_COMMIT.txt" && git push
-```
+| Commit | Pasta | Arquivos |
+|---|---|---|
+| `8236801` | `tests/ui/` | `faixas_fronteiras.mjs` |
+| `0e875ea` | `tests/` | `88_faixas_simuladas.sql` |
+| `6b7bfdd` | `supabase/migrations/` | migração 16 |
+| `a8744db` | `supabase/rollback/` | reversão da migração 16 |
+| `2c5ce1a` | `dev/` | `run_all.sh` |
+| `7715c3a` | `frontend/` | `README.md` |
+| `cd5e7d7` | `frontend/src/` | `index.html`, `operacao.html` |
+| `5aad0fd` | `frontend/src/styles/` | `app.css` |
+| `139ac21` | `frontend/src/js/` | os 12 módulos da tabela 2 |
+| `9ed071a` | raiz | `index.html`, `acesso.html`, `app.js`, `styles.css`, `operacao.html` |
 
-ou `git am "<pasta da entrega>/repositorio/modo-bancada-2026-11-21.patch" && git push` (o patch já apaga o `62-gland.js`).
-
-Pelo site do GitHub ("Add files via upload"): envie os arquivos da tabela 1 na raiz e os da tabela 2 nas pastas indicadas, e apague `frontend/src/js/62-gland.js` pela própria página do arquivo.
+Este arquivo e o `supabase/ESTADO_PRODUCAO.md` entraram em seguida, já com este estado. A árvore resultante é a do pacote `SensorGaxeta_demonstracao_commit.zip` da entrega, com esses dois arquivos atualizados.
 
 Conferir o build e os testes:
 
 ```bash
 cd frontend && node build.mjs && for f in index.html acesso.html app.js styles.css operacao.html; do cmp dist/$f ../$f; done
-PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh        # 1008 verificações + reversão
-PGHOST=/tmp PGPORT=54329 PGUSER=postgres tests/86_capacidade_15_dias.sh 10
+node tests/ui/faixas_fronteiras.mjs                              # 36 verificações
+PGHOST=/tmp PGPORT=54329 PGUSER=postgres dev/run_all.sh          # 1079 verificações + reversão
 ```
 
-## 4. Aplicar a migração 15
+## 4. Migração 16 — já aplicada
 
-No SQL Editor do Supabase (projeto SensorGaxeta), cole e execute **um arquivo por vez, na ordem a, b, c, d**. Cada um é uma transação: ou entra inteiro, ou nada muda. O primeiro toma `gaxeta_devices` e `gaxeta_readings` sem espera; se coincidir com uma leitura chegando, ele falha sem alterar nada: execute de novo.
-
-Antes: o histórico deve terminar em `20261121154407 as5600_contrato_magnetico`. **Não reaplique a migração 14, não aplique a 13 (`20261119142500`), o script de reversão nem a proposta de remoção de índice.**
-
-Depois, confira:
+Nada a fazer. Para conferir no SQL Editor:
 
 ```sql
-select count(*) from pg_proc where proname in ('gaxeta_mag_bench_preview','gaxeta_mag_bench_start','gaxeta_mag_bench_confirm','gaxeta_mag_bench_stop',
-  'gaxeta_mag_set_point_course','gaxeta_mag_set_point_geometry','gaxeta_mag_asset_setup','gaxeta_mag_record_maintenance');   -- 8
-select count(*) from information_schema.columns where table_name = 'gaxeta_readings' and column_name ~ '^(ct_|bench_)';     -- 10
+select version, name from supabase_migrations.schema_migrations order by version desc limit 1;   -- 20261122130446 faixas_simuladas_da_bancada
+select md5(prosrc) from pg_proc where proname = 'gaxeta_mag_bench_start';   -- 9f0559390c44afce6559847335ecdcbc
+select md5(prosrc) from pg_proc where proname = 'gaxeta_mag_summary';       -- dd9fdc37068f82c73fc5567cfa0deaed
+select count(*) from gaxeta_private.mag_bench_prefs;                        -- 0 enquanto ninguém desligar as faixas
 ```
 
-## 5. Depois do push
+O arquivo do repositório difere do SQL gravado no histórico em uma linha de comentário (a linha 22 cita o arquivo de reversão, que ganhou a versão definitiva). Nenhuma instrução difere.
 
-1. Abra o site, toque em **Continuar** e recarregue sem cache (Cmd+Shift+R).
-2. **Sensores**: o L2-956 aparece com **Sem geometria** e o botão **Configurar** no cartão.
-3. Siga o `COMO_USAR_ROTEIRO_ITALO.md` da pasta da entrega.
+## 5. Conferido depois da publicação
+
+- Os cinco arquivos baixados do endereço público têm o MD5 do build (item 1).
+- Com a sessão do Ítalo, às 10:38: **Sensores** mostra o L2-956 com **42,61 % · Baixo ajuste** (laranja), a barra com as marcas e "Atualizado às 10:37:41"; **Telemetria** (1 hora) mostra a curva laranja em 42,6 %, a legenda das quatro faixas e 120 leituras válidas de 120.
+- Se o navegador ainda mostrar a tela antiga, recarregue sem cache (Cmd+Shift+R).
+- Roteiro da demonstração: `ROTEIRO_DA_APRESENTACAO.md`, na pasta da entrega.
 
 ## 6. Reversão
 
-- **Site**: `git revert` do commit.
-- **Placa**: gravar de volta o 4.4.0 (binário exportado antes da gravação do 4.5.0; ver `firmware/LEIA_FIRMWARE.md`). O banco aceita os dois.
-- **Banco**: `supabase/rollback/20261121232208_a_modo_bancada_estrutura.down.sql` devolve as funções à forma da migração 14 e remove tabelas, colunas e funções novas. As leituras ficam; a contagem contínua e o resultado de bancada gravados nelas são descartados com as colunas. Recusa rodar se houver spot com curso próprio e sem geometria.
+- **Site**: `git revert` do commit `9ed071a` (os cinco arquivos da raiz). O site anterior funciona com a migração 16.
+- **Aplicativo**: o 1.7.0 não é reinstalável por cima do 1.8.0 (o Android não aceita código de versão menor). Para voltar, gere um APK com código maior a partir do build anterior.
+- **Banco**: `supabase/rollback/20261122130446_faixas_simuladas_da_bancada.down.sql` remove a função e a tabela da preferência e devolve `gaxeta_mag_bench_start` e `gaxeta_mag_summary` à forma da migração 15. A escolha de cada sensor (ligado ou desligado) é descartada; leituras, sessões, âncoras e histórico não são tocados.
