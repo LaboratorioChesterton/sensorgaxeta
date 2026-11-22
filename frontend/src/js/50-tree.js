@@ -54,6 +54,16 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
+  // Modo bancada: "L2-956 · 67,83 % · Médio ajuste", com a origem simulada identificada. Leitura
+  // atrasada aparece como última leitura válida, com o horário, e não como atual.
+  if (view.bench) {
+    const face = benchFace(sensor, view);
+    return (
+      `<span class="tree-sep">·</span><strong class="tree-electric tree-bench${face.stale ? " is-stale" : ""}" title="Posição de bancada: ${esc(view.label)} · ${esc(view.note)}">${face.has ? esc(view.value) + " %" : "—"}</strong>` +
+      (face.has && view.sim ? `<span class="tree-sep">·</span>` + benchSimChip(view.sim) : !face.has ? `<span class="tree-sep">·</span><small class="tree-state">${esc(view.label)}</small>` : "") +
+      `<small class="tree-bench-tag" title="Série de bancada: demonstração em mesa, não é curso de campo">${face.stale ? "bancada · última válida " + esc(fmtClock(face.at)) : "bancada"}</small>`
+    );
+  }
   // Sensor magnético: a árvore diz a série (bancada, curso estimado) e a faixa, além do número.
   const tag = view.bench ? " · bancada" : view.estimated ? " · estimado" : "";
   const band = view.magnetic && !view.bench && view.computed && MAG_BAND[view.band] ? ` ${MAG_BAND[view.band].label}` : view.magnetic && view.value === "—" ? ` ${view.label}` : "";
@@ -82,7 +92,7 @@ function treeBranch(parentId) {
         : "") +
       "</div>" +
       (sensor
-        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}${esc(deviceLabel(sensor))} ${treeSensorValue(sensor)}</button>`
+        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}<span class="tree-sensor-name">${esc(deviceLabel(sensor))}</span> ${treeSensorValue(sensor)}</button>`
         : "") +
       (open ? treeBranch(id) : "") +
       "</li>";
@@ -91,7 +101,19 @@ function treeBranch(parentId) {
     html += `<li><button class="tree-more" data-more="${parentId || ""}">Carregar mais (${entry.total - entry.ids.length} restantes)</button></li>`;
   return html + "</ul>";
 }
+// Telefone: caminho resumido do que está selecionado, ao lado do seletor "Árvore de ativos".
+function renderTreePick() {
+  const box = $id("treePickPath");
+  if (!box) return;
+  const asset = assetIndex.get(state.assetId);
+  const names = asset ? assetPath(state.assetId, state.assets).map(assetLabel) : [];
+  box.querySelector("small").textContent = asset ? KIND_LABEL[asset.kind] + " selecionado" : state.page === "assets" ? "Nenhum nível selecionado" : "Mostrando";
+  box.querySelector("b").textContent = asset ? (names.length > 3 ? "… / " + names.slice(-3).join(" / ") : names.join(" / ") || assetLabel(asset)) : state.page === "assets" ? "Toque para escolher na árvore" : "Todos os ativos";
+  box.title = names.join(" / ");
+  $id("treeDone").textContent = asset ? `Ver ${KIND_LABEL[asset.kind]}: ${assetLabel(asset)}` : "Fechar a árvore";
+}
 function renderTree() {
+  renderTreePick();
   const root = tree.kids.get("root");
   const box = $id("tree");
   if (!root) {
@@ -117,8 +139,16 @@ async function selectAsset(id) {
     await loadSensors();
     setTreeDrawer(false);
   } else if (state.page === "assets") {
+    const asset = assetIndex.get(state.assetId);
+    if (isNarrow() && asset && !["equipment", "point"].includes(asset.kind)) {
+      // Telefone, nível acima do TAG: a árvore continua aberta e o ramo se abre, para seguir descendo.
+      if (asset.has_children && !tree.open.has(asset.id)) {
+        tree.open.add(asset.id);
+        await loadKids(asset.id).catch(() => {});
+        renderTree();
+      }
+    } else if (isNarrow()) setTreeDrawer(false); // TAG ou spot: volta para a ficha, com o caminho resumido
     await renderInspector();
-    if (isNarrow()) setTreeDrawer(false);
   }
   renderIcons();
 }
@@ -135,8 +165,13 @@ async function revealAsset(id) {
   const entry = tree.kids.get(kidsKey(asset.parent_id));
   if (entry && !entry.ids.includes(id)) entry.ids.push(id);
 }
+// Árvore por cima do conteúdo (telefone). Ramos abertos, seleção e busca ficam como estavam.
 function setTreeDrawer(open) {
+  const was = document.body.classList.contains("tree-open");
   document.body.classList.toggle("tree-open", !!open);
+  $id("treePickOpen")?.setAttribute("aria-expanded", String(!!open));
+  if (open && !was && isNarrow()) pushBackLayer("tree", () => setTreeDrawer(false));
+  if (!open && was) dropBackLayer("tree");
 }
 
 $id("tree").onclick = async (event) => {
@@ -180,6 +215,11 @@ $id("toggleTree").onclick = () => {
   }
 };
 $id("closeTree").onclick = () => setTreeDrawer(false);
+$id("treeDone").onclick = () => setTreeDrawer(false);
+$id("treePickOpen").onclick = $id("treePickPath").onclick = () => {
+  setTreeDrawer(true);
+  ensureTreeRoot().catch((error) => showMessage(errorText(error), "error"));
+};
 
 // Busca por nome ou TAG, no servidor, dentro do que a conta pode ver.
 $id("treeSearch").oninput = debounce(async () => {

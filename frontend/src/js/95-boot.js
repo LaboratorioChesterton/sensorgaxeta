@@ -16,7 +16,7 @@ document.querySelectorAll("[data-close]").forEach((button) => (button.onclick = 
 $id("refresh").onclick = () => refreshData(true);
 $id("pageActions").onclick = (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
-  if (action === "find-sensor") openBleDialog();
+  if (action === "find-sensor") openBleDialog({ scan: true }); // o toque em "Buscar" já é o pedido de busca
   if (action === "new-corporation") openAssetForm({ parentId: null }).catch((error) => showMessage(errorText(error), "error"));
   if (action === "manual-back") showPage(state.manualReturn);
   if (action === "new-gateway") openGatewayForm().catch((error) => showMessage(errorText(error), "error"));
@@ -44,6 +44,11 @@ window.addEventListener(
     renderIcons();
   }, 200),
 );
+// Telefone com o teclado aberto: o campo em foco fica à vista (o teclado encolhe a área útil).
+document.addEventListener("focusin", (event) => {
+  if (!(isNativeApp() || isNarrow()) || !event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]), select, textarea')) return;
+  setTimeout(() => document.activeElement === event.target && event.target.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+});
 // Fora do fluxo síncrono do SDK, para não bloquear a renovação do token.
 sb.auth.onAuthStateChange((event, session) => setTimeout(() => onAuthEvent(event, session), 0));
 renderIcons();

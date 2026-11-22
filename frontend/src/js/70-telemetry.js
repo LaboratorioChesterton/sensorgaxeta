@@ -25,6 +25,7 @@ const telem = {
   error: "",
   zoomStack: [], // seleções anteriores, para "Voltar" restaurar inclusive um intervalo manual
   lastLoadAt: 0,
+  pin: null, // horário do intervalo tocado no gráfico (a dica fica fixa até outro toque)
 };
 const PERIOD_LABELS = { 300000: "5 min", 3600000: "1 hora", 21600000: "6 horas", 86400000: "1 dia", 604800000: "7 dias", month: "1 mês", "3months": "3 meses" };
 const selectionLabel = () => (telem.custom ? "intervalo personalizado" : PERIOD_LABELS[telem.period] || "período");
@@ -33,7 +34,7 @@ const shortDateTime = (value) => new Date(value).toLocaleString("pt-BR", { day: 
 function resetTelemetryData() {
   telem.controller?.abort();
   telem.request++;
-  Object.assign(telem, { controller: null, pending: null, loaded: null, error: "", zoomStack: [], lastLoadAt: 0 });
+  Object.assign(telem, { controller: null, pending: null, loaded: null, error: "", zoomStack: [], lastLoadAt: 0, pin: null });
 }
 
 // ----- Seletor de sensor -----
@@ -105,9 +106,14 @@ async function openTelemetry() {
     searchHistorySensors().catch(() => {});
   }
   await ensureAssets([currentDevice()?.measurement_point_id]);
+  // Leitura atual e preferências do sensor (faixas simuladas) antes do primeiro desenho do gráfico.
+  if (currentDevice() && !state.live.has(state.sensorId)) await loadTelemetrySummary([state.sensorId]).catch(() => {});
   if (state.page !== "telemetry") return;
   renderHistorySelect();
   renderTelemetryLive();
+  // A leitura atual é relida ao abrir a tela, sem esperar o próximo ciclo: quem chega de Sensores
+  // ou de Ativos vê o mesmo número, a mesma faixa e o mesmo horário do último envio.
+  refreshKnownDevices().then(() => state.page === "telemetry" && renderTelemetryLive()).catch(() => {});
   await loadHistory();
 }
 $id("historySensor").onchange = () => {
@@ -117,6 +123,7 @@ $id("historySensor").onchange = () => {
   renderTelemetryLive();
   renderHistory();
   ensureAssets([currentDevice()?.measurement_point_id])
+    .then(() => (state.live.has(state.sensorId) ? null : loadTelemetrySummary([state.sensorId])))
     .then(() => {
       renderHistorySelect();
       renderTelemetryLive();
@@ -390,6 +397,7 @@ function renderHistory() {
       `<path class="chart-raw" d="${rawPath.trim()}"/>` +
       (rows.length === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${point(rows[0], "travel_percent").split(" ")[0]}" cy="${point(rows[0], "travel_percent").split(" ")[1]}" r="4"/>` : "")
     : "";
+  paintChartPin();
   $id("historyChart").setAttribute(
     "aria-label",
     `Posição elétrica do sensor. ${rows.length} intervalos. ${fmtNum(stats.count || 0, 0)} leituras. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Leitura atual e linha estabilizada de 5 pontos, sem classificação mecânica. Arraste para ampliar.`,
@@ -447,12 +455,55 @@ $id("resetZoom").onclick = () => {
   loadHistory();
 };
 
-// ----- Ampliação por arraste e dica -----
+// ----- Ampliação por arraste, dica e leitura por toque -----
+// Mouse: a dica acompanha o ponteiro. Toque (ou clique sem arrastar): o intervalo mais próximo
+// fica marcado e a dica fixa mostra hora, valor e, na bancada, a faixa simulada. Arrastar amplia.
 let chartDragStart = null;
 const chartFraction = (event) => {
   const box = $id("historyChart").getBoundingClientRect();
   return Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
 };
+const chartRowValue = (loaded, row) => (loaded.modality === "as5600_i2c" ? magRowValue(loaded.series, row) : row.travel_percent == null ? null : Number(row.travel_percent));
+const chartTooltipText = (loaded, row) =>
+  loaded.modality === "as5600_i2c"
+    ? magTooltipText(row, loaded)
+    : `${fmtDateTime(row.received_at)}
+Posição elétrica: leitura ${fmtNum(row.travel_percent, 2)}% · linha estabilizada ${fmtNum(row.stable_percent)}% · mín. ${fmtNum(row.min_percent)}% · máx. ${fmtNum(row.max_percent)}%${row.voltage_mv == null ? "" : " · " + fmtVolt(row.voltage_mv) + " calibrada"}
+${fmtNum(row.samples, 0)} leituras`;
+const chartNearestRow = (loaded, fraction) => {
+  const at = loaded.range.from.getTime() + fraction * (loaded.range.to - loaded.range.from);
+  return loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
+};
+function showChartTooltip(loaded, row, fraction) {
+  const tip = $id("chartTooltip");
+  tip.textContent = chartTooltipText(loaded, row);
+  // A dica fica do lado oposto ao ponto, para não o cobrir.
+  tip.style.left = fraction < 0.5 ? "auto" : "6px";
+  tip.style.right = fraction < 0.5 ? "6px" : "auto";
+  tip.hidden = false;
+}
+// Marca do intervalo tocado: linha vertical e ponto, redesenhados a cada atualização do gráfico.
+function paintChartPin() {
+  const chart = $id("historyChart");
+  chart.querySelector(".chart-pin")?.remove();
+  const loaded = telem.loaded;
+  const row = loaded && telem.pin ? loaded.history.find((item) => item.received_at === telem.pin) : null;
+  if (!row) {
+    if (telem.pin) $id("chartTooltip").hidden = true;
+    telem.pin = null;
+    return;
+  }
+  const fraction = Math.max(0, Math.min(1, (new Date(row.received_at) - loaded.range.from) / (loaded.range.to - loaded.range.from)));
+  const value = chartRowValue(loaded, row);
+  const x = (fraction * 1e3).toFixed(2);
+  chart.insertAdjacentHTML(
+    "beforeend",
+    `<g class="chart-pin"><path class="chart-pin-line" d="M${x} 0V280"/>` +
+      (value == null ? "" : `<path class="chart-pin-halo" d="M${x} ${(280 - Math.max(0, Math.min(100, value)) * 2.8).toFixed(2)}h0.01"/><path class="chart-pin-dot" d="M${x} ${(280 - Math.max(0, Math.min(100, value)) * 2.8).toFixed(2)}h0.01"/>`) +
+      `</g>`,
+  );
+  showChartTooltip(loaded, row, fraction);
+}
 $id("historyChart").onpointerdown = (event) => {
   if (!telem.loaded?.history.length || telem.pending?.auto === false) return;
   chartDragStart = chartFraction(event);
@@ -463,6 +514,7 @@ $id("historyChart").onpointermove = (event) => {
   if (!loaded) return;
   const fraction = chartFraction(event);
   if (chartDragStart !== null) {
+    if (Math.abs(fraction - chartDragStart) < 0.01) return; // ainda é um toque, não um arraste
     let selection = $id("historyChart").querySelector(".chart-selection");
     if (!selection) {
       selection = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -474,17 +526,14 @@ $id("historyChart").onpointermove = (event) => {
     selection.setAttribute("width", Math.abs(fraction - chartDragStart) * 1e3);
     return;
   }
-  const at = loaded.range.from.getTime() + fraction * (loaded.range.to - loaded.range.from);
-  const nearest = loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
-  if (!nearest) return;
-  $id("chartTooltip").hidden = false;
-  if (loaded.modality === "as5600_i2c") return void ($id("chartTooltip").textContent = magTooltipText(nearest, loaded));
-  $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
-Posição elétrica: leitura ${fmtNum(nearest.travel_percent, 2)}% · linha estabilizada ${fmtNum(nearest.stable_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
-${fmtNum(nearest.samples, 0)} leituras`;
+  if (event.pointerType !== "mouse") return;
+  const nearest = chartNearestRow(loaded, fraction);
+  if (nearest) showChartTooltip(loaded, nearest, fraction);
 };
 $id("historyChart").onpointerleave = () => {
-  $id("chartTooltip").hidden = true;
+  // Com um ponto marcado, a dica volta a ele; sem marca, some.
+  if (telem.pin) paintChartPin();
+  else $id("chartTooltip").hidden = true;
 };
 $id("historyChart").onpointercancel = () => {
   chartDragStart = null;
@@ -497,12 +546,20 @@ $id("historyChart").onpointerup = (event) => {
   chartDragStart = null;
   $id("historyChart").querySelector(".chart-selection")?.remove();
   const loaded = telem.loaded;
-  if (!loaded || Math.abs(end - start) < 0.01) return;
+  if (!loaded) return;
+  if (Math.abs(end - start) < 0.01) {
+    // Toque: marca o intervalo mais próximo (tocar de novo no mesmo desmarca).
+    const nearest = chartNearestRow(loaded, end);
+    telem.pin = nearest && nearest.received_at !== telem.pin ? nearest.received_at : null;
+    if (!telem.pin) $id("chartTooltip").hidden = true;
+    return paintChartPin();
+  }
   const span = loaded.range.to - loaded.range.from;
   try {
     const range = validateRange(new Date(loaded.range.from.getTime() + Math.min(start, end) * span), new Date(loaded.range.from.getTime() + Math.max(start, end) * span));
     telem.zoomStack.push({ custom: telem.custom, period: telem.period, range: telem.range });
-    Object.assign(telem, { range, custom: true });
+    Object.assign(telem, { range, custom: true, pin: null });
+    $id("chartTooltip").hidden = true;
     loadHistory();
   } catch (error) {
     showMessage(errorText(error), "error");

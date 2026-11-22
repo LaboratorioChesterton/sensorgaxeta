@@ -37,29 +37,77 @@ function magConfigState(mag) {
     pointId: config?.point_id || null,
   };
 }
+// Idade de uma leitura, em texto curto ("12 s", "4 min").
+const agoText = (value) => fmtInterval(Math.max(0, Math.round((Date.now() + state.clockOffset - new Date(value).getTime()) / 1000)));
+// Uma linha para leitura rápida do sensor em bancada: "67,83 % · Médio ajuste" (ou o estado, sem
+// número). Usada na árvore e em Ativos, sempre a partir do mesmo `view` do cartão.
+function benchFace(device, view) {
+  const status = deviceStatus(device);
+  const has = view.scale != null;
+  return {
+    has, status, stale: has && !status.online, lastOk: has ? null : view.bench?.last_ok || null,
+    text: has ? `${view.value} %` + (view.sim ? ` · ${view.sim.label}` : "") : view.label,
+    at: device.last_received_at,
+  };
+}
+// Cartão do sensor em Modo bancada: percentual, faixa simulada e barra em destaque, uma única
+// identificação lilás de bancada e o horário da leitura. O ponto de transmissão (cabeçalho) é
+// independente: um sensor pode estar transmitindo e mostrar "Sem ajuste" simulado.
+function benchCardHtml(device, view, status, identity, place, name, config) {
+  const bench = view.bench;
+  const sim = view.sim;
+  const face = benchFace(device, view);
+  const side = face.has
+    ? sim
+      ? benchSimChip(sim, " is-large") + `<small>faixa simulada · ${esc(sim.range)}</small>`
+      : `<span class="adjustment-badge">Posição de bancada</span><small>faixas simuladas desligadas</small>`
+    : `<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small>`;
+  const time = face.stale
+    ? `Última leitura válida às <b>${esc(fmtClock(face.at))}</b> · sem atualização há ${esc(agoText(face.at))}`
+    : face.has
+      ? `Atualizado às <b>${esc(fmtClock(face.at))}</b>` + (device.last_sampled_at ? ` · amostra das ${esc(fmtClock(device.last_sampled_at))}` : "")
+      : face.lastOk
+        ? `Última leitura válida: <b>${esc(fmtNum(benchShown(face.lastOk.percent), 2))} %</b> às ${esc(fmtClock(face.lastOk.at))} (não é a atual)`
+        : `Atualizado às <b>${esc(fmtClock(face.at))}</b>`;
+  return (
+    `<article class="sensor-card health-${view.key} is-magnetic is-bench${face.stale ? " is-stale" : ""}" data-card="${esc(device.sensor_id)}">` +
+    `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
+    `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
+    `<p class="bench-flag"><span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo e não gera evento de manutenção.">Modo bancada</span>` +
+    `<span>${face.stale ? "Última leitura válida (não é a atual)" : "Posição de bancada"}</span></p>` +
+    `<div class="card-main"><div class="card-value" title="Posição de bancada (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
+    `<div class="card-side">${side}</div></div>` +
+    `<div class="mini-scale bench-scale${face.has ? "" : " idle"}" role="img" aria-label="Posição de bancada: ${esc(face.text)}"><i style="width:${view.scale ?? 0}%"></i>` +
+    (view.benchBands ? `<b style="left:30%"></b><b style="left:50%"></b><b style="left:73%"></b>` : "") + `</div>` +
+    `<p class="card-time${face.stale ? " is-late" : ""}">${time}</p>` +
+    `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
+    (face.has ? `<span title="Fora da faixa a barra fica em 0 % ou em 100 % e o quanto passou é guardado">${esc(view.where)}</span>` : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, view.mag))}</span>`) +
+    `</div>` +
+    `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
+    (config.canFix ? `<button data-act="setup" title="Falta cadastro para calcular o curso de ajuste restante">Configurar</button>` : "") +
+    (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
+    `</footer></article>`
+  );
+}
 function magCardHtml(device, view, status, identity, place, name) {
   const mag = view.mag;
   const config = magConfigState(mag);
-  const bench = view.bench || null;
-  // Selo da série: bancada, campo com curso medido ou estimado. A cor não é o único sinal.
-  const tag = bench
-    ? `<span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo e não gera evento de manutenção.">Modo bancada</span>`
-    : view.estimated
-      ? `<span class="series-tag is-estimated" title="O curso disponível deste engaxetamento veio do valor típico do cadastro, não de uma medida.">Curso estimado</span>`
-      : "";
+  if (view.bench) return benchCardHtml(device, view, status, identity, place, name, config);
+  // Selo da série de campo: curso estimado quando D veio do valor típico. A cor não é o único sinal.
+  const tag = view.estimated
+    ? `<span class="series-tag is-estimated" title="O curso disponível deste engaxetamento veio do valor típico do cadastro, não de uma medida.">Curso estimado</span>`
+    : "";
   return (
-    `<article class="sensor-card health-${view.key} is-magnetic${bench ? " is-bench" : ""}" data-card="${esc(device.sensor_id)}">` +
+    `<article class="sensor-card health-${view.key} is-magnetic" data-card="${esc(device.sensor_id)}">` +
     `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
     `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
     `<div class="card-main"><div class="card-value" title="${esc(view.kicker)} (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
-    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}${bench ? " (%)" : ""}</span>${tag}<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}</span>${tag}<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
     `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="${esc(view.kicker)}: ${esc(view.value)} ${esc(view.unit)}"><i style="width:${view.scale ?? 0}%"></i></div>` +
     `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
-    (bench
-      ? `<span title="O percentual de bancada é calculado no servidor a cada envio da placa">${bench.state === "ok" ? "Bancada · envio a cada " + esc(fmtInterval(Number(deviceInterval(device)) || 30)) : esc(magSignalText(device, mag))}</span>`
-      : view.computed
-        ? `<span title="Valor da leitura atual, sem a estabilização de 5 pontos percentuais">Instantâneo ${fmtNum(view.instant, 2)} %</span>`
-        : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
+    (view.computed
+      ? `<span title="Valor da leitura atual, sem a estabilização de 5 pontos percentuais">Instantâneo ${fmtNum(view.instant, 2)} %</span>`
+      : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
     `<span title="Última atualização recebida da placa">Atualizado ${fmtDateTime(device.last_received_at)}</span></div>` +
     `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
     (config.canFix ? `<button data-act="setup" title="Falta cadastro para calcular o curso de ajuste restante">Configurar</button>` : "") +
@@ -92,7 +140,7 @@ function updateDrawerLiveMag(device, view, status) {
     // Bancada: o número é a Posição de bancada (%); graus e bruto ficam ao lado.
     label("detailElectricLabel", "Posição de bancada (%)");
     label("detailVoltLabel", "Posição contínua");
-    tile("detailElectric", view.value === "—" ? "—" : view.value + " %", view.value === "—" ? view.label : "calculado · bancada");
+    tile("detailElectric", view.value === "—" ? "—" : view.value + " %", view.value === "—" ? view.label : view.sim ? `${view.sim.label} · faixa simulada` : "calculado · bancada");
     tile("detailVolt", bench.continuous_deg == null ? "—" : fmtDeg(bench.continuous_deg, 2), bench.continuous_deg == null ? "sem posição conhecida" : `${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s) · medido`);
   } else {
     label("detailElectricLabel", "Curso de ajuste restante");
@@ -101,12 +149,17 @@ function updateDrawerLiveMag(device, view, status) {
       computed ? `${outside ? "fora da faixa" : MAG_BAND[view.band]?.label || "estabilizado"} · ${view.estimated ? "curso estimado" : "curso medido"}` : "sem referência válida");
     tile("detailVolt", computed ? fmtMm(computed.advance_mm, 2) : "—", computed ? `calculado · instantâneo ${fmtNum(computed.remaining_percent, 2)} %` : "sem referência válida");
   }
+  // A cor do quadro do percentual é a mesma do cartão (faixa simulada, ou neutra de bancada).
+  $id("detailElectric").parentElement.className = bench ? `health-${view.key} is-sim-tile` : "";
   tile("detailStableLine", view.raw == null ? "—" : fmtDeg(view.degrees, 2), view.raw == null ? "sem ângulo" : `medido · bruto ${view.raw}`);
   tile("detailSignal", (MAG_REASON[view.reason]?.key === "warn" && view.reason !== "out_of_range" && !/^bench_/.test(view.reason) ? view.label : "Sinal válido"), magSignalText(device, mag));
   const cadence = firmwareCadence(device.firmware_version);
   $id("detailReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` + (cadence ? ` · ${cadence.text}` : "");
-  $id("detailHealth").textContent = (bench && bench.state === "ok" ? "Modo bancada · série de bancada, não é curso de campo" : computed && !view.reason ? `Curso de ajuste restante · ${view.label}` : view.label) + " · " + view.note;
+  $id("detailHealth").textContent =
+    (bench && view.scale != null
+      ? "Modo bancada · " + (view.sim ? `faixa simulada: ${view.sim.label}` : "posição de bancada") + (status.online ? "" : ` · última leitura válida às ${fmtClock(device.last_received_at)}, não é a atual`)
+      : computed && !view.reason ? `Curso de ajuste restante · ${view.label}` : view.label) + " · " + (bench && view.scale != null ? view.where + " · não é curso de campo" : view.note);
   $id("detailHealth").className = "health-banner health-" + view.key;
   renderMagBench(device, view);
   renderMagService(device, view);
@@ -114,7 +167,7 @@ function updateDrawerLiveMag(device, view, status) {
   if ($id("detailDiag")) {
     const lastValid = mag?.last_valid;
     const rows = [
-      ["Série exibida", bench ? "bancada (demonstração em mesa)" : computed ? view.series : "ângulo do sensor (sem curso calculado)"],
+      ["Série exibida", bench ? "bancada (demonstração em mesa)" + (view.benchBands ? " · faixas simuladas ligadas" : " · faixas simuladas desligadas") : computed ? view.series : "ângulo do sensor (sem curso calculado)"],
       ["Ângulo do sensor (medido)", view.raw == null ? "sem ângulo nesta leitura" : `${fmtDeg(view.degrees, 3)} · bruto ${view.raw} de 4095`],
       ["Estabilidade do bloco", reading?.angle_pp == null && device.last_angle_pp == null ? "—" : `${reading?.angle_pp ?? device.last_angle_pp} contagens entre amostras (até 6 = estável)`],
       ["Barramento I²C", MAG_BUS_TEXT[reading?.bus_status ?? device.last_bus_status] || "—"],

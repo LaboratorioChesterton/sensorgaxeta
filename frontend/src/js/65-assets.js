@@ -26,6 +26,16 @@ const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.c
 // Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
 const spotReading = (device) => {
   const view = deviceView(device);
+  // Modo bancada: percentual, faixa simulada e horário na própria linha do spot e na ficha.
+  if (view.bench) {
+    const face = benchFace(device, view);
+    return (
+      `<span class="spot-reading${face.stale ? " is-stale" : ""}" title="Posição de bancada · ${esc(view.note)}">${face.has ? esc(view.value) + " %" : "—"}</span>` +
+      (face.has && view.sim ? benchSimChip(view.sim) : face.has ? "" : `<span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`) +
+      `<span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo.">Modo bancada</span>` +
+      `<small class="spot-time${face.stale ? " is-late" : ""}">${face.stale ? "última leitura válida " : "atualizado "}${esc(fmtClock(face.at))}</small>`
+    );
+  }
   return `<span class="spot-reading" title="${esc(view.magnetic ? view.kicker + " (sensor magnético)" : "Posição elétrica do potenciômetro (leitura atual)")}">${esc(view.value)}${view.unit ? (view.unit === "%" ? " %" : view.unit) : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {

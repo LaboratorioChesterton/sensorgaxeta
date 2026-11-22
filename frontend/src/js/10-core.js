@@ -352,7 +352,7 @@ const MAG_REASON = {
   not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
   out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
   // Modo bancada (demonstração em mesa). Nunca é curso de campo, e sem posição conhecida não há número.
-  bench: { key: "bench", label: "Modo bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
+  bench: { key: "bench", label: "Posição de bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
   bench_awaiting_start: { key: "bench", label: "Confirme o início", note: "Modo bancada ligado. Ponha o eixo dentro da faixa e toque em Confirmar início, em Detalhes." },
   bench_reposition: { key: "warn", label: "Reposicionar para retomar", note: "A placa perdeu a continuidade do giro. Volte o eixo para dentro da faixa e confirme a referência, em Detalhes." },
   bench_no_continuity: { key: "limit", label: "Sem contagem contínua", note: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0). O Modo bancada precisa dela." },
@@ -370,6 +370,62 @@ const magBandOf = (percent) => {
   const shown = Math.round(Number(percent) * 100) / 100;
   return !Number.isFinite(shown) ? null : shown >= 73 ? "high" : shown >= 50 ? "medium" : shown >= 30 ? "low" : "none";
 };
+// ----- Faixas SIMULADAS da bancada (apresentação da demonstração) -----
+// O percentual é o que o servidor entrega (bench.percent). O que a tela mostra é esse valor com
+// duas casas, e a faixa é decidida sobre o MESMO número mostrado (regra de magBandOf): o texto
+// "29,99 %" nunca aparece com a faixa de 30 %. As cores são próprias da simulação: o médio
+// amarelo vale só aqui, e o curso de ajuste restante de campo continua com as cores dele.
+const BENCH_SIM = {
+  none: { band: "none", key: "sim-none", label: "Sem ajuste", range: "0,00 % a 29,99 %", short: "até 29,99 %", color: "vermelho" },
+  low: { band: "low", key: "sim-low", label: "Baixo ajuste", range: "30,00 % a 49,99 %", short: "30 a 49,99 %", color: "laranja" },
+  medium: { band: "medium", key: "sim-medium", label: "Médio ajuste", range: "50,00 % a 72,99 %", short: "50 a 72,99 %", color: "amarelo" },
+  high: { band: "high", key: "sim-high", label: "Alto ajuste", range: "73,00 % a 100,00 %", short: "73 a 100 %", color: "verde" },
+};
+const BENCH_SIM_ORDER = ["none", "low", "medium", "high"];
+// Onde a faixa muda no valor SEM arredondar (o que arredonda para 30,00 já é "Baixo ajuste").
+// Usado só para dividir graficamente um trecho da curva que cruza um limite.
+const BENCH_SIM_EDGES = [29.995, 49.995, 72.995];
+// Percentual de bancada como a tela mostra: número com duas casas, ou null quando não há dado.
+// A validade é conferida ANTES da conversão: Number(null) e Number("") valem 0, e um dado
+// ausente apareceria como "0,00 % · Sem ajuste". Zero de verdade é valor válido.
+function benchShown(percent) {
+  if (percent == null || percent === "" || typeof percent === "boolean" || typeof percent === "object") return null;
+  const value = Number(percent);
+  if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+  return Math.round(value * 100) / 100;
+}
+// Faixa simulada de um percentual de bancada (uma só por valor), ou null sem dado.
+function benchSimOf(percent) {
+  const shown = benchShown(percent);
+  return shown == null ? null : BENCH_SIM[magBandOf(shown)] || null;
+}
+// A preferência "Mostrar faixas simuladas da bancada" é do vínculo sensor–spot e vem do servidor
+// (gaxeta_mag_summary → bench_bands; padrão: ligadas). `benchBandsLocal` guarda a escolha enquanto
+// o envio está em andamento; num banco ainda sem a migração 16, ela fica só neste aparelho.
+const benchBandsLocal = new Map();
+const benchBandsStored = (sensorId) => {
+  try {
+    const saved = localStorage.getItem("gaxeta.benchBands." + sensorId);
+    return saved == null ? null : saved === "1";
+  } catch {
+    return null;
+  }
+};
+function benchBandsOn(sensorId, mag) {
+  if (benchBandsLocal.has(sensorId)) return benchBandsLocal.get(sensorId);
+  if (mag && typeof mag.bench_bands === "boolean") return mag.bench_bands;
+  return benchBandsStored(sensorId) ?? true;
+}
+// Selo da faixa simulada (cor + nome: a cor nunca é o único sinal).
+const benchSimChip = (sim, extra = "") =>
+  sim ? `<span class="sim-chip health-${sim.key}${extra}" title="Faixa simulada da bancada (${esc(sim.range)}). Não é curso de ajuste restante.">${esc(sim.label)}</span>` : "";
+// Hora curta para leitura rápida: só a hora quando é de hoje; com o dia quando não é.
+function fmtClock(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toDateString() === new Date().toDateString() ? time : `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${time}`;
+}
 // Por que a placa recomeçou a contagem contínua (ct_loss) ou a bancada perdeu a posição.
 const CT_LOSS_TEXT = {
   boot: "reinício da placa ou retorno de energia", no_magnet: "ímã ausente", field: "campo magnético fora da faixa", bus: "falha do barramento I²C",
@@ -425,16 +481,22 @@ function magView(device, mag) {
   // Modo bancada: série própria, sempre identificada. Sem posição conhecida não há número
   // (nunca 0 % nem "Sem ajuste" no lugar da leitura).
   if (bench) {
-    const shared = { ...base, bench, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
-    if (bench.state === "ok" && bench.percent != null && !sampleBad) {
+    const bands = benchBandsOn(device?.sensor_id, mag);
+    const shared = { ...base, bench, benchBands: bands, sim: null, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
+    const shown = bench.state === "ok" && !sampleBad ? benchShown(bench.percent) : null;
+    if (shown != null) {
       const over = Number(bench.over_deg) || 0;
+      const sim = bands ? benchSimOf(shown) : null;
+      const where = over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa";
       return {
-        ...shared, origin: "calculado · bancada", key: "bench", label: "Modo bancada",
-        note: (over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa") + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
-        value: fmtNum(bench.percent, 2), unit: "%", scale: Number(bench.percent),
+        ...shared, origin: "calculado · bancada", sim, where, key: sim ? sim.key : "bench", label: sim ? sim.label : "Posição de bancada",
+        note: (sim ? `Faixa simulada (${sim.range}) · ` : "") + where + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
+        value: fmtNum(shown, 2), unit: "%", scale: shown,
       };
     }
-    const state = info || MAG_REASON.bench_awaiting_start;
+    // Amostra inválida, início não confirmado ou reposicionamento: estado próprio, sem número.
+    // O motivo do servidor manda; sem ele, vale o estado da própria bancada.
+    const state = (reason !== "bench" && info) || MAG_REASON["bench_" + bench.state] || MAG_REASON.bench_awaiting_start;
     return { ...shared, key: state.key, label: state.label, note: state.note, value: "—", unit: "", scale: null };
   }
   if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {

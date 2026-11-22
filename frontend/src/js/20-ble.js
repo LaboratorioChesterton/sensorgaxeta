@@ -25,7 +25,28 @@ const bleCurrent = () => bleDevice;
 async function bleStopScan() {
   (clearTimeout(bleScanTimer), await BleClient.stopLEScan().catch(() => {}));
 }
-async function bleScan(t, e) {
+// O que impede a busca agora, se algo impede: permissão negada, Bluetooth desligado ou, no
+// Android 11 e anteriores, a localização desligada (nessas versões a busca depende dela).
+// Não inicia busca nem conexão.
+async function blePrepare() {
+  try {
+    await bleInit();
+  } catch (error) {
+    const text = String(error?.message || error || "");
+    return { ok: false, kind: /denied|permission|permiss/i.test(text) ? "denied" : "unavailable", message: text };
+  }
+  try {
+    if (!(await BleClient.isEnabled())) return { ok: false, kind: "off" };
+  } catch {}
+  const android = /Android (\d+)/.exec(navigator.userAgent);
+  if (Z.getPlatform() === "android" && android && Number(android[1]) <= 11) {
+    try {
+      if (!(await BleClient.isLocationEnabled())) return { ok: false, kind: "location" };
+    } catch {}
+  }
+  return { ok: true };
+}
+async function bleScan(t, e, done = () => {}) {
   if ((await bleInit(), await bleStopScan(), !Z.isNativePlatform())) {
     const r = await BleClient.requestDevice({
       services: [BLE_SERVICE],
@@ -46,7 +67,7 @@ async function bleScan(t, e) {
   ),
     e("Buscando sensores próximos…"),
     (bleScanTimer = setTimeout(async () => {
-      (await bleStopScan(), e("Busca concluída. Selecione um sensor ou busque novamente."));
+      (await bleStopScan(), e("Busca concluída. Selecione um sensor ou busque novamente."), done());
     }, 8e3)));
 }
 function bleDropped() {
@@ -72,7 +93,14 @@ async function bleConnect(t, e, r) {
     (bleDevice = t));
   try {
     (await bleReadOnce(),
-      await BleClient.startNotifications(t.deviceId, BLE_SERVICE, BLE_CHAR_READING, (s) => bleParse(s)).catch(() => {}),
+      await BleClient.startNotifications(t.deviceId, BLE_SERVICE, BLE_CHAR_READING, (s) => {
+        try {
+          bleParse(s);
+        } catch {
+          // Pacote maior que o MTU acordado chega cortado: a leitura da característica vem inteira.
+          bleReadOnce().catch(() => {});
+        }
+      }).catch(() => {}),
       (bleTimer = setInterval(() => bleReadOnce().catch(() => bleOnStatus("Falha na leitura local; tentando novamente.")), 5e3)),
       r("Bluetooth conectado. Leitura local a cada 5 segundos."));
   } catch (s) {

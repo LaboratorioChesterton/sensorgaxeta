@@ -251,6 +251,7 @@ function openDrawer(sensorId, mode = "detail", opener = null) {
   $id("detailPane").hidden = false;
   $id("scrim").hidden = false;
   document.body.classList.add("drawer-open");
+  pushBackLayer("drawer", () => closeDrawer());
   renderDrawer().catch((error) => showMessage(errorText(error), "error"));
 }
 function closeDrawer(restoreFocus = true) {
@@ -259,6 +260,7 @@ function closeDrawer(restoreFocus = true) {
   $id("detailPane").hidden = true;
   $id("scrim").hidden = true;
   document.body.classList.remove("drawer-open");
+  dropBackLayer("drawer");
   if (restoreFocus) {
     const card = opener?.closest?.("[data-card]")?.dataset.card;
     (card ? $id("sensorGrid").querySelector(`[data-card="${CSS.escape(card)}"] [data-act="${opener.dataset.act}"]`) : opener)?.focus?.();
@@ -436,7 +438,7 @@ async function renderDrawer() {
         withBusy(event.currentTarget, async () => {
           if (!bleCurrent() || state.bleReading?.sensor_id !== sensorId) {
             openBleDialog();
-            $id("bleStatus").textContent = "Conecte o sensor com ID " + sensorId + " para gravar o nome.";
+            setBlePhase(bleUi.phase === "connected" ? "connected" : "idle", "Conecte o sensor com ID " + sensorId + " para gravar o nome: toque em Buscar sensores.");
             return;
           }
           if (!device.desired_label) throw Error("Salve primeiro o nome do sensor na plataforma.");

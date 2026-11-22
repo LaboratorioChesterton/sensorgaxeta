@@ -296,13 +296,54 @@ async function checkContext() {
   return true;
 }
 
+// ----- Voltar (botão do Android e do navegador) -----
+// Cada camada aberta por cima da tela (árvore em tela cheia, painel do sensor, diálogo) deixa
+// uma entrada no histórico. Voltar fecha a camada de cima em vez de sair da tela ou do aplicativo.
+// O código nunca chama history.back() por conta própria fora de um Voltar de quem está usando:
+// uma camada fechada pelo próprio botão deixa a entrada "morta" no topo (backStale), que é
+// reaproveitada pela próxima camada ou pulada no próximo Voltar.
+const backLayers = [];
+let backStale = false;
+function pushBackLayer(name, close) {
+  if (backLayers.some((layer) => layer.name === name)) return;
+  backLayers.push({ name, close });
+  history[backStale ? "replaceState" : "pushState"]({ layer: name }, "");
+  backStale = false;
+}
+function dropBackLayer(name) {
+  const index = backLayers.findIndex((layer) => layer.name === name);
+  if (index < 0) return;
+  if (index === backLayers.length - 1) backStale = true;
+  backLayers.splice(index, 1);
+}
+window.addEventListener("popstate", (event) => {
+  // Saiu de uma entrada morta: este Voltar ainda não fez nada visível. Repete-o na entrada viva.
+  if (backStale) {
+    backStale = false;
+    return void history.back();
+  }
+  const layer = backLayers.pop();
+  if (layer) layer.close();
+  const landed = event.state?.layer;
+  backStale = !!landed && !backLayers.some((item) => item.name === landed);
+});
+// Diálogos: qualquer um que abra entra na pilha, e sai dela ao fechar.
+new MutationObserver((changes) => {
+  for (const change of changes) {
+    const dialog = change.target;
+    if (dialog.tagName !== "DIALOG") continue;
+    if (dialog.open) pushBackLayer("dialog:" + dialog.id, () => dialog.close());
+    else dropBackLayer("dialog:" + dialog.id);
+  }
+}).observe(document.body, { attributes: true, attributeFilter: ["open"], subtree: true });
+
 // ----- Navegação -----
 const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários", manual: "Manual de operação" };
 function renderPageActions() {
   const actions = [];
   // Bluetooth: só no aplicativo nativo e só por toque. Na web, a busca da lista encontra por nome, TAG, ID ou MAC.
   if (state.page === "sensors" && bleAvailable())
-    actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
+    actions.push('<button class="primary compact" data-action="find-sensor" title="Procura as placas próximas pelo Bluetooth do celular">' + icon("bluetooth-searching") + "Buscar sensor por Bluetooth</button>");
   // A estrutura de ativos é administrada na web (qualquer largura de janela).
   if (state.page === "assets" && hasCap("manage_corporations") && !isNativeApp())
     actions.push('<button class="primary compact" data-action="new-corporation">' + icon("plus") + "Nova corporação</button>");
@@ -320,8 +361,14 @@ function showPage(page) {
   if (page === "manual" && state.page !== "manual") state.manualReturn = state.page;
   // Bluetooth nunca fica aberto de uma tela para outra, nem abre sozinho.
   closeBleDialog();
+  const changed = state.page !== page;
   state.page = page;
-  if (location.hash.slice(1) !== page) history.replaceState(null, "", "#" + page);
+  // No aplicativo, cada troca de tela fica no histórico: o botão Voltar do Android volta à tela
+  // anterior em vez de sair. No navegador o endereço é só atualizado, como antes.
+  if (location.hash.slice(1) !== page) {
+    history[isNativeApp() && changed && state.authorized && !backStale ? "pushState" : "replaceState"](null, "", "#" + page);
+    backStale = false;
+  }
   document.body.dataset.page = page;
   $id("workspace").hidden = !["sensors", "assets"].includes(page);
   $id("sensorPane").hidden = page !== "sensors";
