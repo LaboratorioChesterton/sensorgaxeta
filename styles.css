@@ -274,7 +274,7 @@ body.tree-collapsed[data-page="sensors"] .asset-pane { display: none; }
 .sensor-toolbar, .list-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .sensor-toolbar select, .list-toolbar select { width: auto; max-width: 100%; flex: 0 1 190px; }
 .section-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.section-line h2 { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-line h2 { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .section-line span { font-size: 12px; color: var(--muted); white-space: nowrap; }
 /* auto-fill mantém as colunas da grade mesmo com poucos cartões: um cartão sozinho não se estica,
    e 10–20 cartões ocupam a largura disponível em colunas iguais, sem rolagem horizontal. */
@@ -572,7 +572,7 @@ dialog.wide-dialog .dialog-actions { position: sticky; bottom: -14px; margin: 0 
 }
 
 /* ----- Celular e app Android ----- */
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-height: 480px) and (orientation: landscape) {
   :root { --rail: 0px; }
   .auth-screen { grid-template-columns: 1fr; }
   .auth-art { display: none; }
@@ -664,7 +664,7 @@ body.manual-standalone { background: var(--bg); height: auto; min-height: 100%; 
 .manual-top strong { color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .manual-top a.back { margin-left: auto; text-decoration: none; }
 body.manual-standalone .manual-layout { max-width: 1140px; margin: 0 auto; padding: 14px 16px; }
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-height: 480px) and (orientation: landscape) {
   .manual-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
   body.manual-standalone .manual-layout { padding: 8px; }
   /* Índice recolhível, fixo no topo enquanto se lê. */
@@ -943,7 +943,7 @@ dialog.wide-dialog { width: min(680px, calc(100vw - 20px - var(--safe-left) - va
   .tree-sensor { padding: 7px 10px; }
   .chart-legend li { min-height: 24px; }
 }
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-height: 480px) and (orientation: landscape) {
   .auth-panel { padding: calc(20px + var(--safe-top)) calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left)); }
   .rail { padding: 4px calc(4px + var(--safe-right)) var(--safe-bottom) calc(4px + var(--safe-left)); }
   .drawer { padding-left: var(--safe-left); }
@@ -993,9 +993,41 @@ dialog.wide-dialog { width: min(680px, calc(100vw - 20px - var(--safe-left) - va
   .page-actions { flex: 1 1 100%; }
   .page-actions .primary { flex: 1; height: 44px; font-size: 15px; }
 }
-/* Telefone deitado: pouca altura; o gráfico usa a altura que existe. */
+/* Nada pode alargar a página além da tela. Se algo alargar, o Android amplia a área de layout: a
+   barra superior e a de abas saem do lugar e a tela passa a correr para o lado. */
+html { overflow-x: clip; }
+#application { max-width: 100vw; overflow-x: clip; }
+.workspace > *, .sensor-pane, .page-head > * { min-width: 0; }
+@media (max-width: 760px), (max-height: 480px) and (orientation: landscape) {
+  /* O caminho do que está selecionado quebra em linhas em vez de empurrar o cartão. */
+  .section-line h2 { flex: 1 1 100%; white-space: normal; overflow-wrap: anywhere; }
+  .section-line > span { order: 2; }
+  .section-line > .scope-clear { order: 3; margin-left: auto; }
+}
+/* Telefone deitado: pouca altura. O conteúdo é o do telefone em pé (uma coluna, árvore por cima);
+   a navegação fica na lateral, para não gastar altura, e a barra superior fica fina. */
 @media (max-height: 480px) and (orientation: landscape) {
-  .chart-layout { height: clamp(150px, 62vh, 300px); }
+  :root { --rail: 62px; --top: 38px; }
+  #application { grid-template-columns: var(--rail) minmax(0, 1fr); padding-bottom: 0; }
+  .topbar { padding-left: 10px; padding-right: 10px; }
+  .brand img { height: 20px; }
+  .product-icon { width: 24px; height: 24px; }
+  .rail { position: sticky; top: calc(var(--top) + var(--safe-top)); left: auto; right: auto; bottom: auto; height: calc(100dvh - var(--top) - var(--safe-top)); padding: 4px 4px calc(4px + var(--safe-bottom)); flex-direction: column; justify-content: flex-start; overflow-y: auto; scrollbar-width: none; z-index: 20; }
+  .rail::-webkit-scrollbar { display: none; }
+  .rail button, .rail a { flex: none; padding: 6px 0; font-size: 10px; }
+  main { padding: 8px 10px calc(8px + var(--safe-bottom)); }
+  .page-actions { flex: 0 1 auto; }
+  .page-actions .primary { flex: none; height: 40px; padding: 0 14px; }
+  .summary { order: 0; flex-basis: auto; }
+  .sensor-grid, .gateway-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .telemetry-identity { flex: 1 1 55%; }
+  .telemetry-actions { flex: 0 0 auto; }
+  .telemetry-actions button { flex: none; }
+  .telemetry-pick { order: 3; }
+  .summary-main { flex: 1 1 320px; }
+  .summary-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .chart-layout { height: clamp(170px, calc(100dvh - var(--top) - var(--safe-top) - var(--safe-bottom) - 110px), 300px); }
+  .drawer { left: auto; width: min(520px, calc(100vw - var(--safe-left))); padding-left: 0; }
   .asset-pane { max-height: none; }
 }
 @media (max-width: 360px) {

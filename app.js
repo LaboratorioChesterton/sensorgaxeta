@@ -1263,7 +1263,8 @@ const $id = (id) => document.getElementById(id);
 const isNativeApp = () => Z.isNativePlatform();
 // Bluetooth existe apenas no aplicativo nativo com o plugin disponível.
 const bleAvailable = () => isNativeApp() && Z.isPluginAvailable("BluetoothLe");
-const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
+// Layout de telefone: tela estreita ou telefone deitado (pouca altura). A mesma condição do CSS.
+const isNarrow = () => window.matchMedia("(max-width: 760px), (max-height: 480px) and (orientation: landscape)").matches;
 
 // Ícones Lucide incluídos no vendor (nomes minificados à direita).
 const renderIcons = () =>
@@ -7300,6 +7301,14 @@ $id("linkBle").onclick = async () => {
 // =============================================================================
 // Plataforma: decidida pelo runtime (aplicativo nativo × navegador), nunca pela largura da tela.
 document.body.classList.toggle("native-app", isNativeApp());
+// O topo do aplicativo é claro: os ícones da barra de status precisam ser escuros, inclusive com o
+// aparelho em tema escuro (o padrão seguiria o tema e deixaria relógio e sinal brancos sobre branco).
+if (isNativeApp()) {
+  try {
+    const bars = window.Capacitor?.Plugins?.SystemBars;
+    Promise.resolve(bars?.setStyle?.({ style: "LIGHT" })).catch(() => {});
+  } catch {}
+}
 if (bleAvailable()) $id("openBle").hidden = false;
 else {
   // Web (inclusive navegador de celular): sem entrada de Bluetooth e sem o diálogo no documento.
