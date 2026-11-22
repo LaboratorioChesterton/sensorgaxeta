@@ -6,11 +6,11 @@ Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`,
 
 A ordem entre os três passos é livre: cada combinação foi ensaiada.
 
-| Passo | Estado em 21/11, 19:45 | Compatibilidade |
+| Passo | Estado em 21/11, 21:10 | Compatibilidade |
 |---|---|---|
-| **1. Banco, migração 15** (quatro arquivos `2026112123000{1..4}_*.sql`) | **Não aplicada.** A aplicação pelo Claude foi barrada pelo controle de permissões da sessão; depende da sua autorização (ou de você colar os quatro arquivos, em ordem, no SQL Editor). | O site publicado hoje passa as 52 verificações dele com a migração 15 aplicada. O firmware 4.4.0 continua aceito. |
-| **2. Site** | Pronto para o seu commit. | Sem a migração 15, as telas novas avisam "depende da atualização do banco" e o resto funciona como hoje. |
-| **3. Firmware 4.5.0** na C3 piloto | **Não gravado.** Compilado para a C3; fonte na pasta da entrega. | O banco de hoje ignora os campos novos; com a migração 15 passa a gravá-los. |
+| **1. Banco, migração 15** (quatro arquivos, versões `20261121232208`, `…232341`, `…232459` e `…232554`) | **Aplicada em produção em 21/11, das 20:22 às 20:25**, com autorização do Ítalo. As 149 impressões de funções, colunas, restrições, índices e RLS são iguais às do banco ensaiado; a placa não perdeu nenhum envio. Ver `supabase/ESTADO_PRODUCAO.md`. | O site publicado antes e o firmware 4.4.0 continuaram aceitos. |
+| **2. Site** | **Publicado em 21/11 às 20:08** (commit `52e1baf`, depois da exclusão do `62-gland.js` no `4fc7bc5`). Os cinco arquivos servidos são byte a byte os do build ensaiado. | Com a migração 15 aplicada, as telas novas respondem. |
+| **3. Firmware 4.5.0** na C3 piloto | **Gravado em 21/11 às 20:46**; bancada ensaiada na placa até 21:06 (extremos e queda de Wi-Fi). Ver `supabase/ESTADO_PRODUCAO.md`. | O banco grava a contagem contínua e calcula a Posição de bancada. |
 
 Para o Modo bancada mostrar percentual são necessários os três.
 
@@ -32,24 +32,24 @@ Para o Modo bancada mostrar percentual são necessários os três.
 |---|---|
 | `frontend/src/js/64-bench.js` | **Novo**: Modo bancada (prévia, ativar, confirmar início, reposicionar, sair, simulação das faixas) |
 | `frontend/src/js/66-mag-setup.js` | **Novo**: Configurar montagem (curso no TAG e no spot, revisões e ensaio) e campos do formulário de Ativos |
-| `frontend/src/js/62-gland.js` | **Apagar.** Continua no repositório e, com ele presente, `node build.mjs` gera um `app.js` com erro de sintaxe (`newRequestId` declarado duas vezes). O site no ar não é afetado porque foi publicado a partir do build da entrega anterior. |
+| `frontend/src/js/62-gland.js` | **Apagado** do repositório em 21/11 (commit `4fc7bc5`). Com ele presente, `node build.mjs` gerava um `app.js` com erro de sintaxe (`newRequestId` declarado duas vezes). |
 | `frontend/src/js/10-core.js` | Substituir (faixas, motivos de bancada, `magView` com série e estabilizado em duas casas) |
 | `frontend/src/js/63-magnetic.js` | Substituir (cartão com selo de série e botão Configurar; um toque com o curso do cadastro; registro sem referência) |
 | `frontend/src/js/60-sensors.js` | Substituir (Ver todos, Desvincular em Detalhes com TAG, equipamento e spot) |
 | `frontend/src/js/50-tree.js`, `65-assets.js`, `72-telemetry-mag.js` | Substituir (árvore com série e faixa; curso no formulário do TAG e do spot; gráfico e CSV da bancada) |
 | `frontend/src/index.html`, `frontend/src/operacao.html`, `frontend/src/styles/app.css` | Substituir |
-| `supabase/migrations/20261121230001_a_modo_bancada_estrutura.sql` | **Novo** |
-| `supabase/migrations/20261121230002_b_ingestao_contagem_continua.sql` | **Novo** |
-| `supabase/migrations/20261121230003_c_bancada_cadastro_funcoes.sql` | **Novo** |
-| `supabase/migrations/20261121230004_d_resumo_e_historico_magnetico.sql` | **Novo** |
-| `supabase/rollback/20261121230001_a_modo_bancada_estrutura.down.sql` | **Novo**: reverte as quatro partes de uma vez |
+| `supabase/migrations/20261121232208_a_modo_bancada_estrutura.sql` | **Novo** |
+| `supabase/migrations/20261121232341_b_ingestao_contagem_continua.sql` | **Novo** |
+| `supabase/migrations/20261121232459_c_bancada_cadastro_funcoes.sql` | **Novo** |
+| `supabase/migrations/20261121232554_d_resumo_e_historico_magnetico.sql` | **Novo** |
+| `supabase/rollback/20261121232208_a_modo_bancada_estrutura.down.sql` | **Novo**: reverte as quatro partes de uma vez |
 | `supabase/ESTADO_PRODUCAO.md` | Substituir |
 | `tests/87_modo_bancada.sql` | **Novo** (196 verificações) |
 | `tests/85_concorrencia_magnetica.sh` | Substituir (horário da amostra com milissegundos: tirava uma falha intermitente do ensaio) |
 | `tests/86_capacidade_15_dias.sh` | Substituir (carga com a contagem contínua) |
 | `dev/run_all.sh` | Substituir (migração 15 e suíte 87) |
 
-Os números `20261121230001` a `…04` são provisórios: ao aplicar, o Supabase grava a versão com o horário da aplicação. Depois de aplicar, renomeie os quatro arquivos e o `.down.sql` para as versões do histórico (como nas migrações anteriores) e registre em `supabase/ESTADO_PRODUCAO.md`.
+Os quatro arquivos e o `.down.sql` já estão com as versões que o Supabase gravou no histórico ao aplicar (21/11, 20:22 a 20:25).
 
 Nenhum arquivo traz chave, token, hash de ingestão, senha, PIN ou e-mail real.
 
@@ -99,4 +99,4 @@ select count(*) from information_schema.columns where table_name = 'gaxeta_readi
 
 - **Site**: `git revert` do commit.
 - **Placa**: gravar de volta o 4.4.0 (binário exportado antes da gravação do 4.5.0; ver `firmware/LEIA_FIRMWARE.md`). O banco aceita os dois.
-- **Banco**: `supabase/rollback/20261121230001_a_modo_bancada_estrutura.down.sql` devolve as funções à forma da migração 14 e remove tabelas, colunas e funções novas. As leituras ficam; a contagem contínua e o resultado de bancada gravados nelas são descartados com as colunas. Recusa rodar se houver spot com curso próprio e sem geometria.
+- **Banco**: `supabase/rollback/20261121232208_a_modo_bancada_estrutura.down.sql` devolve as funções à forma da migração 14 e remove tabelas, colunas e funções novas. As leituras ficam; a contagem contínua e o resultado de bancada gravados nelas são descartados com as colunas. Recusa rodar se houver spot com curso próprio e sem geometria.
