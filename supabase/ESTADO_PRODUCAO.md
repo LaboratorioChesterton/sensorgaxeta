@@ -1,6 +1,6 @@
 # Estado da produção — SensorGaxeta
 
-## 22/11/2026, 10:40: migração 16 APLICADA (faixas simuladas da bancada) e site novo PUBLICADO; APK 1.8.0 ainda não instalado
+## 22/11/2026, 12:35: migração 16 APLICADA (faixas simuladas da bancada), site novo PUBLICADO e APK 1.8.2 INSTALADO no celular
 
 Aplicada em 22/11/2026 pelo conector do Supabase, com a autorização dada no pedido da demonstração. Conferido às 10:10 (horário de Brasília).
 
@@ -21,7 +21,8 @@ Aplicada em 22/11/2026 pelo conector do Supabase, com a autorização dada no pe
 - Consultor de segurança do Supabase depois da aplicação: nenhum item de nível ERRO. Os avisos são dos mesmos tipos de antes, agora também para os dois objetos novos (tabela privada com RLS e sem política, intencional; função `security definer` chamável por conta autenticada, que confere o escopo). Continua o aviso de proteção contra senha vazada desligada no Auth.
 - Não exercitado em produção: ninguém chamou `gaxeta_mag_bench_set_bands` (a tabela está vazia) nem reenviou a mesma faixa a `gaxeta_mag_bench_start`. Os dois caminhos estão cobertos pela suíte 88 no banco local, com as funções no mesmo hash.
 - Site: **publicado em 22/11 às 10:36:52** (commit `9ed071a`; os commits `8236801` a `139ac21`, das 10:29 às 10:36, levaram testes, migração, reversão e fonte). No ar às 10:37:44: `index.html`, `acesso.html`, `app.js`, `styles.css` e `operacao.html` baixados do endereço público são byte a byte os do build ensaiado (`app.js` MD5 `bee4d636…c0f7`). Aberto com a sessão do Ítalo às 10:38: o cartão do L2-956 mostra 42,61 % · Baixo ajuste, atualizado às 10:37:41; a Telemetria de 1 hora mostra 120 leituras válidas de 120. Nenhuma ação foi feita na tela além de abrir Sensores e o histórico.
-- Aplicativo Android 1.8.0 (código 9): montado e assinado, **não instalado em nenhum aparelho**.
+- Correção da tela do celular publicada às 12:28:19 (commit `5850fc6`, depois de `fd50c53`, `9235cf5` e `8db70db` com a fonte); no ar às 12:29:00, com os cinco arquivos iguais ao build ensaiado (`app.js` MD5 `beecd4a3…6f8f1`). Com um TAG selecionado, o caminho comprido deixava a página mais larga que o aparelho.
+- Aplicativo Android **1.8.2 (código 11): instalado em 22/11 às 12:23 no Galaxy S23 do Ítalo (SM-S911B, Android 17, One UI 9), pelo cabo USB (`adb`)**, por cima do 1.8.1 instalado às 12:00. Tocando no arquivo, o aparelho recusa a instalação sem dizer o motivo (o arquivo é válido; a causa mais provável é a verificação de desenvolvedor do Android, que não vale para `adb`). Às 12:11 o Ítalo confirmou site e aplicativo operando com o L2-956.
 - Firmware: sem alteração.
 
 Reversão: `supabase/rollback/20261122130446_faixas_simuladas_da_bancada.down.sql` (catálogo idêntico ao da migração 15, conferido no banco local). A escolha de cada sensor é descartada; leituras, sessões, âncoras e histórico ficam.
