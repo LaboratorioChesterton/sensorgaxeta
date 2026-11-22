@@ -2,13 +2,13 @@
 
 Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`, a partir do commit publicado `cf792a3` (21/11; `app.js` com MD5 `989d97ef…468f`, igual ao do site). **Tudo já está no repositório e no ar**; este arquivo fica como registro do que entrou e de como reverter.
 
-## Estado em 22/11/2026, 10:40
+## Estado em 22/11/2026, 12:35
 
 | Passo | Estado | Compatibilidade |
 |---|---|---|
 | **1. Banco, migração 16** (`20261122130446_faixas_simuladas_da_bancada.sql`) | **Aplicada em produção em 22/11 às 10:04:46**, pelo conector do Supabase, na primeira tentativa. Ver `supabase/ESTADO_PRODUCAO.md`. | O site publicado hoje (`cf792a3`) continua funcionando com ela: 118 verificações, 0 falhas. |
-| **2. Site** | **Publicado em 22/11 às 10:36:52** (commit `9ed071a`; no ar às 10:37:44). Os cinco arquivos servidos são byte a byte os do build ensaiado. Feito pelo Claude no navegador do Ítalo, a pedido dele, em dez commits por pasta (`8236801` a `9ed071a`). | O site novo também funciona com o banco na migração 15 (guarda a preferência só no aparelho): 8 verificações, 0 falhas. |
-| **3. Aplicativo Android 1.8.0** | APK assinado na pasta da entrega. **Não instalado em nenhum aparelho.** | Embarca este mesmo build. Não depende do passo 2. |
+| **2. Site** | **Publicado em 22/11 às 10:36:52** (commit `9ed071a`; no ar às 10:37:44). Às **12:28:19** entrou a correção da tela do celular (commit `5850fc6`; no ar às 12:29:00). Os cinco arquivos servidos são byte a byte os do build ensaiado. Feito pelo Claude no navegador do Ítalo, a pedido dele, em dez commits por pasta (`8236801` a `9ed071a`). | O site novo também funciona com o banco na migração 15 (guarda a preferência só no aparelho): 8 verificações, 0 falhas. |
+| **3. Aplicativo Android 1.8.2** | **Instalado em 22/11 às 12:23 no Galaxy S23 do Ítalo (Android 17), pelo cabo USB (`adb`).** Tocando no arquivo, esse aparelho recusa a instalação; pelo cabo instala. | Embarca este mesmo build (o de 12:28). |
 | **Firmware** | Sem alteração: a C3 do L2-956 segue no `4.5.0-cont30`. | — |
 
 **Não reaplique a migração 15 nem a 16. Não aplique a 13 (`20261119142500`).**
@@ -25,7 +25,7 @@ Este pacote espelha a raiz do repositório `LaboratorioChesterton/sensorgaxeta`,
 | `COMO_PUBLICAR.md` | **Substituir** (este arquivo) |
 | Demais arquivos da raiz | Iguais aos atuais |
 
-MD5 do build: `index.html` `8cd68063…dbca7`, `acesso.html` `09a2b522…2c1d`, `app.js` `bee4d636…c0f7`, `styles.css` `a7f853b2…9abd`, `operacao.html` `0961db24…e8f`.
+MD5 do build no ar (12:28): `index.html` `c9426f2f…2115e`, `acesso.html` `695559d7…0c16b`, `app.js` `beecd4a3…6f8f1`, `styles.css` `7915d7b5…d169f`, `operacao.html` `2f0fca4e…6e0ec`. O build de 10:36 tinha `app.js` `bee4d636…c0f7`.
 
 ## 2. Fonte, banco e testes
 
@@ -66,6 +66,15 @@ Enviado pelo site do GitHub ("Add files via upload"), uma pasta por commit, em 2
 | `139ac21` | `frontend/src/js/` | os 12 módulos da tabela 2 |
 | `9ed071a` | raiz | `index.html`, `acesso.html`, `app.js`, `styles.css`, `operacao.html` |
 
+Correção da tela do celular, das 12:27 às 12:28 (com um TAG selecionado, o caminho comprido alargava a página além do aparelho; telefone deitado ganhou desenho próprio; ícones escuros na barra de status do aplicativo):
+
+| Commit | Pasta | Arquivos |
+|---|---|---|
+| `fd50c53` | `frontend/src/js/` | `10-core.js`, `95-boot.js` |
+| `9235cf5` | `frontend/src/styles/` | `app.css` |
+| `8db70db` | `frontend/src/` | `index.html`, `operacao.html` |
+| `5850fc6` | raiz | `index.html`, `acesso.html`, `app.js`, `styles.css`, `operacao.html` |
+
 Este arquivo e o `supabase/ESTADO_PRODUCAO.md` entraram em seguida, já com este estado. A árvore resultante é a do pacote `SensorGaxeta_demonstracao_commit.zip` da entrega, com esses dois arquivos atualizados.
 
 Conferir o build e os testes:
@@ -93,11 +102,12 @@ O arquivo do repositório difere do SQL gravado no histórico em uma linha de co
 
 - Os cinco arquivos baixados do endereço público têm o MD5 do build (item 1).
 - Com a sessão do Ítalo, às 10:38: **Sensores** mostra o L2-956 com **42,61 % · Baixo ajuste** (laranja), a barra com as marcas e "Atualizado às 10:37:41"; **Telemetria** (1 hora) mostra a curva laranja em 42,6 %, a legenda das quatro faixas e 120 leituras válidas de 120.
+- Depois da correção das 12:28: os cinco arquivos no ar têm o MD5 do novo build; Sensores aberto às 12:29 mostra o L2-956 com 22,92 % · Sem ajuste, atualizado às 12:28:51.
 - Se o navegador ainda mostrar a tela antiga, recarregue sem cache (Cmd+Shift+R).
 - Roteiro da demonstração: `ROTEIRO_DA_APRESENTACAO.md`, na pasta da entrega.
 
 ## 6. Reversão
 
-- **Site**: `git revert` do commit `9ed071a` (os cinco arquivos da raiz). O site anterior funciona com a migração 16.
+- **Site**: `git revert` dos commits `5850fc6` e `9ed071a` (os cinco arquivos da raiz). O site anterior funciona com a migração 16.
 - **Aplicativo**: o 1.7.0 não é reinstalável por cima do 1.8.0 (o Android não aceita código de versão menor). Para voltar, gere um APK com código maior a partir do build anterior.
 - **Banco**: `supabase/rollback/20261122130446_faixas_simuladas_da_bancada.down.sql` remove a função e a tabela da preferência e devolve `gaxeta_mag_bench_start` e `gaxeta_mag_summary` à forma da migração 15. A escolha de cada sensor (ligado ou desligado) é descartada; leituras, sessões, âncoras e histórico não são tocados.
