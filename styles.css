@@ -77,8 +77,13 @@
   --radius: 8px;
   --top: 48px;
   --rail: 64px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Áreas do sistema (recorte da câmera, barra superior, gestos ou três botões). No aplicativo
+     Android o Capacitor grava --safe-area-inset-* no documento; no navegador vale env(). Usa-se
+     UMA das duas fontes, nunca a soma: a margem não é contada duas vezes. */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
   font-family: Barlow, Arial, sans-serif;
   font-weight: 500;
   font-size: 14px;
@@ -798,4 +803,203 @@ dialog#magSetupDialog > .dialog-heading { padding: 14px 14px 0; }
   .bench-number strong { font-size: 26px; }
   .setup-body { padding: 0 8px 10px; }
   .setup-block, .mag-bench, .mag-service { padding: 8px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Demonstração do L2-956 (22/11/2026): faixas simuladas da bancada, gráfico por faixa,
+   Alterar faixa da bancada, busca Bluetooth e desenho para celular.
+   As cores abaixo valem SÓ para a simulação da bancada. O curso de ajuste restante de campo
+   continua com .health-band-* (médio azul). Cada faixa tem cor + nome escrito.
+   --health / --health-bg: texto sobre fundo claro. --sim-fill / --sim-ink: preenchimento forte
+   (barra, selo, traço) e o texto sobre ele (escuro no laranja e no amarelo).
+   --------------------------------------------------------------------------- */
+.health-sim-none { --health: #a61b22; --health-bg: #fde8e6; --sim-fill: #c62828; --sim-ink: #fff; }
+.health-sim-low { --health: #8f4300; --health-bg: #ffead3; --sim-fill: #ef7d00; --sim-ink: #2b1500; }
+.health-sim-medium { --health: #6b5200; --health-bg: #fff5c2; --sim-fill: #f5c400; --sim-ink: #2b2200; }
+.health-sim-high { --health: #0f6a47; --health-bg: #e0f4ea; --sim-fill: #157a4f; --sim-ink: #fff; }
+.sim-chip { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 5px; background: var(--sim-fill); color: var(--sim-ink); font-size: 12px; font-weight: 700; line-height: 1.3; white-space: nowrap; }
+.sim-chip.is-large { font-size: 15px; padding: 4px 10px; border-radius: 6px; }
+[class*="health-sim-"] > .adjustment-badge, .summary-main[class*="health-sim-"] .adjustment-badge { background: var(--sim-fill); color: var(--sim-ink); }
+[class*="health-sim-"] > .adjustment-badge::before, .summary-main[class*="health-sim-"] .adjustment-badge::before { display: none; }
+.health-banner[class*="health-sim-"], .summary-main[class*="health-sim-"] { border-left-color: var(--sim-fill); }
+
+/* Cartão do sensor em bancada: percentual, faixa e barra em destaque; uma identificação lilás. */
+.sensor-card[class*="health-sim-"] { border-left-color: var(--sim-fill); }
+.bench-flag { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.sensor-card.is-bench .card-value { font-size: 42px; }
+.sensor-card.is-bench .card-side { gap: 4px; }
+.sensor-card.is-bench .card-side small { font-size: 12px; }
+.bench-scale { position: relative; height: 12px; border-radius: 6px; }
+.bench-scale i { background: var(--sim-fill, var(--health, #5b3f9e)); border-radius: 6px 0 0 6px; }
+.bench-scale b, .bench-bar b { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; opacity: 0.9; pointer-events: none; }
+.card-time { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+.card-time b { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--navy); }
+.card-time.is-late, .spot-time.is-late { color: var(--amber); font-weight: 600; }
+/* Leitura atrasada: última leitura válida, apagada, para não parecer atual. */
+.sensor-card.is-stale .card-value, .bench-number.is-stale strong, .summary-main.is-stale .summary-value strong, .spot-reading.is-stale, .tree-bench.is-stale { color: #7b8d98; }
+.sensor-card.is-stale .bench-scale i, .sensor-card.is-stale .sim-chip, .bench-number.is-stale .sim-chip { opacity: 0.5; }
+
+/* Detalhes: a barra usa a variável própria da simulação. Antes, o lilás definido em .bench-bar
+   vinha depois das faixas na folha e ganhava: a etiqueta mudava de cor e o preenchimento não. */
+.bench-bar[class*="health-sim-"] i { background: var(--sim-fill); }
+.bench-number { align-items: center; }
+.bench-number[class*="health-sim-"] strong { color: var(--health); }
+.bench-number strong { font-size: 34px; }
+.sim-scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
+.sim-scale li { display: grid; gap: 1px; padding: 3px 5px 4px; border-top: 5px solid var(--sim-fill); border-radius: 3px; background: #f4f7f9; min-width: 0; opacity: 0.7; }
+.sim-scale li.is-current { background: var(--health-bg); box-shadow: inset 0 0 0 2px var(--sim-fill); opacity: 1; }
+.sim-scale b { font-size: 12px; color: var(--health); overflow-wrap: anywhere; line-height: 1.15; }
+.sim-scale small { font-size: 10px; line-height: 1.2; white-space: nowrap; }
+.drawer-values .is-sim-tile { border-left: 4px solid var(--sim-fill, var(--health)); background: var(--health-bg); }
+.drawer-values .is-sim-tile strong { color: var(--health); }
+.bench-live, .bench-controls { display: grid; gap: 6px; min-width: 0; }
+.bench-inuse { margin: 0; display: grid; gap: 1px; padding: 6px 10px; border-radius: 6px; background: #efe9fb; min-width: 0; }
+.bench-inuse span { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5b3f9e; }
+.bench-inuse strong { font-size: 15px; color: #3d2a75; overflow-wrap: anywhere; }
+.bench-invert { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; font-size: 12px; color: var(--muted); }
+.bench-invert .text-button { text-align: left; white-space: normal; min-height: 32px; }
+.bench-loading { margin: 0; padding: 6px 10px; border-radius: 6px; background: #f2f5f7; font-size: 13px; color: var(--muted); }
+.bench-preview th[scope="row"] { background: none; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--ink); white-space: normal; padding: 2px 6px 2px 0; }
+.bench-preview td { font-variant-numeric: tabular-nums; }
+.bench-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 13px; counter-reset: bench-step; }
+.bench-steps li { counter-increment: bench-step; position: relative; padding: 4px 8px 4px 30px; border-radius: 6px; background: #f2f5f7; overflow-wrap: anywhere; }
+.bench-steps li::before { content: counter(bench-step); position: absolute; left: 6px; top: 4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: #cdd8e0; color: var(--ink); }
+.bench-steps li.done { background: #e2f4ec; color: #0c5239; }
+.bench-steps li.done::before { content: "✓"; background: #157a4f; color: #fff; }
+.bench-steps li.current { background: #fff0d8; color: #6b3a00; font-weight: 600; }
+.bench-steps li.current::before { background: #ef7d00; color: #2b1500; }
+.bench-steps li.todo { color: var(--muted); }
+
+/* Árvore e Ativos: "L2-956 · 67,83 % · Médio ajuste" sem abrir Detalhes; duas linhas se preciso. */
+.tree-sensor { flex-wrap: wrap; row-gap: 3px; border-radius: 12px; text-align: left; }
+.tree-sensor-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.tree-sep { color: var(--muted); }
+.tree-bench { color: var(--ink); font-variant-numeric: tabular-nums; }
+.tree-state { color: var(--amber); font-weight: 600; }
+.tree-bench-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5b3f9e; border: 1px dashed #5b3f9e; border-radius: 4px; padding: 0 4px; background: #fff; }
+.spot-time { font-size: 12px; }
+.spot-sensor .series-tag { font-size: 10px; }
+
+/* Gráfico da bancada: linha principal de cerca de 4 px na tela (o traço não estica com o SVG),
+   contorno escuro fino para o amarelo ler bem sobre o fundo claro, pontos isolados visíveis. */
+.chart-sim { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart-sim-none { stroke: #c62828; }
+.chart-sim-low { stroke: #ef7d00; }
+.chart-sim-medium { stroke: #f5c400; }
+.chart-sim-high { stroke: #1b8a5a; }
+.chart-bench-line { stroke: #5b3f9e; }
+.chart-sim-case { fill: none; stroke: #17334480; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.chart-sim-dot { stroke-width: 10; }
+.chart-sim-dot-case { stroke-width: 12.5; }
+.chart-sim-edge { fill: none; stroke: #7b8d98; stroke-width: 1; stroke-dasharray: 2 5; vector-effect: non-scaling-stroke; }
+.chart-pin-line { fill: none; stroke: #173344; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.chart-pin-halo { fill: none; stroke: #fff; stroke-width: 15; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart-pin-dot { fill: none; stroke: #173344; stroke-width: 9; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.chart-legend .legend-sim i { background: var(--sim-fill); width: 18px; height: 5px; box-shadow: 0 0 0 1px #17334455; }
+.chart-legend .legend-bench i { background: #5b3f9e; width: 18px; height: 5px; }
+.chart-legend .legend-anchor i { width: 0; height: 12px; background: none; border-left: 1px dashed #506675; border-radius: 0; }
+.chart-legend small { font-size: 11px; color: var(--muted); }
+.chart-layout { height: clamp(170px, 32vh, 320px); }
+.chart-tooltip { max-width: min(calc(100% - 12px), 420px); }
+.summary-since { white-space: normal !important; overflow-wrap: anywhere; }
+
+/* Seletor "Árvore de ativos" (telefone): abre a árvore em tela cheia, com busca. */
+.tree-pick { display: none; }
+.pane-foot { display: none; }
+
+/* Bluetooth: estados com cor e texto, leitura local ao lado da última leitura da nuvem. */
+.ble-state { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 6px; border-left: 4px solid var(--blue); background: #e1f1fa; color: #0f4f73; font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.ble-state.is-ok { background: #e0f3e9; color: #116e4b; border-color: var(--green); }
+.ble-state.is-warn { background: #fff0d8; color: #6b3a00; border-color: var(--amber); }
+.ble-state.is-error { background: #ffe7e9; color: var(--red); border-color: var(--red); }
+.ble-state.is-busy::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 2px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: ble-spin 0.9s linear infinite; }
+@keyframes ble-spin { to { transform: rotate(360deg); } }
+.ble-help { display: flex; flex-wrap: wrap; gap: 8px; }
+.ble-sources { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ble-source { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: grid; gap: 2px; min-width: 0; }
+.ble-source small:first-child { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.ble-source strong { font-family: "Barlow Condensed", sans-serif; font-size: 26px; line-height: 1.1; color: var(--navy); overflow-wrap: anywhere; }
+.ble-source span, .ble-source small { overflow-wrap: anywhere; }
+.ble-source.is-local { border-left: 4px solid var(--blue); }
+.ble-source.is-cloud { border-left: 4px solid #5b3f9e; }
+.ble-source.is-late strong { color: #7b8d98; }
+.ble-device { min-height: 48px; }
+.ble-device small { overflow-wrap: anywhere; }
+
+/* Áreas laterais do sistema (paisagem, recorte da câmera, três botões ao lado). */
+#application { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+/* O painel termina acima da área de gestos: o que rola até o fim fica inteiro ao alcance do toque. */
+.drawer { padding-right: var(--safe-right); padding-bottom: var(--safe-bottom); }
+.drawer-body { padding-bottom: 14px; }
+dialog { max-height: calc(100dvh - 20px - var(--safe-top) - var(--safe-bottom)); width: min(460px, calc(100vw - 20px - var(--safe-left) - var(--safe-right))); }
+dialog.wide-dialog { width: min(680px, calc(100vw - 20px - var(--safe-left) - var(--safe-right))); }
+
+@media (pointer: coarse) {
+  .periods button { min-height: 40px; padding: 0 12px; font-size: 13px; }
+  .raw-toggle { min-height: 40px; }
+  .raw-toggle input, .bench-sim-toggle input { width: 20px; height: 20px; }
+  .tree-toggle { width: 34px; height: 40px; }
+  .tree-node { padding: 8px 2px; }
+  .tree-sensor { padding: 7px 10px; }
+  .chart-legend li { min-height: 24px; }
+}
+@media (max-width: 760px) {
+  .auth-panel { padding: calc(20px + var(--safe-top)) calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left)); }
+  .rail { padding: 4px calc(4px + var(--safe-right)) var(--safe-bottom) calc(4px + var(--safe-left)); }
+  .drawer { padding-left: var(--safe-left); }
+  .drawer-body { padding-bottom: 20px; }
+  dialog { width: calc(100vw - 12px - var(--safe-left) - var(--safe-right)); max-height: calc(100dvh - 12px - var(--safe-top) - var(--safe-bottom)); }
+  dialog.wide-dialog { width: calc(100vw - 12px - var(--safe-left) - var(--safe-right)); }
+  /* A largura inteira fica para o conteúdo escolhido. A árvore abre por cima, em tela cheia, a
+     partir do seletor; fechada, sobra só o caminho resumido do que está selecionado. */
+  .tree-pick { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .tree-pick .secondary { flex: none; height: 44px; }
+  .tree-pick-path { flex: 1 1 0; min-width: 0; display: grid; text-align: left; line-height: 1.2; min-height: 44px; align-content: center; }
+  .tree-pick-path small { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .tree-pick-path b { font-size: 13px; color: var(--navy); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  #toggleTree { display: none; }
+  .asset-pane, body[data-page="assets"] .asset-pane {
+    position: fixed; inset: 0; width: auto; max-height: none; z-index: 50; border: 0; border-radius: 0; box-shadow: none;
+    padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) calc(10px + var(--safe-bottom)) calc(12px + var(--safe-left));
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto; transform: translateX(-102%); transition: transform 0.18s ease; visibility: hidden;
+  }
+  body.tree-open .asset-pane, body.tree-open[data-page="assets"] .asset-pane { transform: none; visibility: visible; }
+  body[data-page="assets"] .pane-title h2 { visibility: visible; height: auto; }
+  .pane-close, body[data-page="sensors"] .pane-close { display: inline-grid; width: 44px; height: 44px; }
+  .asset-pane .search input { height: 44px; }
+  .asset-pane .search svg { top: 13px; }
+  .tree { font-size: 15px; padding-bottom: 8px; }
+  .tree-results button { padding: 10px 8px; }
+  .pane-foot { display: block; }
+  .pane-foot .wide { height: 46px; white-space: normal; line-height: 1.15; }
+  /* Telemetria no telefone: gráfico com altura útil, métricas em linhas compactas. */
+  .chart-layout { height: clamp(230px, 42vh, 340px); gap: 5px; }
+  .chart-panel { padding: 8px 6px; }
+  .y-axis { width: 22px; font-size: 10px; }
+  .x-axis { padding-left: 27px; }
+  .summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+  .summary-stats div { min-width: 0; border-top: 1px solid var(--line-soft); padding-top: 3px; }
+  .summary-stats dt { min-width: 0; overflow-wrap: anywhere; }
+  .summary-stats dd { font-size: 18px; white-space: normal; overflow-wrap: anywhere; }
+  .summary-value strong { font-size: 38px; }
+  .periods { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none; }
+  .periods::-webkit-scrollbar { display: none; }
+  .periods button { flex: none; }
+  .chart-caption { gap: 6px 12px; }
+  .chart-legend { gap: 4px 10px; }
+  .chart-legend li { white-space: normal; }
+  .chart-footer span:first-child { display: none; }
+  .sim-scale small { font-size: 9.5px; }
+  .page-actions { flex: 1 1 100%; }
+  .page-actions .primary { flex: 1; height: 44px; font-size: 15px; }
+}
+/* Telefone deitado: pouca altura; o gráfico usa a altura que existe. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .chart-layout { height: clamp(150px, 62vh, 300px); }
+  .asset-pane { max-height: none; }
+}
+@media (max-width: 360px) {
+  .sensor-card.is-bench .card-value { font-size: 36px; }
+  .sim-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tree-pick .secondary { padding: 0 10px; }
 }

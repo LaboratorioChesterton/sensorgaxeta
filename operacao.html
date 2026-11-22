@@ -225,7 +225,7 @@
       <h3>Modo bancada (demonstração em mesa)</h3>
       <ol>
         <li>Em <b>Sensores → Detalhes → Modo bancada → Configurar e ativar…</b>, informe o ângulo que vale 0 %, o que vale 100 % e o sentido. Proposta inicial: 80° = 0 %, 180° = 100 %, crescente.</li>
-        <li>Toque em <b>Ver prévia</b>, confira a tabela e o valor da leitura atual, e só então <b>Ativar Modo bancada</b>.</li>
+        <li>A <b>prévia aparece sozinha</b> quando os dois ângulos formam uma faixa válida: confira 0 %, 50 %, 100 % e quanto a posição atual valeria, e só então toque em <b>Ativar Modo bancada</b>.</li>
         <li>Ponha o eixo parado <b>dentro da faixa</b> e toque em <b>Confirmar início</b>. A próxima leitura da placa vira a referência da posição.</li>
         <li>Gire o ímã. A barra vai de 0 a 100 %; passando de um extremo ela fica no extremo e mostra quantos graus passou, inclusive depois de cruzar o zero do sensor e de várias voltas.</li>
         <li>Ao terminar, <b>Sair do Modo bancada</b>.</li>
@@ -235,8 +235,29 @@
         <li><b>Reposicionar para retomar</b>: a placa reiniciou, ficou sem ímã, teve falha de leitura ou girou mais rápido que o garantido. A última posição conhecida fica na tela, com o horário. Volte o eixo a um ponto dentro da faixa e confirme a referência.</li>
         <li>O Modo bancada exige o firmware 4.5.0 ou mais novo. Com firmware anterior aparece <b>Sem contagem contínua</b>, sem percentual.</li>
         <li>Ativar o Modo bancada encerra a referência de engaxetamento do vínculo. A bancada não cria mudança de 5 pontos nem evento de manutenção.</li>
-        <li>A opção <b>simulação das faixas</b> colore a barra pelas faixas de ajuste só para demonstração.</li>
       </ul>
+      <h3>Faixas simuladas da bancada</h3>
+      <p>Com a caixa <b>Mostrar faixas simuladas da bancada</b> marcada (é o padrão), o percentual de bancada aparece com o nome e a cor de uma faixa em Sensores, Detalhes, Ativos e Telemetria, no site e no aplicativo. A escolha é guardada no servidor para aquele sensor: quem opera o spot liga ou desliga uma vez, e todas as telas e aparelhos acompanham.</p>
+      <div class="table-wrap"><table><thead><tr><th>Percentual mostrado</th><th>Faixa simulada</th><th>Cor</th></tr></thead><tbody>
+        <tr><td>0,00 % a 29,99 %</td><td>Sem ajuste</td><td>Vermelho</td></tr>
+        <tr><td>30,00 % a 49,99 %</td><td>Baixo ajuste</td><td>Laranja</td></tr>
+        <tr><td>50,00 % a 72,99 %</td><td>Médio ajuste</td><td>Amarelo</td></tr>
+        <tr><td>73,00 % a 100,00 %</td><td>Alto ajuste</td><td>Verde</td></tr>
+      </tbody></table></div>
+      <ul>
+        <li>É uma <b>simulação</b>: na bancada o percentual é a fração de um arco entre dois ângulos, não o curso de ajuste restante. O lilás e o selo <b>Modo bancada</b> identificam a série em todas as telas.</li>
+        <li>Ligar ou desligar muda só a apresentação. Não pede nova referência, não altera o histórico e não cria evento.</li>
+        <li>O ponto de transmissão é independente da faixa: um sensor pode estar transmitindo e mostrar "Sem ajuste" simulado.</li>
+        <li>Sem posição válida (ímã ausente, início não confirmado, reposicionar) não há número nem faixa. Se a placa parar de enviar, a tela mostra a <b>última leitura válida</b> com o horário, apagada, para não parecer atual.</li>
+        <li>Em Telemetria, cada trecho da curva tem a cor da faixa da sua altura; a linha é interrompida onde não há posição válida. Toque num ponto para ler hora, percentual e faixa.</li>
+      </ul>
+      <h3>Alterar a faixa da bancada</h3>
+      <ol>
+        <li>Em Detalhes, <b>Faixa em uso</b> mostra os valores atuais, por exemplo 80° = 0 % · 180° = 100 % · crescente. Você escolhe qual ângulo vale zero e qual vale cem.</li>
+        <li>Toque em <b>Alterar faixa da bancada…</b>: os campos abrem com os valores em uso. A faixa em uso continua valendo enquanto você digita, e também se cancelar.</li>
+        <li>Digite os novos valores. A prévia aparece sozinha, com a faixa em uso ao lado da nova. <b>Inverter a faixa</b> troca os dois ângulos entre si e muda o sentido.</li>
+        <li>Só <b>Aplicar nova faixa</b> grava. Depois, posicione o eixo dentro da nova faixa, deixe-o parado e toque em <b>Confirmar início</b>. O resultado aparece após uma leitura válida da placa, normalmente no próximo envio; a tela mostra o andamento e a hora da confirmação.</li>
+      </ol>
       <h3>Ver todos os sensores e desvincular</h3>
       <ul>
         <li>Com um ramo da árvore selecionado, a lista mostra só os sensores daquele ramo. <b>Ver todos os sensores</b>, ao lado do título, ou o filtro <b>Todos</b>, volta a todos os sensores da sua conta, inclusive os sem spot.</li>
@@ -315,8 +336,12 @@
       <ul>
         <li>O aplicativo é instalado por arquivo APK entregue pela equipe, sem loja de aplicativos.</li>
         <li><b>Bluetooth existe só no aplicativo.</b> A versão web, inclusive no navegador do celular, usa a consulta, o cadastro e o vínculo pelo servidor.</li>
-        <li>No aplicativo, o Bluetooth só é usado quando você toca em <b>Bluetooth</b> ou <b>Encontrar sensor</b> e depois em <b>Buscar sensores</b>. Abrir o aplicativo ou trocar de tela não inicia busca nem envia comando à placa.</li>
+        <li>No aplicativo, toque em <b>Buscar sensor por Bluetooth</b>, no alto da tela Sensores (ou em <b>Bluetooth</b>, na barra de abas, e depois em <b>Buscar sensores</b>). Abrir o aplicativo ou trocar de tela não inicia busca nem envia comando à placa.</li>
+        <li>Na primeira busca o Android pede a permissão de <b>dispositivos próximos</b>. A tela diz o que falta quando o Bluetooth está desligado, a permissão foi negada ou nenhum sensor foi encontrado, e deixa cancelar e buscar de novo.</li>
+        <li>Escolha a placa na lista para conectar. Aparecem a identidade do sensor e a <b>leitura local</b> (no sensor magnético, o ângulo e a saúde do sinal), ao lado da <b>última leitura da nuvem</b>, cada uma com o seu horário. <b>Abrir na plataforma</b> leva aos Detalhes daquele sensor.</li>
+        <li>A placa continua enviando para a nuvem pela rede Wi-Fi dela; o celular não reenvia nada. O percentual de bancada vem da nuvem: só com o ângulo local não dá para saber em que volta o eixo está.</li>
         <li>O Bluetooth identifica o sensor próximo. O vínculo ao spot continua sendo feito na plataforma, a um spot que já existe, conforme a permissão da conta.</li>
+        <li>No telefone, o botão <b>Árvore de ativos</b> abre a árvore em tela cheia, com busca. Ao escolher um TAG ou um spot, a tela volta para a ficha, com o caminho resumido. O botão Voltar do Android fecha a árvore, o painel ou o diálogo aberto.</li>
         <li>No aplicativo, a árvore serve para navegar e escolher o destino. Criar ou editar corporação, empresa, área, subárea, TAG e spot é feito na versão web.</li>
         <li>Links de convite e de recuperação abrem no navegador e funcionam normalmente; depois, entre no aplicativo com a nova senha.</li>
         <li>CSV: no Android, o arquivo é aberto pela folha de compartilhamento do sistema.</li>

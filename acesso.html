@@ -128,7 +128,14 @@
       <label class="search"><i data-lucide="search"></i><input id="treeSearch" placeholder="Buscar nome ou TAG" aria-label="Buscar ativo por nome ou TAG" autocomplete="off"></label>
       <div id="treeResults" class="tree-results" hidden></div>
       <div id="tree" class="tree" role="tree" aria-label="Árvore de ativos"></div>
+      <div class="pane-foot"><button id="treeDone" class="primary wide" type="button">Fechar a árvore</button></div>
     </aside>
+
+    <!-- Telefone: a árvore abre em tela cheia a partir deste seletor; fechada, fica só o caminho resumido -->
+    <div id="treePick" class="tree-pick">
+      <button id="treePickOpen" class="secondary" type="button" aria-controls="assetPane" aria-expanded="false"><span class="glyph-slot" data-glyph="list"></span>Árvore de ativos</button>
+      <button id="treePickPath" class="tree-pick-path" type="button" aria-controls="assetPane"><small>Mostrando</small><b>Todos os ativos</b></button>
+    </div>
 
     <div id="sensorPane" class="sensor-pane">
       <div class="sensor-toolbar">
@@ -328,18 +335,22 @@
 </form></dialog>
 
 <dialog id="bleDialog" class="ble-dialog">
-  <div class="dialog-heading"><h2>Bluetooth · conexão local</h2><button type="button" data-close="bleDialog" class="icon-button" aria-label="Fechar">×</button></div>
-  <p>A busca só começa quando você tocar em Buscar sensores. O Android pode abrir a janela de pareamento quando uma configuração protegida for solicitada.</p>
-  <div class="ble-actions"><button id="scanBle" class="primary"><i data-lucide="search"></i>Buscar sensores</button><button id="disconnectBle" class="secondary" disabled>Desconectar</button></div>
-  <p id="bleStatus" role="status">Pronto para buscar.</p>
+  <div class="dialog-heading"><h2>Buscar sensor por Bluetooth</h2><button type="button" data-close="bleDialog" class="icon-button" aria-label="Fechar">×</button></div>
+  <p class="form-help">Conexão local, direto com a placa. A busca só acontece quando você toca em Buscar: abrir o aplicativo não procura nem envia nada. A placa continua enviando para a nuvem pela rede Wi-Fi dela.</p>
+  <div id="bleStatus" class="ble-state" role="status" aria-live="polite">Pronto para buscar.</div>
+  <div id="bleHelp" class="ble-help"></div>
+  <div class="ble-actions"><button id="scanBle" class="primary"><i data-lucide="search"></i><span id="scanBleLabel">Buscar sensores</span></button><button id="cancelBle" class="secondary" hidden>Cancelar busca</button><button id="disconnectBle" class="secondary" hidden>Desconectar</button></div>
   <div id="bleDevices" class="ble-devices"></div>
   <div id="bleLive" hidden>
     <div class="ble-identity"><strong id="bleName">—</strong><code id="bleIdentity">—</code></div>
-    <div class="ble-values"><div><strong id="blePercent">—</strong><span id="blePercentLabel">posição elétrica</span></div><div><strong id="bleVoltage">—</strong><span id="bleVoltageLabel">tensão estimada</span></div></div>
-    <p id="bleTimestamp"></p>
-    <button id="identifyBle" class="secondary">Identificar: piscar LED</button>
+    <div class="ble-sources">
+      <div class="ble-source is-local"><small>Leitura local · Bluetooth</small><strong id="blePercent">—</strong><span id="blePercentLabel">ângulo do sensor</span><span id="bleVoltage"></span><small id="bleTimestamp"></small></div>
+      <div class="ble-source is-cloud" id="bleCloud"><small>Nuvem · enviado pela placa por Wi-Fi</small><strong id="bleCloudValue">—</strong><span id="bleCloudLabel"></span><small id="bleCloudTime"></small></div>
+    </div>
+    <p id="bleNote" class="form-help"></p>
     <button id="linkBle" class="primary">Abrir este sensor na plataforma</button>
-    <p class="form-help">O Bluetooth só identifica o sensor. O vínculo ao spot é feito na plataforma, conforme a sua permissão. O nome anunciado pela placa só muda por ação explícita em Detalhes, com o PIN de 6 dígitos do sensor.</p>
+    <button id="identifyBle" class="secondary">Identificar: piscar LED</button>
+    <p class="form-help">O Bluetooth só identifica o sensor e mostra a leitura local. O vínculo ao spot é feito na plataforma, conforme a sua permissão. O nome anunciado pela placa só muda por ação explícita em Detalhes, com o PIN de 6 dígitos do sensor.</p>
   </div>
 </dialog>
 

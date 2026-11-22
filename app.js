@@ -1510,7 +1510,7 @@ const MAG_REASON = {
   not_computed: { key: "electric", label: "Ângulo do sensor", note: "Aguardando a próxima leitura para calcular o curso." },
   out_of_range: { key: "warn", label: "Fora da faixa validada", note: "O giro passou do arco ou da tolerância validados. Confira a montagem e registre novo engaxetamento." },
   // Modo bancada (demonstração em mesa). Nunca é curso de campo, e sem posição conhecida não há número.
-  bench: { key: "bench", label: "Modo bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
+  bench: { key: "bench", label: "Posição de bancada", note: "Posição de bancada: demonstração em mesa, não é curso de campo." },
   bench_awaiting_start: { key: "bench", label: "Confirme o início", note: "Modo bancada ligado. Ponha o eixo dentro da faixa e toque em Confirmar início, em Detalhes." },
   bench_reposition: { key: "warn", label: "Reposicionar para retomar", note: "A placa perdeu a continuidade do giro. Volte o eixo para dentro da faixa e confirme a referência, em Detalhes." },
   bench_no_continuity: { key: "limit", label: "Sem contagem contínua", note: "Esta placa não envia a contagem contínua (firmware anterior ao 4.5.0). O Modo bancada precisa dela." },
@@ -1528,6 +1528,62 @@ const magBandOf = (percent) => {
   const shown = Math.round(Number(percent) * 100) / 100;
   return !Number.isFinite(shown) ? null : shown >= 73 ? "high" : shown >= 50 ? "medium" : shown >= 30 ? "low" : "none";
 };
+// ----- Faixas SIMULADAS da bancada (apresentação da demonstração) -----
+// O percentual é o que o servidor entrega (bench.percent). O que a tela mostra é esse valor com
+// duas casas, e a faixa é decidida sobre o MESMO número mostrado (regra de magBandOf): o texto
+// "29,99 %" nunca aparece com a faixa de 30 %. As cores são próprias da simulação: o médio
+// amarelo vale só aqui, e o curso de ajuste restante de campo continua com as cores dele.
+const BENCH_SIM = {
+  none: { band: "none", key: "sim-none", label: "Sem ajuste", range: "0,00 % a 29,99 %", short: "até 29,99 %", color: "vermelho" },
+  low: { band: "low", key: "sim-low", label: "Baixo ajuste", range: "30,00 % a 49,99 %", short: "30 a 49,99 %", color: "laranja" },
+  medium: { band: "medium", key: "sim-medium", label: "Médio ajuste", range: "50,00 % a 72,99 %", short: "50 a 72,99 %", color: "amarelo" },
+  high: { band: "high", key: "sim-high", label: "Alto ajuste", range: "73,00 % a 100,00 %", short: "73 a 100 %", color: "verde" },
+};
+const BENCH_SIM_ORDER = ["none", "low", "medium", "high"];
+// Onde a faixa muda no valor SEM arredondar (o que arredonda para 30,00 já é "Baixo ajuste").
+// Usado só para dividir graficamente um trecho da curva que cruza um limite.
+const BENCH_SIM_EDGES = [29.995, 49.995, 72.995];
+// Percentual de bancada como a tela mostra: número com duas casas, ou null quando não há dado.
+// A validade é conferida ANTES da conversão: Number(null) e Number("") valem 0, e um dado
+// ausente apareceria como "0,00 % · Sem ajuste". Zero de verdade é valor válido.
+function benchShown(percent) {
+  if (percent == null || percent === "" || typeof percent === "boolean" || typeof percent === "object") return null;
+  const value = Number(percent);
+  if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+  return Math.round(value * 100) / 100;
+}
+// Faixa simulada de um percentual de bancada (uma só por valor), ou null sem dado.
+function benchSimOf(percent) {
+  const shown = benchShown(percent);
+  return shown == null ? null : BENCH_SIM[magBandOf(shown)] || null;
+}
+// A preferência "Mostrar faixas simuladas da bancada" é do vínculo sensor–spot e vem do servidor
+// (gaxeta_mag_summary → bench_bands; padrão: ligadas). `benchBandsLocal` guarda a escolha enquanto
+// o envio está em andamento; num banco ainda sem a migração 16, ela fica só neste aparelho.
+const benchBandsLocal = new Map();
+const benchBandsStored = (sensorId) => {
+  try {
+    const saved = localStorage.getItem("gaxeta.benchBands." + sensorId);
+    return saved == null ? null : saved === "1";
+  } catch {
+    return null;
+  }
+};
+function benchBandsOn(sensorId, mag) {
+  if (benchBandsLocal.has(sensorId)) return benchBandsLocal.get(sensorId);
+  if (mag && typeof mag.bench_bands === "boolean") return mag.bench_bands;
+  return benchBandsStored(sensorId) ?? true;
+}
+// Selo da faixa simulada (cor + nome: a cor nunca é o único sinal).
+const benchSimChip = (sim, extra = "") =>
+  sim ? `<span class="sim-chip health-${sim.key}${extra}" title="Faixa simulada da bancada (${esc(sim.range)}). Não é curso de ajuste restante.">${esc(sim.label)}</span>` : "";
+// Hora curta para leitura rápida: só a hora quando é de hoje; com o dia quando não é.
+function fmtClock(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toDateString() === new Date().toDateString() ? time : `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} ${time}`;
+}
 // Por que a placa recomeçou a contagem contínua (ct_loss) ou a bancada perdeu a posição.
 const CT_LOSS_TEXT = {
   boot: "reinício da placa ou retorno de energia", no_magnet: "ímã ausente", field: "campo magnético fora da faixa", bus: "falha do barramento I²C",
@@ -1583,16 +1639,22 @@ function magView(device, mag) {
   // Modo bancada: série própria, sempre identificada. Sem posição conhecida não há número
   // (nunca 0 % nem "Sem ajuste" no lugar da leitura).
   if (bench) {
-    const shared = { ...base, bench, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
-    if (bench.state === "ok" && bench.percent != null && !sampleBad) {
+    const bands = benchBandsOn(device?.sensor_id, mag);
+    const shared = { ...base, bench, benchBands: bands, sim: null, series: "bancada", kicker: "Posição de bancada", origin: "bancada" };
+    const shown = bench.state === "ok" && !sampleBad ? benchShown(bench.percent) : null;
+    if (shown != null) {
       const over = Number(bench.over_deg) || 0;
+      const sim = bands ? benchSimOf(shown) : null;
+      const where = over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa";
       return {
-        ...shared, origin: "calculado · bancada", key: "bench", label: "Modo bancada",
-        note: (over > 0 ? `No teto: ${fmtDeg(over)} além do 100 %` : over < 0 ? `No piso: ${fmtDeg(-over)} abaixo do 0 %` : "Dentro da faixa") + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
-        value: fmtNum(bench.percent, 2), unit: "%", scale: Number(bench.percent),
+        ...shared, origin: "calculado · bancada", sim, where, key: sim ? sim.key : "bench", label: sim ? sim.label : "Posição de bancada",
+        note: (sim ? `Faixa simulada (${sim.range}) · ` : "") + where + ` · posição contínua ${fmtDeg(bench.continuous_deg)}`,
+        value: fmtNum(shown, 2), unit: "%", scale: shown,
       };
     }
-    const state = info || MAG_REASON.bench_awaiting_start;
+    // Amostra inválida, início não confirmado ou reposicionamento: estado próprio, sem número.
+    // O motivo do servidor manda; sem ele, vale o estado da própria bancada.
+    const state = (reason !== "bench" && info) || MAG_REASON["bench_" + bench.state] || MAG_REASON.bench_awaiting_start;
     return { ...shared, key: state.key, label: state.label, note: state.note, value: "—", unit: "", scale: null };
   }
   if (computed && computed.remaining_percent != null && (!reason || reason === "out_of_range")) {
@@ -1690,7 +1752,28 @@ const bleCurrent = () => bleDevice;
 async function bleStopScan() {
   (clearTimeout(bleScanTimer), await BleClient.stopLEScan().catch(() => {}));
 }
-async function bleScan(t, e) {
+// O que impede a busca agora, se algo impede: permissão negada, Bluetooth desligado ou, no
+// Android 11 e anteriores, a localização desligada (nessas versões a busca depende dela).
+// Não inicia busca nem conexão.
+async function blePrepare() {
+  try {
+    await bleInit();
+  } catch (error) {
+    const text = String(error?.message || error || "");
+    return { ok: false, kind: /denied|permission|permiss/i.test(text) ? "denied" : "unavailable", message: text };
+  }
+  try {
+    if (!(await BleClient.isEnabled())) return { ok: false, kind: "off" };
+  } catch {}
+  const android = /Android (\d+)/.exec(navigator.userAgent);
+  if (Z.getPlatform() === "android" && android && Number(android[1]) <= 11) {
+    try {
+      if (!(await BleClient.isLocationEnabled())) return { ok: false, kind: "location" };
+    } catch {}
+  }
+  return { ok: true };
+}
+async function bleScan(t, e, done = () => {}) {
   if ((await bleInit(), await bleStopScan(), !Z.isNativePlatform())) {
     const r = await BleClient.requestDevice({
       services: [BLE_SERVICE],
@@ -1711,7 +1794,7 @@ async function bleScan(t, e) {
   ),
     e("Buscando sensores próximos…"),
     (bleScanTimer = setTimeout(async () => {
-      (await bleStopScan(), e("Busca concluída. Selecione um sensor ou busque novamente."));
+      (await bleStopScan(), e("Busca concluída. Selecione um sensor ou busque novamente."), done());
     }, 8e3)));
 }
 function bleDropped() {
@@ -1737,7 +1820,14 @@ async function bleConnect(t, e, r) {
     (bleDevice = t));
   try {
     (await bleReadOnce(),
-      await BleClient.startNotifications(t.deviceId, BLE_SERVICE, BLE_CHAR_READING, (s) => bleParse(s)).catch(() => {}),
+      await BleClient.startNotifications(t.deviceId, BLE_SERVICE, BLE_CHAR_READING, (s) => {
+        try {
+          bleParse(s);
+        } catch {
+          // Pacote maior que o MTU acordado chega cortado: a leitura da característica vem inteira.
+          bleReadOnce().catch(() => {});
+        }
+      }).catch(() => {}),
       (bleTimer = setInterval(() => bleReadOnce().catch(() => bleOnStatus("Falha na leitura local; tentando novamente.")), 5e3)),
       r("Bluetooth conectado. Leitura local a cada 5 segundos."));
   } catch (s) {
@@ -2096,13 +2186,54 @@ async function checkContext() {
   return true;
 }
 
+// ----- Voltar (botão do Android e do navegador) -----
+// Cada camada aberta por cima da tela (árvore em tela cheia, painel do sensor, diálogo) deixa
+// uma entrada no histórico. Voltar fecha a camada de cima em vez de sair da tela ou do aplicativo.
+// O código nunca chama history.back() por conta própria fora de um Voltar de quem está usando:
+// uma camada fechada pelo próprio botão deixa a entrada "morta" no topo (backStale), que é
+// reaproveitada pela próxima camada ou pulada no próximo Voltar.
+const backLayers = [];
+let backStale = false;
+function pushBackLayer(name, close) {
+  if (backLayers.some((layer) => layer.name === name)) return;
+  backLayers.push({ name, close });
+  history[backStale ? "replaceState" : "pushState"]({ layer: name }, "");
+  backStale = false;
+}
+function dropBackLayer(name) {
+  const index = backLayers.findIndex((layer) => layer.name === name);
+  if (index < 0) return;
+  if (index === backLayers.length - 1) backStale = true;
+  backLayers.splice(index, 1);
+}
+window.addEventListener("popstate", (event) => {
+  // Saiu de uma entrada morta: este Voltar ainda não fez nada visível. Repete-o na entrada viva.
+  if (backStale) {
+    backStale = false;
+    return void history.back();
+  }
+  const layer = backLayers.pop();
+  if (layer) layer.close();
+  const landed = event.state?.layer;
+  backStale = !!landed && !backLayers.some((item) => item.name === landed);
+});
+// Diálogos: qualquer um que abra entra na pilha, e sai dela ao fechar.
+new MutationObserver((changes) => {
+  for (const change of changes) {
+    const dialog = change.target;
+    if (dialog.tagName !== "DIALOG") continue;
+    if (dialog.open) pushBackLayer("dialog:" + dialog.id, () => dialog.close());
+    else dropBackLayer("dialog:" + dialog.id);
+  }
+}).observe(document.body, { attributes: true, attributeFilter: ["open"], subtree: true });
+
 // ----- Navegação -----
 const PAGE_TITLES = { sensors: "Sensores", assets: "Árvore de ativos", telemetry: "Telemetria", gateways: "Gateways", users: "Usuários", manual: "Manual de operação" };
 function renderPageActions() {
   const actions = [];
   // Bluetooth: só no aplicativo nativo e só por toque. Na web, a busca da lista encontra por nome, TAG, ID ou MAC.
   if (state.page === "sensors" && bleAvailable())
-    actions.push('<button class="primary compact" data-action="find-sensor">' + icon("bluetooth-searching") + "Encontrar sensor</button>");
+    actions.push('<button class="primary compact" data-action="find-sensor" title="Procura as placas próximas pelo Bluetooth do celular">' + icon("bluetooth-searching") + "Buscar sensor por Bluetooth</button>");
   // A estrutura de ativos é administrada na web (qualquer largura de janela).
   if (state.page === "assets" && hasCap("manage_corporations") && !isNativeApp())
     actions.push('<button class="primary compact" data-action="new-corporation">' + icon("plus") + "Nova corporação</button>");
@@ -2120,8 +2251,14 @@ function showPage(page) {
   if (page === "manual" && state.page !== "manual") state.manualReturn = state.page;
   // Bluetooth nunca fica aberto de uma tela para outra, nem abre sozinho.
   closeBleDialog();
+  const changed = state.page !== page;
   state.page = page;
-  if (location.hash.slice(1) !== page) history.replaceState(null, "", "#" + page);
+  // No aplicativo, cada troca de tela fica no histórico: o botão Voltar do Android volta à tela
+  // anterior em vez de sair. No navegador o endereço é só atualizado, como antes.
+  if (location.hash.slice(1) !== page) {
+    history[isNativeApp() && changed && state.authorized && !backStale ? "pushState" : "replaceState"](null, "", "#" + page);
+    backStale = false;
+  }
   document.body.dataset.page = page;
   $id("workspace").hidden = !["sensors", "assets"].includes(page);
   $id("sensorPane").hidden = page !== "sensors";
@@ -2276,6 +2413,16 @@ function canEditAsset(asset) {
 // Valor ao lado do sensor na árvore: a posição elétrica do potenciômetro (leitura atual, em %).
 function treeSensorValue(sensor) {
   const view = deviceView(sensor);
+  // Modo bancada: "L2-956 · 67,83 % · Médio ajuste", com a origem simulada identificada. Leitura
+  // atrasada aparece como última leitura válida, com o horário, e não como atual.
+  if (view.bench) {
+    const face = benchFace(sensor, view);
+    return (
+      `<span class="tree-sep">·</span><strong class="tree-electric tree-bench${face.stale ? " is-stale" : ""}" title="Posição de bancada: ${esc(view.label)} · ${esc(view.note)}">${face.has ? esc(view.value) + " %" : "—"}</strong>` +
+      (face.has && view.sim ? `<span class="tree-sep">·</span>` + benchSimChip(view.sim) : !face.has ? `<span class="tree-sep">·</span><small class="tree-state">${esc(view.label)}</small>` : "") +
+      `<small class="tree-bench-tag" title="Série de bancada: demonstração em mesa, não é curso de campo">${face.stale ? "bancada · última válida " + esc(fmtClock(face.at)) : "bancada"}</small>`
+    );
+  }
   // Sensor magnético: a árvore diz a série (bancada, curso estimado) e a faixa, além do número.
   const tag = view.bench ? " · bancada" : view.estimated ? " · estimado" : "";
   const band = view.magnetic && !view.bench && view.computed && MAG_BAND[view.band] ? ` ${MAG_BAND[view.band].label}` : view.magnetic && view.value === "—" ? ` ${view.label}` : "";
@@ -2304,7 +2451,7 @@ function treeBranch(parentId) {
         : "") +
       "</div>" +
       (sensor
-        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}${esc(deviceLabel(sensor))} ${treeSensorValue(sensor)}</button>`
+        ? `<button class="tree-sensor" data-tree-sensor="${esc(sensor.sensor_id)}">${icon("radio")}<span class="tree-sensor-name">${esc(deviceLabel(sensor))}</span> ${treeSensorValue(sensor)}</button>`
         : "") +
       (open ? treeBranch(id) : "") +
       "</li>";
@@ -2313,7 +2460,19 @@ function treeBranch(parentId) {
     html += `<li><button class="tree-more" data-more="${parentId || ""}">Carregar mais (${entry.total - entry.ids.length} restantes)</button></li>`;
   return html + "</ul>";
 }
+// Telefone: caminho resumido do que está selecionado, ao lado do seletor "Árvore de ativos".
+function renderTreePick() {
+  const box = $id("treePickPath");
+  if (!box) return;
+  const asset = assetIndex.get(state.assetId);
+  const names = asset ? assetPath(state.assetId, state.assets).map(assetLabel) : [];
+  box.querySelector("small").textContent = asset ? KIND_LABEL[asset.kind] + " selecionado" : state.page === "assets" ? "Nenhum nível selecionado" : "Mostrando";
+  box.querySelector("b").textContent = asset ? (names.length > 3 ? "… / " + names.slice(-3).join(" / ") : names.join(" / ") || assetLabel(asset)) : state.page === "assets" ? "Toque para escolher na árvore" : "Todos os ativos";
+  box.title = names.join(" / ");
+  $id("treeDone").textContent = asset ? `Ver ${KIND_LABEL[asset.kind]}: ${assetLabel(asset)}` : "Fechar a árvore";
+}
 function renderTree() {
+  renderTreePick();
   const root = tree.kids.get("root");
   const box = $id("tree");
   if (!root) {
@@ -2339,8 +2498,16 @@ async function selectAsset(id) {
     await loadSensors();
     setTreeDrawer(false);
   } else if (state.page === "assets") {
+    const asset = assetIndex.get(state.assetId);
+    if (isNarrow() && asset && !["equipment", "point"].includes(asset.kind)) {
+      // Telefone, nível acima do TAG: a árvore continua aberta e o ramo se abre, para seguir descendo.
+      if (asset.has_children && !tree.open.has(asset.id)) {
+        tree.open.add(asset.id);
+        await loadKids(asset.id).catch(() => {});
+        renderTree();
+      }
+    } else if (isNarrow()) setTreeDrawer(false); // TAG ou spot: volta para a ficha, com o caminho resumido
     await renderInspector();
-    if (isNarrow()) setTreeDrawer(false);
   }
   renderIcons();
 }
@@ -2357,8 +2524,13 @@ async function revealAsset(id) {
   const entry = tree.kids.get(kidsKey(asset.parent_id));
   if (entry && !entry.ids.includes(id)) entry.ids.push(id);
 }
+// Árvore por cima do conteúdo (telefone). Ramos abertos, seleção e busca ficam como estavam.
 function setTreeDrawer(open) {
+  const was = document.body.classList.contains("tree-open");
   document.body.classList.toggle("tree-open", !!open);
+  $id("treePickOpen")?.setAttribute("aria-expanded", String(!!open));
+  if (open && !was && isNarrow()) pushBackLayer("tree", () => setTreeDrawer(false));
+  if (!open && was) dropBackLayer("tree");
 }
 
 $id("tree").onclick = async (event) => {
@@ -2402,6 +2574,11 @@ $id("toggleTree").onclick = () => {
   }
 };
 $id("closeTree").onclick = () => setTreeDrawer(false);
+$id("treeDone").onclick = () => setTreeDrawer(false);
+$id("treePickOpen").onclick = $id("treePickPath").onclick = () => {
+  setTreeDrawer(true);
+  ensureTreeRoot().catch((error) => showMessage(errorText(error), "error"));
+};
 
 // Busca por nome ou TAG, no servidor, dentro do que a conta pode ver.
 $id("treeSearch").oninput = debounce(async () => {
@@ -2695,6 +2872,7 @@ function openDrawer(sensorId, mode = "detail", opener = null) {
   $id("detailPane").hidden = false;
   $id("scrim").hidden = false;
   document.body.classList.add("drawer-open");
+  pushBackLayer("drawer", () => closeDrawer());
   renderDrawer().catch((error) => showMessage(errorText(error), "error"));
 }
 function closeDrawer(restoreFocus = true) {
@@ -2703,6 +2881,7 @@ function closeDrawer(restoreFocus = true) {
   $id("detailPane").hidden = true;
   $id("scrim").hidden = true;
   document.body.classList.remove("drawer-open");
+  dropBackLayer("drawer");
   if (restoreFocus) {
     const card = opener?.closest?.("[data-card]")?.dataset.card;
     (card ? $id("sensorGrid").querySelector(`[data-card="${CSS.escape(card)}"] [data-act="${opener.dataset.act}"]`) : opener)?.focus?.();
@@ -2880,7 +3059,7 @@ async function renderDrawer() {
         withBusy(event.currentTarget, async () => {
           if (!bleCurrent() || state.bleReading?.sensor_id !== sensorId) {
             openBleDialog();
-            $id("bleStatus").textContent = "Conecte o sensor com ID " + sensorId + " para gravar o nome.";
+            setBlePhase(bleUi.phase === "connected" ? "connected" : "idle", "Conecte o sensor com ID " + sensorId + " para gravar o nome: toque em Buscar sensores.");
             return;
           }
           if (!device.desired_label) throw Error("Salve primeiro o nome do sensor na plataforma.");
@@ -2934,29 +3113,77 @@ function magConfigState(mag) {
     pointId: config?.point_id || null,
   };
 }
+// Idade de uma leitura, em texto curto ("12 s", "4 min").
+const agoText = (value) => fmtInterval(Math.max(0, Math.round((Date.now() + state.clockOffset - new Date(value).getTime()) / 1000)));
+// Uma linha para leitura rápida do sensor em bancada: "67,83 % · Médio ajuste" (ou o estado, sem
+// número). Usada na árvore e em Ativos, sempre a partir do mesmo `view` do cartão.
+function benchFace(device, view) {
+  const status = deviceStatus(device);
+  const has = view.scale != null;
+  return {
+    has, status, stale: has && !status.online, lastOk: has ? null : view.bench?.last_ok || null,
+    text: has ? `${view.value} %` + (view.sim ? ` · ${view.sim.label}` : "") : view.label,
+    at: device.last_received_at,
+  };
+}
+// Cartão do sensor em Modo bancada: percentual, faixa simulada e barra em destaque, uma única
+// identificação lilás de bancada e o horário da leitura. O ponto de transmissão (cabeçalho) é
+// independente: um sensor pode estar transmitindo e mostrar "Sem ajuste" simulado.
+function benchCardHtml(device, view, status, identity, place, name, config) {
+  const bench = view.bench;
+  const sim = view.sim;
+  const face = benchFace(device, view);
+  const side = face.has
+    ? sim
+      ? benchSimChip(sim, " is-large") + `<small>faixa simulada · ${esc(sim.range)}</small>`
+      : `<span class="adjustment-badge">Posição de bancada</span><small>faixas simuladas desligadas</small>`
+    : `<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small>`;
+  const time = face.stale
+    ? `Última leitura válida às <b>${esc(fmtClock(face.at))}</b> · sem atualização há ${esc(agoText(face.at))}`
+    : face.has
+      ? `Atualizado às <b>${esc(fmtClock(face.at))}</b>` + (device.last_sampled_at ? ` · amostra das ${esc(fmtClock(device.last_sampled_at))}` : "")
+      : face.lastOk
+        ? `Última leitura válida: <b>${esc(fmtNum(benchShown(face.lastOk.percent), 2))} %</b> às ${esc(fmtClock(face.lastOk.at))} (não é a atual)`
+        : `Atualizado às <b>${esc(fmtClock(face.at))}</b>`;
+  return (
+    `<article class="sensor-card health-${view.key} is-magnetic is-bench${face.stale ? " is-stale" : ""}" data-card="${esc(device.sensor_id)}">` +
+    `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
+    `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
+    `<p class="bench-flag"><span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo e não gera evento de manutenção.">Modo bancada</span>` +
+    `<span>${face.stale ? "Última leitura válida (não é a atual)" : "Posição de bancada"}</span></p>` +
+    `<div class="card-main"><div class="card-value" title="Posição de bancada (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
+    `<div class="card-side">${side}</div></div>` +
+    `<div class="mini-scale bench-scale${face.has ? "" : " idle"}" role="img" aria-label="Posição de bancada: ${esc(face.text)}"><i style="width:${view.scale ?? 0}%"></i>` +
+    (view.benchBands ? `<b style="left:30%"></b><b style="left:50%"></b><b style="left:73%"></b>` : "") + `</div>` +
+    `<p class="card-time${face.stale ? " is-late" : ""}">${time}</p>` +
+    `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
+    (face.has ? `<span title="Fora da faixa a barra fica em 0 % ou em 100 % e o quanto passou é guardado">${esc(view.where)}</span>` : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, view.mag))}</span>`) +
+    `</div>` +
+    `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
+    (config.canFix ? `<button data-act="setup" title="Falta cadastro para calcular o curso de ajuste restante">Configurar</button>` : "") +
+    (canEditDevice(device) ? `<button data-act="edit">Editar</button>` : "") +
+    `</footer></article>`
+  );
+}
 function magCardHtml(device, view, status, identity, place, name) {
   const mag = view.mag;
   const config = magConfigState(mag);
-  const bench = view.bench || null;
-  // Selo da série: bancada, campo com curso medido ou estimado. A cor não é o único sinal.
-  const tag = bench
-    ? `<span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo e não gera evento de manutenção.">Modo bancada</span>`
-    : view.estimated
-      ? `<span class="series-tag is-estimated" title="O curso disponível deste engaxetamento veio do valor típico do cadastro, não de uma medida.">Curso estimado</span>`
-      : "";
+  if (view.bench) return benchCardHtml(device, view, status, identity, place, name, config);
+  // Selo da série de campo: curso estimado quando D veio do valor típico. A cor não é o único sinal.
+  const tag = view.estimated
+    ? `<span class="series-tag is-estimated" title="O curso disponível deste engaxetamento veio do valor típico do cadastro, não de uma medida.">Curso estimado</span>`
+    : "";
   return (
-    `<article class="sensor-card health-${view.key} is-magnetic${bench ? " is-bench" : ""}" data-card="${esc(device.sensor_id)}">` +
+    `<article class="sensor-card health-${view.key} is-magnetic" data-card="${esc(device.sensor_id)}">` +
     `<header><strong title="${esc(name)}">${esc(name)}</strong><span class="conn"><i class="dot ${status.className}"></i><span>${esc(status.label)}</span></span></header>` +
     `<p class="card-path${place ? "" : " unlinked"}" title="${esc(identity.path || "Sensor ainda não associado a um spot")}">${esc(place || "Sem vínculo · fila de associação")}</p>` +
     `<div class="card-main"><div class="card-value" title="${esc(view.kicker)} (${esc(view.origin)})">${esc(view.value)}<small>${esc(view.unit)}</small></div>` +
-    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}${bench ? " (%)" : ""}</span>${tag}<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
+    `<div class="card-side"><span class="card-kicker">${esc(view.kicker)}</span>${tag}<span class="adjustment-badge">${esc(view.label)}</span><small title="${esc(view.note)}">${esc(view.note)}</small></div></div>` +
     `<div class="mini-scale${view.scale == null ? " idle" : ""}" role="img" aria-label="${esc(view.kicker)}: ${esc(view.value)} ${esc(view.unit)}"><i style="width:${view.scale ?? 0}%"></i></div>` +
     `<div class="card-meta"><span title="Ângulo absoluto do ímã (medido). Não é avanço nem curso.">Ângulo ${esc(fmtDeg(view.degrees))}</span>` +
-    (bench
-      ? `<span title="O percentual de bancada é calculado no servidor a cada envio da placa">${bench.state === "ok" ? "Bancada · envio a cada " + esc(fmtInterval(Number(deviceInterval(device)) || 30)) : esc(magSignalText(device, mag))}</span>`
-      : view.computed
-        ? `<span title="Valor da leitura atual, sem a estabilização de 5 pontos percentuais">Instantâneo ${fmtNum(view.instant, 2)} %</span>`
-        : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
+    (view.computed
+      ? `<span title="Valor da leitura atual, sem a estabilização de 5 pontos percentuais">Instantâneo ${fmtNum(view.instant, 2)} %</span>`
+      : `<span title="Sinal do sensor magnético">${esc(magSignalText(device, mag))}</span>`) +
     `<span title="Última atualização recebida da placa">Atualizado ${fmtDateTime(device.last_received_at)}</span></div>` +
     `<footer><button data-act="history">Histórico</button><button data-act="detail">Detalhes</button>` +
     (config.canFix ? `<button data-act="setup" title="Falta cadastro para calcular o curso de ajuste restante">Configurar</button>` : "") +
@@ -2989,7 +3216,7 @@ function updateDrawerLiveMag(device, view, status) {
     // Bancada: o número é a Posição de bancada (%); graus e bruto ficam ao lado.
     label("detailElectricLabel", "Posição de bancada (%)");
     label("detailVoltLabel", "Posição contínua");
-    tile("detailElectric", view.value === "—" ? "—" : view.value + " %", view.value === "—" ? view.label : "calculado · bancada");
+    tile("detailElectric", view.value === "—" ? "—" : view.value + " %", view.value === "—" ? view.label : view.sim ? `${view.sim.label} · faixa simulada` : "calculado · bancada");
     tile("detailVolt", bench.continuous_deg == null ? "—" : fmtDeg(bench.continuous_deg, 2), bench.continuous_deg == null ? "sem posição conhecida" : `${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s) · medido`);
   } else {
     label("detailElectricLabel", "Curso de ajuste restante");
@@ -2998,12 +3225,17 @@ function updateDrawerLiveMag(device, view, status) {
       computed ? `${outside ? "fora da faixa" : MAG_BAND[view.band]?.label || "estabilizado"} · ${view.estimated ? "curso estimado" : "curso medido"}` : "sem referência válida");
     tile("detailVolt", computed ? fmtMm(computed.advance_mm, 2) : "—", computed ? `calculado · instantâneo ${fmtNum(computed.remaining_percent, 2)} %` : "sem referência válida");
   }
+  // A cor do quadro do percentual é a mesma do cartão (faixa simulada, ou neutra de bancada).
+  $id("detailElectric").parentElement.className = bench ? `health-${view.key} is-sim-tile` : "";
   tile("detailStableLine", view.raw == null ? "—" : fmtDeg(view.degrees, 2), view.raw == null ? "sem ângulo" : `medido · bruto ${view.raw}`);
   tile("detailSignal", (MAG_REASON[view.reason]?.key === "warn" && view.reason !== "out_of_range" && !/^bench_/.test(view.reason) ? view.label : "Sinal válido"), magSignalText(device, mag));
   const cadence = firmwareCadence(device.firmware_version);
   $id("detailReading").textContent =
     `Leitura de ${fmtDateTime(device.last_sampled_at || device.last_received_at)} · sequência ${device.last_sequence ?? "—"}` + (cadence ? ` · ${cadence.text}` : "");
-  $id("detailHealth").textContent = (bench && bench.state === "ok" ? "Modo bancada · série de bancada, não é curso de campo" : computed && !view.reason ? `Curso de ajuste restante · ${view.label}` : view.label) + " · " + view.note;
+  $id("detailHealth").textContent =
+    (bench && view.scale != null
+      ? "Modo bancada · " + (view.sim ? `faixa simulada: ${view.sim.label}` : "posição de bancada") + (status.online ? "" : ` · última leitura válida às ${fmtClock(device.last_received_at)}, não é a atual`)
+      : computed && !view.reason ? `Curso de ajuste restante · ${view.label}` : view.label) + " · " + (bench && view.scale != null ? view.where + " · não é curso de campo" : view.note);
   $id("detailHealth").className = "health-banner health-" + view.key;
   renderMagBench(device, view);
   renderMagService(device, view);
@@ -3011,7 +3243,7 @@ function updateDrawerLiveMag(device, view, status) {
   if ($id("detailDiag")) {
     const lastValid = mag?.last_valid;
     const rows = [
-      ["Série exibida", bench ? "bancada (demonstração em mesa)" : computed ? view.series : "ângulo do sensor (sem curso calculado)"],
+      ["Série exibida", bench ? "bancada (demonstração em mesa)" + (view.benchBands ? " · faixas simuladas ligadas" : " · faixas simuladas desligadas") : computed ? view.series : "ângulo do sensor (sem curso calculado)"],
       ["Ângulo do sensor (medido)", view.raw == null ? "sem ângulo nesta leitura" : `${fmtDeg(view.degrees, 3)} · bruto ${view.raw} de 4095`],
       ["Estabilidade do bloco", reading?.angle_pp == null && device.last_angle_pp == null ? "—" : `${reading?.angle_pp ?? device.last_angle_pp} contagens entre amostras (até 6 = estável)`],
       ["Barramento I²C", MAG_BUS_TEXT[reading?.bus_status ?? device.last_bus_status] || "—"],
@@ -3260,20 +3492,32 @@ async function submitMagService(sensorId, button) {
 //     curso de ajuste restante, e nada vai para a série de campo.
 //   * O percentual é calculado no servidor pela contagem contínua que a placa mantém (firmware
 //     4.5.0): limitado a 0–100 %, com o quanto passou do extremo guardado ao lado.
-//   * A nuvem atualiza a cada envio da placa (30 s na bancada). O acompanhamento em tempo real
-//     é o do monitor serial, pela USB. A tela mostra sempre a hora da última atualização.
+//   * Faixas simuladas (Sem ajuste, Baixo, Médio, Alto): preferência do vínculo, guardada no
+//     servidor e ligada por padrão. Muda só a apresentação: não abre sessão, não pede referência
+//     e não cria registro. A regra e as cores estão em 10-core.js (benchSimOf).
+//   * Alterar a faixa: a prévia é calculada sozinha depois que a pessoa para de digitar; só
+//     "Aplicar nova faixa" grava. A atualização periódica não toca no formulário aberto.
+//   * A nuvem atualiza a cada envio da placa (30 s na bancada). A tela mostra sempre a hora da
+//     última atualização, e leitura atrasada aparece como última leitura válida, não como atual.
 //   * Sessão da placa diferente da confirmada = "Reposicionar para retomar": a última leitura boa
 //     fica à vista, com horário, e nenhum número é inventado.
 // =============================================================================
 const BENCH_DEFAULT = { zero: 80, full: 180, direction: 1 };
 const MAG15_MISSING_TEXT = "Esta função depende da atualização do banco desta revisão (migração 15), que ainda não foi aplicada.";
-const benchForms = new Map(); // sensor → { open, zero, full, direction, preview, error, busy }
+const benchForms = new Map(); // sensor → formulário da faixa (valores digitados, prévia, fase)
 const benchRequests = new Map(); // sensor → identificador da operação em envio (o mesmo nas novas tentativas)
+const benchBusy = new Set(); // sensores com a preferência de faixas em envio
 const benchFormOf = (sensorId) => {
-  if (!benchForms.has(sensorId)) benchForms.set(sensorId, { open: false, zero: "", full: "", direction: "1", preview: null, error: "", bands: false });
+  if (!benchForms.has(sensorId)) benchForms.set(sensorId, { open: false, zero: "", full: "", direction: "1", preview: null, previewKey: "", phase: "empty", error: "", token: 0, timer: null, note: "" });
   return benchForms.get(sensorId);
 };
+const benchDirWord = (direction) => (Number(direction) > 0 ? "crescente" : "decrescente");
 const benchDirText = (direction) => (Number(direction) > 0 ? "crescente (o percentual sobe quando o ângulo sobe)" : "decrescente (o percentual sobe quando o ângulo desce)");
+const benchRangeText = (zero, full, direction) => `${fmtDeg(zero, 1)} = 0 % · ${fmtDeg(full, 1)} = 100 % · ${benchDirWord(direction)}`;
+// Graus entre os dois extremos, no sentido escolhido (mesma conta de gaxeta_private.mag_bench_u).
+const benchSpanOf = (zero, full, direction) => ((((full - zero) * direction) % 360) + 360) % 360;
+// Ângulo do chip em que a faixa vale a fração indicada (0 a 1).
+const benchAngleAt = (zero, span, direction, fraction) => (((zero + direction * span * fraction) % 360) + 360) % 360;
 // Graus digitados com vírgula ou ponto: 0 a 359,999.
 function parseBenchDeg(text) {
   const raw = String(text ?? "").trim().replace(",", ".").replace("°", "");
@@ -3281,40 +3525,131 @@ function parseBenchDeg(text) {
   const value = Number(raw);
   return value >= 0 && value < 360 ? value : NaN;
 }
-function benchPreviewHtml(preview) {
+// Conferência local do que está digitado, antes de pedir a prévia ao servidor.
+//   empty    falta preencher          invalid  não forma uma faixa (com o motivo)
+//   same     igual à faixa em uso     ready    pode pedir a prévia
+function benchFormCheck(form, bench) {
+  if (!String(form.zero).trim() || !String(form.full).trim()) return { phase: "empty", message: "" };
+  const zero = parseBenchDeg(form.zero);
+  const full = parseBenchDeg(form.full);
+  const direction = Number(form.direction) < 0 ? -1 : 1;
+  if (Number.isNaN(zero) || Number.isNaN(full)) return { phase: "invalid", message: "Informe os dois ângulos em graus, de 0 a 359,999 (vírgula ou ponto, até três casas)." };
+  if (zero === full) return { phase: "invalid", message: "Os dois ângulos são iguais: a faixa ficaria com 0°. Escolha ângulos diferentes para 0 % e para 100 %." };
+  const span = benchSpanOf(zero, full, direction);
+  if (span < 5 || span > 355)
+    return { phase: "invalid", message: `No sentido ${benchDirWord(direction)}, esta faixa teria ${fmtDeg(span, 1)}. Ela precisa ter de 5° a 355°: troque o sentido ou os ângulos.` };
+  const values = { zero, full, direction, span, key: `${zero}|${full}|${direction}` };
+  if (bench && Number(bench.zero_deg) === zero && Number(bench.full_deg) === full && Number(bench.direction) === direction) return { phase: "same", values, message: "" };
+  return { phase: "ready", values, message: "" };
+}
+// Prévia: a faixa em uso ao lado da proposta, com 0 %, 50 %, 100 % e a posição atual.
+function benchPreviewHtml(preview, bench, currentShown) {
   if (!preview) return "";
   const current = preview.current;
+  const mark = (percent) => preview.marks.find((item) => Number(item.percent) === percent)?.angle_deg;
+  const old = bench ? { zero: Number(bench.zero_deg), span: Number(bench.span_deg), direction: Number(bench.direction) } : null;
+  const row = (label, before, after) => `<tr><th scope="row">${label}</th>${old ? `<td>${before}</td>` : ""}<td>${after}</td></tr>`;
+  const oldAt = (fraction) => esc(fmtDeg(benchAngleAt(old.zero, old.span, old.direction, fraction), 1));
   return (
-    `<div class="bench-preview" id="benchPreview"><h4>Prévia (nada foi aplicado ainda)</h4>` +
-    `<table><thead><tr><th>Ângulo do sensor</th><th>Posição de bancada</th></tr></thead><tbody>` +
-    preview.marks.map((mark) => `<tr><td>${esc(fmtDeg(mark.angle_deg, 1))}</td><td>${esc(fmtNum(mark.percent, 0))} %</td></tr>`).join("") +
+    `<div class="bench-preview" id="benchPreview"><h4>Prévia ${bench ? "da nova faixa" : "da faixa"} (nada foi aplicado ainda)</h4>` +
+    `<table><thead><tr><th></th>${old ? "<th>Faixa em uso</th>" : ""}<th>${bench ? "Nova faixa" : "Faixa proposta"}</th></tr></thead><tbody>` +
+    row("0 %", old ? oldAt(0) : "", esc(fmtDeg(mark(0), 1))) +
+    row("50 %", old ? oldAt(0.5) : "", esc(fmtDeg(mark(50), 1))) +
+    row("100 %", old ? oldAt(1) : "", esc(fmtDeg(mark(100), 1))) +
+    row("Sentido", old ? benchDirWord(old.direction) : "", benchDirWord(preview.direction)) +
+    row("Tamanho da faixa", old ? esc(fmtDeg(old.span, 1)) : "", esc(fmtDeg(preview.span_deg, 1))) +
+    (current
+      ? row(`Posição atual (${esc(fmtDeg(current.angle_deg, 2))})`, currentShown == null ? "—" : esc(fmtNum(currentShown, 2)) + " %", current.inside ? `<b>${esc(fmtNum(current.percent, 2))} %</b>` : "<b>fora da faixa</b>")
+      : "") +
     `</tbody></table>` +
-    `<p>Faixa de ${esc(fmtDeg(preview.span_deg, 1))}, sentido ${esc(benchDirText(preview.direction))}. Fora da faixa a barra fica em 0 % ou em 100 % e o quanto passou é guardado.</p>` +
+    `<p>Fora da faixa a barra fica em 0 % ou em 100 % e o quanto passou é guardado.</p>` +
     (current
       ? current.inside
-        ? `<p class="bench-ok">Leitura atual: ${esc(fmtDeg(current.angle_deg, 2))} (bruto ${current.raw_angle}) → <b>${esc(fmtNum(current.percent, 2))} %</b>. O eixo está dentro da faixa: depois de ativar, toque em Confirmar início.</p>`
-        : `<p class="bench-warn">Leitura atual: ${esc(fmtDeg(current.angle_deg, 2))} (bruto ${current.raw_angle}), <b>fora da faixa</b>. Antes de confirmar o início, gire o eixo para um ponto entre os dois extremos.</p>`
+        ? `<p class="bench-ok">O eixo está dentro da ${bench ? "nova " : ""}faixa: depois de aplicar, basta tocar em Confirmar início com ele parado.</p>`
+        : `<p class="bench-warn">A leitura atual (${esc(fmtDeg(current.angle_deg, 2))}) está <b>fora da ${bench ? "nova " : ""}faixa</b>. Depois de aplicar, gire o eixo para um ponto entre os dois extremos antes de confirmar o início.</p>`
       : `<p class="bench-warn">Sem ângulo válido na leitura atual: confira o ímã e o sensor antes de confirmar o início.</p>`) +
     (preview.continuity ? "" : `<p class="bench-warn">A última leitura desta placa veio sem contagem contínua (firmware ${esc(preview.firmware_version || "desconhecido")}). O Modo bancada precisa do firmware 4.5.0 ou mais novo: sem ele a tela mostra "Sem contagem contínua", sem percentual.</p>`) +
     (preview.ends_reference ? `<p class="bench-warn">Este vínculo tem um engaxetamento de campo em andamento. Ativar o Modo bancada <b>encerra essa referência</b>; ao sair será preciso registrar o engaxetamento de novo.</p>` : "") +
     `</div>`
   );
 }
-// Formulário dos extremos (ativar ou trocar). Uma instalação com outro sentido ou posição
-// configura os dois ângulos uma vez.
-function benchFormHtml(form, active) {
+// Formulário da faixa (ativar ou alterar). O conteúdo que muda sozinho (prévia, mensagem, botão
+// Aplicar) é pintado por benchPreviewPaint, sem refazer os campos.
+function benchFormHtml(form, bench) {
   return (
     `<form id="benchForm" novalidate>` +
+    (bench ? `<p class="bench-inuse"><span>Faixa em uso</span><strong>${esc(benchRangeText(bench.zero_deg, bench.full_deg, bench.direction))}</strong></p>` : "") +
+    `<p class="form-help">Escolha qual ângulo do sensor vale <b>0 %</b> e qual vale <b>100 %</b>. Use os ângulos que aparecem em "Ângulo do sensor" com o eixo em cada extremo. O sentido diz para que lado o percentual sobe.` +
+    (bench ? " A faixa em uso continua valendo enquanto você digita, e também se cancelar." : " Proposta inicial do ensaio: 80° = 0 % e 180° = 100 %, crescente.") + `</p>` +
     `<div class="bench-fields"><label>Ângulo que vale 0 % (graus)<input id="benchZero" type="text" inputmode="decimal" maxlength="8" autocomplete="off" value="${esc(form.zero)}"></label>` +
     `<label>Ângulo que vale 100 % (graus)<input id="benchFull" type="text" inputmode="decimal" maxlength="8" autocomplete="off" value="${esc(form.full)}"></label>` +
     `<label>Sentido<select id="benchDirection"><option value="1"${form.direction === "1" ? " selected" : ""}>Crescente: sobe com o ângulo</option><option value="-1"${form.direction === "-1" ? " selected" : ""}>Decrescente: sobe quando o ângulo desce</option></select></label></div>` +
-    `<p class="form-help">Use os ângulos que aparecem em "Ângulo do sensor" com o eixo em cada extremo. Proposta inicial do ensaio: 80° = 0 % e 180° = 100 %, crescente.</p>` +
-    `<p id="benchMessage" class="form-message${form.error ? " is-error" : ""}" role="status">${esc(form.error || "")}</p>` +
-    benchPreviewHtml(form.preview) +
-    `<div class="drawer-actions"><button class="secondary" type="button" id="benchPreviewBtn">Ver prévia</button>` +
-    `<button class="primary" type="submit" id="benchApply"${form.preview ? "" : " disabled"}>${active ? "Aplicar novos extremos" : "Ativar Modo bancada"}</button>` +
+    `<p class="bench-invert"><button class="text-button" type="button" id="benchInvert" title="Troca os dois ângulos entre si e muda o sentido: o que valia 0 % passa a valer 100 %.">Inverter a faixa: trocar os ângulos de 0 % e de 100 %</button><span id="benchInvertNote">${esc(form.note)}</span></p>` +
+    `<p id="benchMessage" class="form-message" role="status"></p>` +
+    `<div id="benchPreviewBox" aria-live="polite"></div>` +
+    `<p id="benchApplyHelp" class="form-help"></p>` +
+    `<div class="drawer-actions"><button class="primary" type="submit" id="benchApply" disabled>${bench ? "Aplicar nova faixa" : "Ativar Modo bancada"}</button>` +
+    `<button class="secondary" type="button" id="benchPreviewBtn">Calcular prévia</button>` +
     `<button class="secondary" type="button" id="benchFormCancel">Cancelar</button></div></form>`
   );
+}
+// Pinta o que depende da fase da prévia, sem tocar nos campos digitados.
+function benchPreviewPaint(sensorId) {
+  const form = benchFormOf(sensorId);
+  if (!form.open || !$id("benchForm")) return;
+  const mag = deviceMag(findDevice(sensorId));
+  const bench = mag?.bench || null;
+  const shown = bench && bench.state === "ok" ? benchShown(bench.percent) : null;
+  const ready = form.phase === "shown" && !!form.preview;
+  $id("benchPreviewBox").innerHTML = form.phase === "loading" ? `<p class="bench-loading">Calculando a prévia destes valores…</p>` : ready ? benchPreviewHtml(form.preview, bench, shown) : "";
+  const message = $id("benchMessage");
+  message.textContent = form.error || "";
+  message.classList.toggle("is-error", !!form.error);
+  $id("benchApply").disabled = !ready;
+  $id("benchPreviewBtn").hidden = form.phase !== "error";
+  $id("benchInvertNote").textContent = form.note || "";
+  $id("benchApplyHelp").textContent =
+    form.phase === "shown"
+      ? bench
+        ? "Só Aplicar nova faixa altera a configuração. Ao aplicar, a faixa em uso é encerrada (fica no histórico) e será preciso tocar em Confirmar início com o eixo parado dentro da nova faixa."
+        : "Ao ativar, ponha o eixo parado dentro da faixa e toque em Confirmar início."
+      : form.phase === "same"
+        ? "Esta já é a faixa em uso: não há o que aplicar. A referência atual continua valendo."
+        : form.phase === "loading"
+          ? "Aplicar fica disponível assim que a prévia destes valores aparecer: só se aplica o que foi visto."
+          : form.phase === "error"
+            ? "Aplicar aguarda a prévia, para que só seja aplicado o que foi visto. Toque em Calcular prévia para tentar de novo."
+            : "A prévia aparece sozinha quando os dois ângulos formam uma faixa válida. Aplicar aguarda a prévia.";
+}
+// Pede a prévia depois de uma pausa na digitação. Cada edição invalida a resposta de uma edição
+// anterior que ainda esteja a caminho (token).
+function benchSchedulePreview(sensorId, immediate = false) {
+  const form = benchFormOf(sensorId);
+  const bench = deviceMag(findDevice(sensorId))?.bench || null;
+  clearTimeout(form.timer);
+  const token = ++form.token;
+  const check = benchFormCheck(form, bench);
+  if (check.phase !== "ready") {
+    Object.assign(form, { phase: check.phase, preview: null, previewKey: "", error: check.message });
+    return benchPreviewPaint(sensorId);
+  }
+  if (form.preview && form.previewKey === check.values.key) {
+    Object.assign(form, { phase: "shown", error: "" });
+    return benchPreviewPaint(sensorId);
+  }
+  Object.assign(form, { phase: "loading", preview: null, previewKey: "", error: "" });
+  benchPreviewPaint(sensorId);
+  form.timer = setTimeout(async () => {
+    try {
+      const preview = await callRpc("gaxeta_mag_bench_preview", { p_sensor_id: sensorId, p_zero_deg: check.values.zero, p_full_deg: check.values.full, p_direction: check.values.direction });
+      if (token !== form.token || !form.open) return; // resposta de uma edição anterior
+      Object.assign(form, { phase: "shown", preview, previewKey: check.values.key, error: "" });
+    } catch (error) {
+      if (token !== form.token || !form.open) return;
+      Object.assign(form, { phase: "error", preview: null, previewKey: "", error: isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error) });
+    }
+    benchPreviewPaint(sensorId);
+  }, immediate ? 0 : 450);
 }
 // Espera pela leitura que confirma o início.
 function benchWaitText(device, pending) {
@@ -3325,181 +3660,242 @@ function benchWaitText(device, pending) {
   const left = Math.max(0, Math.round((new Date(pending.expires_at).getTime() - now) / 1000));
   return `Próxima leitura em cerca de ${fmtInterval(next)} (um envio a cada ${fmtInterval(period)}). A confirmação vale por mais ${fmtInterval(left)}.`;
 }
-// Barra de 0 a 100 % da bancada. Com "simulação das faixas" ligada, a cor segue as faixas de
-// ajuste e a legenda diz que é simulação: na bancada o percentual não é curso de campo.
-function benchBarHtml(bench, form) {
-  const percent = bench.state === "ok" && bench.percent != null ? Number(bench.percent) : null;
-  const band = form.bands && percent != null ? magBandOf(percent) : null;
-  const over = Number(bench.over_deg) || 0;
+function benchUpdatedText(device) {
+  const period = Number(deviceInterval(device)) || 30;
+  const age = Math.max(0, Math.round((Date.now() + state.clockOffset - new Date(device.last_received_at).getTime()) / 1000));
+  return `${fmtDateTime(device.last_received_at)} · há ${fmtInterval(age)} · um envio a cada ${fmtInterval(period)}`;
+}
+// Andamento depois de aplicar uma faixa: aplicada → confirmação pedida → início confirmado, com a hora.
+function benchStepsHtml(device, bench, pending, state2) {
+  const anchored = state2 === "ok" && bench.anchor_status === "set";
+  const recent = anchored && bench.anchor_at && Date.now() + state.clockOffset - new Date(bench.anchor_at).getTime() < 5 * 60e3;
+  if (anchored && !recent) return "";
+  const step = (kind, html) => `<li class="${kind}">${html}</li>`;
   return (
-    `<div class="bench-bar${percent == null ? " idle" : ""}${band ? " health-" + MAG_BAND[band].key : ""}" role="img" aria-label="Posição de bancada: ${percent == null ? "sem posição" : fmtNum(percent, 2) + " por cento"}">` +
-    `<i style="width:${percent ?? 0}%"></i><span class="bench-mark" style="left:0">0 %</span><span class="bench-mark" style="left:50%">50</span><span class="bench-mark" style="left:100%">100 %</span></div>` +
-    `<p class="bench-number"><strong id="benchPercent">${percent == null ? "—" : esc(fmtNum(percent, 2)) + " %"}</strong>` +
-    `<span id="benchLimit">${percent == null ? "" : over > 0 ? `no teto · ${esc(fmtDeg(over, 1))} além do 100 %` : over < 0 ? `no piso · ${esc(fmtDeg(-over, 1))} abaixo do 0 %` : "dentro da faixa"}</span></p>` +
-    (band ? `<p class="bench-sim"><span class="adjustment-badge health-${MAG_BAND[band].key}">${esc(MAG_BAND[band].label)}</span> simulação das faixas (${esc(MAG_BAND[band].range)}). Na bancada este percentual não é curso de ajuste restante.</p>` : "")
+    `<ol class="bench-steps" aria-label="Andamento da confirmação do início">` +
+    step("done", `Faixa aplicada às ${esc(fmtClock(bench.started_at))}`) +
+    step(
+      anchored ? "done" : "current",
+      anchored
+        ? "Início pedido com o eixo parado dentro da faixa"
+        : pending
+          ? `Confirmação pedida às ${esc(fmtClock(pending.requested_at))}. Deixe o eixo parado: o resultado aparece após uma leitura válida da placa. <span id="benchWait">${esc(benchWaitText(device, pending))}</span>`
+          : state2 === "reposition"
+            ? "Leve o eixo a um ponto conhecido dentro da faixa, deixe-o parado e toque em Confirmar referência"
+            : "Posicione o eixo dentro da faixa, deixe-o parado e toque em Confirmar início",
+    ) +
+    step(anchored ? "done" : "todo", anchored ? `Início confirmado às ${esc(fmtClock(bench.anchor_at))}` : "Início confirmado (a hora aparece aqui)") +
+    `</ol>`
   );
+}
+// Parte que acompanha a leitura: barra de 0 a 100 %, número, faixa simulada, estado e fatos.
+function benchLiveHtml(device, view, bench, pending, state2) {
+  const sim = view.sim;
+  const has = view.scale != null;
+  const over = Number(bench.over_deg) || 0;
+  const stale = has && !deviceStatus(device).online;
+  const lastOk = bench.last_ok;
+  const reading = view.mag?.reading || null;
+  const sampleBad = /^(bus_|no_magnet|field_|no_reading)/.test(view.reason || "");
+  const stateHtml =
+    state2 === "ok" || state2 === "pending"
+      ? state2 === "pending" && bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note]
+        ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>`
+        : ""
+      : state2 === "reposition"
+        ? `<p class="bench-warn"><strong>Reposicionar para retomar.</strong> A placa deixou de garantir a continuidade do giro (${esc(ctLossText(bench.lost_reason))}${bench.lost_at ? ", " + esc(fmtDateTime(bench.lost_at)) : ""}): a posição atual pode estar em outra volta. Leve o eixo a um ponto conhecido dentro da faixa e confirme a referência.</p>`
+        : state2 === "no_continuity"
+          ? `<p class="bench-warn">${esc(MAG_REASON.bench_no_continuity.note)}</p>`
+          : `<p class="bench-warn"><strong>Início não confirmado.</strong> Ponha o eixo parado em um ponto dentro da faixa (entre ${esc(fmtDeg(bench.zero_deg, 1))} e ${esc(fmtDeg(bench.full_deg, 1))}) e toque em Confirmar início. Um ângulo fora da faixa poderia pertencer a várias voltas.</p>` +
+            (bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note] ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>` : "");
+  return (
+    `<div class="bench-bar${has ? "" : " idle"}${sim ? " health-" + sim.key : ""}" role="img" aria-label="Posição de bancada: ${has ? view.value + " por cento" + (sim ? ", faixa simulada " + sim.label : "") : "sem posição"}">` +
+    `<i style="width:${view.scale ?? 0}%"></i>` + (view.benchBands ? `<b style="left:30%"></b><b style="left:50%"></b><b style="left:73%"></b>` : "") +
+    `<span class="bench-mark" style="left:0">0 %</span><span class="bench-mark" style="left:50%">50</span><span class="bench-mark" style="left:100%">100 %</span></div>` +
+    `<p class="bench-number${sim ? " health-" + sim.key : ""}${stale ? " is-stale" : ""}"><strong id="benchPercent">${has ? esc(view.value) + " %" : "—"}</strong>${benchSimChip(sim, " is-large")}` +
+    `<span id="benchLimit">${has ? (over > 0 ? `no teto · ${esc(fmtDeg(over, 1))} além do 100 %` : over < 0 ? `no piso · ${esc(fmtDeg(-over, 1))} abaixo do 0 %` : "dentro da faixa") : ""}</span></p>` +
+    // Sem posição não há faixa: a régua das faixas só aparece junto de um percentual válido.
+    (view.benchBands && has
+      ? `<ul class="sim-scale" aria-label="Faixas simuladas da bancada">${BENCH_SIM_ORDER.map((name) => `<li class="health-${BENCH_SIM[name].key}${sim?.band === name ? " is-current" : ""}"><b>${esc(BENCH_SIM[name].label)}</b><small title="${esc(BENCH_SIM[name].range)}">${esc(BENCH_SIM[name].short)}</small></li>`).join("")}</ul>` +
+        `<p class="bench-sim">Faixa simulada: na bancada este percentual é a fração de um arco entre dois ângulos, não o curso de ajuste restante.</p>`
+      : "") +
+    (stale ? `<p class="bench-warn"><strong>Última leitura válida às ${esc(fmtClock(device.last_received_at))}.</strong> A placa está sem atualização há ${esc(agoText(device.last_received_at))}: o número acima não é a posição atual.</p>` : "") +
+    (sampleBad ? `<p class="bench-warn"><strong>${esc(view.label)}.</strong> ${esc(view.note)}</p>` : "") +
+    stateHtml +
+    (!has && lastOk ? `<p class="mag-current">Última leitura válida: ${esc(fmtNum(benchShown(lastOk.percent), 2))} % em ${esc(fmtDateTime(lastOk.at))} (não é a leitura atual).</p>` : "") +
+    benchStepsHtml(device, bench, pending, state2) +
+    `<dl class="bench-facts">` +
+    `<dt>Ângulo / bruto</dt><dd>${view.raw == null ? "sem ângulo" : esc(fmtDeg(view.degrees, 2)) + " · " + view.raw}</dd>` +
+    `<dt>Posição contínua</dt><dd>${bench.continuous_deg == null ? "—" : esc(fmtDeg(bench.continuous_deg, 2)) + ` · ${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s)`}</dd>` +
+    `<dt>Sessão da placa</dt><dd>${esc(reading?.ct?.session || "sem contagem")}${bench.anchor_at ? " · início confirmado " + esc(fmtDateTime(bench.anchor_at)) : ""}</dd>` +
+    `<dt>Última atualização</dt><dd id="benchUpdated">${esc(benchUpdatedText(device))}</dd></dl>` +
+    `<p class="form-help">A nuvem atualiza a cada envio da placa. Para acompanhar o giro em tempo real, use o monitor serial pela USB: ele mostra a mesma conta, linha a linha.</p>`
+  );
+}
+// Faixa em uso, ações e a preferência das faixas simuladas (ou o formulário, quando aberto).
+function benchControlsHtml(view, bench, state2, form, canOperate, sensorId) {
+  if (form.open) return benchFormHtml(form, bench);
+  if (!bench)
+    return canOperate
+      ? `<div class="drawer-actions"><button class="secondary" type="button" id="benchOpen">Configurar e ativar…</button></div>`
+      : `<p class="form-help">Sua conta consulta este sensor, sem permissão para ativar o Modo bancada.</p>`;
+  const inUse =
+    `<p class="bench-inuse"><span>Faixa em uso</span><strong>${esc(benchRangeText(bench.zero_deg, bench.full_deg, bench.direction))}</strong></p>` +
+    `<p class="form-help">O operador escolhe qual ângulo vale 0 % e qual vale 100 %.${canOperate ? " Para mudar, toque em Alterar faixa da bancada: os valores em uso aparecem para edição." : ""}</p>`;
+  if (!canOperate)
+    return inUse + `<p class="form-help">Faixas simuladas da bancada: <b>${view.benchBands ? "ligadas" : "desligadas"}</b> (escolha de quem opera o sensor). Sua conta consulta este sensor, sem permissão para operar o Modo bancada.</p>`;
+  return (
+    inUse +
+    `<div class="drawer-actions">` +
+    (state2 === "pending" ? "" : `<button class="${state2 === "ok" ? "secondary" : "primary"}" type="button" id="benchConfirm">${state2 === "reposition" ? "Confirmar referência (reposicionado)" : state2 === "ok" ? "Confirmar referência de novo" : "Confirmar início"}</button>`) +
+    `<button class="secondary" type="button" id="benchOpen">Alterar faixa da bancada…</button><button class="secondary" type="button" id="benchStop">Sair do Modo bancada</button></div>` +
+    `<label class="check bench-sim-toggle"><input id="benchBands" type="checkbox"${view.benchBands ? " checked" : ""}${benchBusy.has(sensorId) ? " disabled" : ""}> Mostrar faixas simuladas da bancada</label>` +
+    `<p class="form-help">Mostra o nome e a cor da faixa (Sem ajuste, Baixo, Médio, Alto) junto do percentual em Sensores, Ativos e Telemetria, no site e no aplicativo. Muda só a apresentação: a referência e o histórico ficam como estão.</p>`
+  );
+}
+function benchForceRedraw() {
+  const box = $id("magBench");
+  if (box) box.dataset.live = box.dataset.controls = "";
 }
 function renderMagBench(device, view) {
   const box = $id("magBench");
   if (!box) return;
   const mag = view.mag;
   const bench = mag?.bench || null;
-  const form = benchFormOf(device.sensor_id);
+  const sensorId = device.sensor_id;
+  const form = benchFormOf(sensorId);
   const reading = mag?.reading || null;
   if (!mag || !mag.linked) {
     box.hidden = true;
     return;
   }
   box.hidden = false;
+  if (!$id("benchLive")) {
+    box.innerHTML = `<h3 id="benchTitle"></h3><div id="benchLive" class="bench-live"></div><div id="benchControls" class="bench-controls"></div><p id="benchMessage2" class="form-message" role="status"></p>`;
+    box.dataset.live = box.dataset.controls = "";
+  }
   const pending = bench?.pending && !bench.pending.expired ? bench.pending : null;
   const state2 = !bench ? "off" : pending ? "pending" : bench.state;
-  // Só é redesenhado quando o estado muda: preserva o que a pessoa está digitando.
-  const signature = [state2, bench?.id, bench?.anchor_status, bench?.anchor_note, bench?.lost_reason, mag.can_operate, form.open, form.preview ? "p" : "", form.error, form.bands,
-    bench?.state === "ok" ? [bench.percent, bench.over_deg, reading?.id].join("/") : reading?.id, view.reason].join("|");
-  if (box.dataset.signature === signature) {
+  box.className = "mag-bench" + (bench ? " is-active" : "");
+  // Leitura: só é redesenhada quando muda, e nunca toca no formulário.
+  const online = deviceStatus(device).online;
+  const anchoredRecently = !!bench?.anchor_at && Date.now() + state.clockOffset - new Date(bench.anchor_at).getTime() < 5 * 60e3;
+  const liveSignature = [state2, bench?.id, bench?.anchor_status, bench?.anchor_note, bench?.lost_reason, bench?.anchor_at, anchoredRecently, view.benchBands, view.key, view.value, bench?.over_deg, reading?.id, view.reason, online, form.open && !bench].join("|");
+  if (box.dataset.live !== liveSignature) {
+    box.dataset.live = liveSignature;
+    $id("benchTitle").innerHTML = bench ? `<span class="series-tag is-bench">Modo bancada</span> Posição de bancada (%)` : "Modo bancada";
+    $id("benchLive").innerHTML = bench
+      ? benchLiveHtml(device, view, bench, pending, state2)
+      : form.open
+        ? `<p class="form-help">Para demonstração em mesa: gire o ímã com a mão e acompanhe uma barra de 0 a 100 %. A série fica identificada como bancada em todas as telas e não entra no histórico de campo.</p>`
+        : `<p class="form-help">Desligado. Serve para demonstrar o sensor na mesa, com uma barra de 0 a 100 % entre dois ângulos escolhidos.</p>`;
+  } else {
     if (pending && $id("benchWait")) $id("benchWait").textContent = benchWaitText(device, pending);
     if ($id("benchUpdated")) $id("benchUpdated").textContent = benchUpdatedText(device);
-    return;
   }
-  box.dataset.signature = signature;
-  if (!bench) {
-    box.className = "mag-bench";
-    box.innerHTML = form.open
-      ? `<h3>Modo bancada</h3><p class="form-help">Para demonstração em mesa: gire o ímã com a mão e acompanhe uma barra de 0 a 100 %. A série fica identificada como bancada em todas as telas e não entra no histórico de campo.</p>` + benchFormHtml(form, false)
-      : `<h3>Modo bancada</h3><p class="form-help">Desligado. Serve para demonstrar o sensor na mesa, com uma barra de 0 a 100 % entre dois ângulos escolhidos.</p>` +
-        (mag.can_operate ? `<div class="drawer-actions"><button class="secondary" type="button" id="benchOpen">Configurar e ativar…</button></div>` : `<p class="form-help">Sua conta consulta este sensor, sem permissão para ativar o Modo bancada.</p>`);
-    return bindMagBench(device.sensor_id);
+  // Ações e formulário: com o formulário aberto, a atualização periódica não redesenha nada aqui.
+  const controlSignature = form.open
+    ? ["form", bench?.id || "novo", mag.can_operate].join("|")
+    : [state2, bench?.id, bench?.zero_deg, bench?.full_deg, bench?.direction, mag.can_operate, view.benchBands, benchBusy.has(sensorId)].join("|");
+  if (box.dataset.controls !== controlSignature) {
+    box.dataset.controls = controlSignature;
+    $id("benchControls").innerHTML = benchControlsHtml(view, bench, state2, form, !!mag.can_operate, sensorId);
+    bindMagBench(sensorId);
+    if (form.open) benchPreviewPaint(sensorId);
   }
-  const lastOk = bench.last_ok;
-  const stateHtml =
-    state2 === "ok"
-      ? ""
-      : state2 === "pending"
-        ? `<p class="mag-wait"><strong>Deixe o eixo parado dentro da faixa.</strong> <span id="benchWait">${esc(benchWaitText(device, pending))}</span></p>` +
-          (bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note] ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>` : "")
-        : state2 === "reposition"
-          ? `<p class="bench-warn"><strong>Reposicionar para retomar.</strong> A placa deixou de garantir a continuidade do giro (${esc(ctLossText(bench.lost_reason))}${bench.lost_at ? ", " + esc(fmtDateTime(bench.lost_at)) : ""}): a posição atual pode estar em outra volta. Leve o eixo a um ponto conhecido dentro da faixa e confirme a referência.</p>`
-          : state2 === "no_continuity"
-            ? `<p class="bench-warn">${esc(MAG_REASON.bench_no_continuity.note)}</p>`
-            : `<p class="bench-warn"><strong>Início não confirmado.</strong> Ponha o eixo parado em um ponto dentro da faixa (entre ${esc(fmtDeg(bench.zero_deg, 1))} e ${esc(fmtDeg(bench.full_deg, 1))}) e toque em Confirmar início. Um ângulo fora da faixa poderia pertencer a várias voltas.</p>` +
-              (bench.anchor_note && BENCH_NOTE_TEXT[bench.anchor_note] ? `<p class="bench-warn">${esc(BENCH_NOTE_TEXT[bench.anchor_note])}</p>` : "");
-  const sampleBad = /^(bus_|no_magnet|field_|no_reading)/.test(view.reason || "");
-  box.className = "mag-bench is-active";
-  box.innerHTML =
-    `<h3><span class="series-tag is-bench">Modo bancada ativo</span> Posição de bancada (%)</h3>` +
-    benchBarHtml(bench, form) +
-    (sampleBad ? `<p class="bench-warn"><strong>${esc(view.label)}.</strong> ${esc(view.note)}</p>` : "") +
-    stateHtml +
-    (state2 !== "ok" && lastOk ? `<p class="mag-current">Última posição conhecida: ${esc(fmtNum(lastOk.percent, 2))} % em ${esc(fmtDateTime(lastOk.at))} (não é a leitura atual).</p>` : "") +
-    `<dl class="bench-facts"><dt>Faixa</dt><dd>${esc(fmtDeg(bench.zero_deg, 1))} = 0 % · ${esc(fmtDeg(bench.full_deg, 1))} = 100 % · ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}</dd>` +
-    `<dt>Ângulo / bruto</dt><dd>${view.raw == null ? "sem ângulo" : esc(fmtDeg(view.degrees, 2)) + " · " + view.raw}</dd>` +
-    `<dt>Posição contínua</dt><dd>${bench.continuous_deg == null ? "—" : esc(fmtDeg(bench.continuous_deg, 2)) + ` · ${bench.turns > 0 ? "+" : ""}${bench.turns} volta(s)`}</dd>` +
-    `<dt>Sessão da placa</dt><dd>${esc(reading?.ct?.session || "sem contagem")}${bench.anchor_at ? " · início confirmado " + esc(fmtDateTime(bench.anchor_at)) : ""}</dd>` +
-    `<dt>Última atualização</dt><dd id="benchUpdated">${esc(benchUpdatedText(device))}</dd></dl>` +
-    `<p class="form-help">A nuvem atualiza a cada envio da placa. Para acompanhar o giro em tempo real, use o monitor serial pela USB: ele mostra a mesma conta, linha a linha.</p>` +
-    (mag.can_operate
-      ? form.open
-        ? benchFormHtml(form, true)
-        : `<div class="drawer-actions">` +
-          (state2 === "pending" ? "" : `<button class="${state2 === "ok" ? "secondary" : "primary"}" type="button" id="benchConfirm">${state2 === "reposition" ? "Confirmar referência (reposicionado)" : state2 === "ok" ? "Confirmar referência de novo" : "Confirmar início"}</button>`) +
-          `<button class="secondary" type="button" id="benchOpen">Trocar extremos…</button><button class="secondary" type="button" id="benchStop">Sair do Modo bancada</button></div>` +
-          `<label class="check bench-sim-toggle"><input id="benchBands" type="checkbox"${form.bands ? " checked" : ""}> Mostrar a simulação das faixas de ajuste nesta barra</label>`
-      : `<p class="form-help">Sua conta consulta este sensor, sem permissão para operar o Modo bancada.</p>`) +
-    `<p id="benchMessage2" class="form-message" role="status"></p>`;
-  bindMagBench(device.sensor_id);
 }
-function benchUpdatedText(device) {
-  const period = Number(deviceInterval(device)) || 30;
-  const age = Math.max(0, Math.round((Date.now() + state.clockOffset - new Date(device.last_received_at).getTime()) / 1000));
-  return `${fmtDateTime(device.last_received_at)} · há ${fmtInterval(age)} · um envio a cada ${fmtInterval(period)}`;
+// Redesenha todas as telas que mostram a bancada deste sensor (cartão, árvore, Ativos, gráfico).
+function benchRepaint() {
+  benchForceRedraw();
+  updateDrawerLive();
+  if (state.page === "sensors") renderSensorGrid();
+  renderTree();
+  if (state.page === "assets") renderInspector().catch(() => {});
+  if (state.page === "telemetry") renderHistory();
+  renderIcons();
 }
 function bindMagBench(sensorId) {
   const form = benchFormOf(sensorId);
   const refresh = async () => {
     await loadMagSummary([sensorId]).catch(() => {});
-    if ($id("magBench")) $id("magBench").dataset.signature = "";
     if ($id("magService")) $id("magService").dataset.signature = "";
-    updateDrawerLive();
-    if (state.page === "sensors") renderSensorGrid();
-    renderTree();
+    benchRepaint();
   };
   const redraw = () => {
-    if ($id("magBench")) $id("magBench").dataset.signature = "";
+    benchForceRedraw();
     updateDrawerLive();
+  };
+  const closeForm = () => {
+    clearTimeout(form.timer);
+    form.token++;
+    Object.assign(form, { open: false, preview: null, previewKey: "", phase: "empty", error: "", note: "" });
   };
   if ($id("benchOpen"))
     $id("benchOpen").onclick = () => {
+      // Ao abrir, os campos trazem a faixa em uso. Nada é enviado até Aplicar.
       const bench = deviceMag(findDevice(sensorId))?.bench;
       Object.assign(form, {
-        open: true, preview: null, error: "",
+        open: true, preview: null, previewKey: "", error: "", note: "",
         zero: fmtMmInput(bench?.zero_deg ?? BENCH_DEFAULT.zero), full: fmtMmInput(bench?.full_deg ?? BENCH_DEFAULT.full), direction: String(bench?.direction ?? BENCH_DEFAULT.direction),
       });
       redraw();
+      benchSchedulePreview(sensorId, true);
       $id("benchZero")?.focus();
     };
   if ($id("benchFormCancel"))
     $id("benchFormCancel").onclick = () => {
-      Object.assign(form, { open: false, preview: null, error: "" });
+      closeForm();
       redraw();
     };
-  const readForm = () => {
-    Object.assign(form, { zero: $id("benchZero").value, full: $id("benchFull").value, direction: $id("benchDirection").value });
-    const zero = parseBenchDeg(form.zero);
-    const full = parseBenchDeg(form.full);
-    if (Number.isNaN(zero) || Number.isNaN(full)) throw Error("Informe os dois ângulos em graus, de 0 a 359,999 (vírgula ou ponto).");
-    return { zero, full, direction: Number(form.direction) };
+  // O que é digitado fica guardado a cada tecla: um redesenho nunca devolve um valor antigo.
+  const typed = () => {
+    Object.assign(form, { zero: $id("benchZero").value, full: $id("benchFull").value, direction: $id("benchDirection").value, note: "" });
+    benchSchedulePreview(sensorId);
   };
-  // Qualquer mudança nos campos invalida a prévia: só se aplica o que foi visto.
-  for (const id of ["benchZero", "benchFull", "benchDirection"])
-    if ($id(id))
-      $id(id).oninput = () => {
-        if (!form.preview) return;
-        form.preview = null;
-        if ($id("benchPreview")) $id("benchPreview").remove();
-        if ($id("benchApply")) $id("benchApply").disabled = true;
-      };
-  if ($id("benchPreviewBtn"))
-    $id("benchPreviewBtn").onclick = (event) =>
-      withBusy(event.currentTarget, async () => {
-        try {
-          const values = readForm();
-          form.preview = await callRpc("gaxeta_mag_bench_preview", { p_sensor_id: sensorId, p_zero_deg: values.zero, p_full_deg: values.full, p_direction: values.direction });
-          form.error = "";
-        } catch (error) {
-          form.preview = null;
-          form.error = isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error);
-        }
-        redraw();
-      });
+  for (const id of ["benchZero", "benchFull"]) if ($id(id)) $id(id).oninput = typed;
+  if ($id("benchDirection")) $id("benchDirection").onchange = typed;
+  if ($id("benchInvert"))
+    $id("benchInvert").onclick = () => {
+      const zero = $id("benchZero").value;
+      const direction = $id("benchDirection").value === "1" ? "-1" : "1";
+      $id("benchZero").value = $id("benchFull").value;
+      $id("benchFull").value = zero;
+      $id("benchDirection").value = direction;
+      Object.assign(form, { zero: $id("benchZero").value, full: $id("benchFull").value, direction });
+      const check = benchFormCheck(form, null);
+      form.note = check.values ? `Invertida: ${benchRangeText(check.values.zero, check.values.full, check.values.direction)}.` : "";
+      benchSchedulePreview(sensorId, true);
+    };
+  if ($id("benchPreviewBtn")) $id("benchPreviewBtn").onclick = () => benchSchedulePreview(sensorId, true);
   if ($id("benchForm"))
     $id("benchForm").onsubmit = (event) => {
       event.preventDefault();
       withBusy(event.submitter, async () => {
-        let values;
-        try {
-          values = readForm();
-        } catch (error) {
-          form.error = error.message;
-          return redraw();
-        }
-        const preview = form.preview;
-        if (!preview || Number(preview.zero_deg) !== values.zero || Number(preview.full_deg) !== values.full || Number(preview.direction) !== values.direction) {
-          form.error = "Veja a prévia destes valores antes de aplicar.";
-          form.preview = null;
-          return redraw();
-        }
-        const key = `start:${values.zero}:${values.full}:${values.direction}`;
+        const bench = deviceMag(findDevice(sensorId))?.bench || null;
+        Object.assign(form, { zero: $id("benchZero").value, full: $id("benchFull").value, direction: $id("benchDirection").value });
+        const check = benchFormCheck(form, bench);
+        // Só se aplica o que a prévia mostrou: valores iguais aos da prévia em tela.
+        if (check.phase !== "ready" || !form.preview || form.previewKey !== check.values.key) return benchSchedulePreview(sensorId, true);
+        const values = check.values;
+        const key = `start:${values.key}`;
         const previous = benchRequests.get(sensorId);
         const request = previous?.key === key ? previous : { key, id: newRequestId() };
         benchRequests.set(sensorId, request);
         try {
-          await callRpc("gaxeta_mag_bench_start", { p_sensor_id: sensorId, p_request_id: request.id, p_zero_deg: values.zero, p_full_deg: values.full, p_direction: values.direction });
+          const result = await callRpc("gaxeta_mag_bench_start", { p_sensor_id: sensorId, p_request_id: request.id, p_zero_deg: values.zero, p_full_deg: values.full, p_direction: values.direction });
           benchRequests.delete(sensorId);
-          Object.assign(form, { open: false, preview: null, error: "" });
-          showMessage("Modo bancada ativo. Ponha o eixo dentro da faixa e toque em Confirmar início.", "success");
+          closeForm();
+          showMessage(
+            result?.unchanged
+              ? "A faixa informada já era a faixa em uso. Nada foi alterado: a referência atual continua valendo."
+              : "Posicione o eixo dentro da nova faixa, deixe-o parado e toque em Confirmar início. O resultado aparece após uma leitura válida da placa, normalmente no próximo envio.",
+            "success",
+          );
         } catch (error) {
           if (!isNetworkError(error)) benchRequests.delete(sensorId);
-          form.error = isNetworkError(error) ? "Sem resposta do servidor. Toque de novo: a mesma ativação é reenviada, sem duplicar." : isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error);
+          Object.assign(form, { phase: "error", error: isNetworkError(error) ? "Sem resposta do servidor. Toque de novo em Aplicar: a mesma solicitação é reenviada, sem duplicar." : isMissingFeature(error) ? MAG15_MISSING_TEXT : errorText(error) });
+          if (isNetworkError(error)) form.phase = "shown";
+          return benchPreviewPaint(sensorId);
         }
         await refresh();
       });
@@ -3513,12 +3909,13 @@ function bindMagBench(sensorId) {
         try {
           await callRpc("gaxeta_mag_bench_confirm", { p_sensor_id: sensorId, p_request_id: request.id });
           benchRequests.delete(sensorId);
-          showMessage("Confirmação registrada. Deixe o eixo parado até a próxima leitura da placa.", "success");
+          showMessage("Confirmação registrada. Deixe o eixo parado: o resultado aparece após uma leitura válida da placa, normalmente no próximo envio.", "success");
         } catch (error) {
           if (!isNetworkError(error)) benchRequests.delete(sensorId);
           if ($id("benchMessage2")) $id("benchMessage2").textContent = isNetworkError(error) ? "Sem resposta do servidor. Toque de novo: a mesma confirmação é reenviada." : errorText(error);
           return;
         }
+        if ($id("benchMessage2")) $id("benchMessage2").textContent = "";
         await refresh();
       });
   if ($id("benchStop"))
@@ -3529,7 +3926,7 @@ function bindMagBench(sensorId) {
       await withBusy(button, async () => {
         try {
           await callRpc("gaxeta_mag_bench_stop", { p_sensor_id: sensorId });
-          Object.assign(form, { open: false, preview: null, error: "", bands: false });
+          closeForm();
           showMessage("Modo bancada desligado.", "success");
         } catch (error) {
           showMessage(errorText(error), "error");
@@ -3537,10 +3934,35 @@ function bindMagBench(sensorId) {
         await refresh();
       });
     };
+  // Faixas simuladas: muda só a apresentação. A tela troca na hora e a escolha vai para o
+  // servidor, para o outro cliente (site ou aplicativo) abrir igual.
   if ($id("benchBands"))
-    $id("benchBands").onchange = () => {
-      form.bands = $id("benchBands").checked;
-      redraw();
+    $id("benchBands").onchange = async () => {
+      const want = $id("benchBands").checked;
+      benchBandsLocal.set(sensorId, want);
+      benchBusy.add(sensorId);
+      benchRepaint();
+      let note = "";
+      try {
+        await callRpc("gaxeta_mag_bench_set_bands", { p_sensor_id: sensorId, p_show: want });
+        await loadMagSummary([sensorId]).catch(() => {});
+        benchBandsLocal.delete(sensorId);
+      } catch (error) {
+        if (isMissingFeature(error)) {
+          // Banco ainda sem a migração 16: a escolha vale neste aparelho até a atualização.
+          try {
+            localStorage.setItem("gaxeta.benchBands." + sensorId, want ? "1" : "0");
+          } catch {}
+          benchBandsLocal.delete(sensorId);
+          note = "Escolha guardada só neste aparelho: o banco ainda não recebeu a atualização que a compartilha (migração 16).";
+        } else {
+          benchBandsLocal.delete(sensorId);
+          note = isNetworkError(error) ? "Sem resposta do servidor: a escolha não foi gravada. Tente de novo." : errorText(error);
+        }
+      }
+      benchBusy.delete(sensorId);
+      benchRepaint();
+      if ($id("benchMessage2")) $id("benchMessage2").textContent = note;
     };
 }
 
@@ -3573,6 +3995,16 @@ const canLinkAt = (access) => isAdminWriter() || (myRole() === "corp" && state.c
 // Leitura do sensor no spot: posição elétrica (%) e condição do sinal.
 const spotReading = (device) => {
   const view = deviceView(device);
+  // Modo bancada: percentual, faixa simulada e horário na própria linha do spot e na ficha.
+  if (view.bench) {
+    const face = benchFace(device, view);
+    return (
+      `<span class="spot-reading${face.stale ? " is-stale" : ""}" title="Posição de bancada · ${esc(view.note)}">${face.has ? esc(view.value) + " %" : "—"}</span>` +
+      (face.has && view.sim ? benchSimChip(view.sim) : face.has ? "" : `<span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`) +
+      `<span class="series-tag is-bench" title="Série de bancada: demonstração em mesa. Não é curso de campo.">Modo bancada</span>` +
+      `<small class="spot-time${face.stale ? " is-late" : ""}">${face.stale ? "última leitura válida " : "atualizado "}${esc(fmtClock(face.at))}</small>`
+    );
+  }
   return `<span class="spot-reading" title="${esc(view.magnetic ? view.kicker + " (sensor magnético)" : "Posição elétrica do potenciômetro (leitura atual)")}">${esc(view.value)}${view.unit ? (view.unit === "%" ? " %" : view.unit) : ""}</span><span class="adjustment-badge health-${view.key}" title="${esc(view.note)}">${esc(view.label)}</span>`;
 };
 const connBadge = (device) => {
@@ -4522,6 +4954,7 @@ const telem = {
   error: "",
   zoomStack: [], // seleções anteriores, para "Voltar" restaurar inclusive um intervalo manual
   lastLoadAt: 0,
+  pin: null, // horário do intervalo tocado no gráfico (a dica fica fixa até outro toque)
 };
 const PERIOD_LABELS = { 300000: "5 min", 3600000: "1 hora", 21600000: "6 horas", 86400000: "1 dia", 604800000: "7 dias", month: "1 mês", "3months": "3 meses" };
 const selectionLabel = () => (telem.custom ? "intervalo personalizado" : PERIOD_LABELS[telem.period] || "período");
@@ -4530,7 +4963,7 @@ const shortDateTime = (value) => new Date(value).toLocaleString("pt-BR", { day: 
 function resetTelemetryData() {
   telem.controller?.abort();
   telem.request++;
-  Object.assign(telem, { controller: null, pending: null, loaded: null, error: "", zoomStack: [], lastLoadAt: 0 });
+  Object.assign(telem, { controller: null, pending: null, loaded: null, error: "", zoomStack: [], lastLoadAt: 0, pin: null });
 }
 
 // ----- Seletor de sensor -----
@@ -4602,9 +5035,14 @@ async function openTelemetry() {
     searchHistorySensors().catch(() => {});
   }
   await ensureAssets([currentDevice()?.measurement_point_id]);
+  // Leitura atual e preferências do sensor (faixas simuladas) antes do primeiro desenho do gráfico.
+  if (currentDevice() && !state.live.has(state.sensorId)) await loadTelemetrySummary([state.sensorId]).catch(() => {});
   if (state.page !== "telemetry") return;
   renderHistorySelect();
   renderTelemetryLive();
+  // A leitura atual é relida ao abrir a tela, sem esperar o próximo ciclo: quem chega de Sensores
+  // ou de Ativos vê o mesmo número, a mesma faixa e o mesmo horário do último envio.
+  refreshKnownDevices().then(() => state.page === "telemetry" && renderTelemetryLive()).catch(() => {});
   await loadHistory();
 }
 $id("historySensor").onchange = () => {
@@ -4614,6 +5052,7 @@ $id("historySensor").onchange = () => {
   renderTelemetryLive();
   renderHistory();
   ensureAssets([currentDevice()?.measurement_point_id])
+    .then(() => (state.live.has(state.sensorId) ? null : loadTelemetrySummary([state.sensorId])))
     .then(() => {
       renderHistorySelect();
       renderTelemetryLive();
@@ -4887,6 +5326,7 @@ function renderHistory() {
       `<path class="chart-raw" d="${rawPath.trim()}"/>` +
       (rows.length === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${point(rows[0], "travel_percent").split(" ")[0]}" cy="${point(rows[0], "travel_percent").split(" ")[1]}" r="4"/>` : "")
     : "";
+  paintChartPin();
   $id("historyChart").setAttribute(
     "aria-label",
     `Posição elétrica do sensor. ${rows.length} intervalos. ${fmtNum(stats.count || 0, 0)} leituras. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Leitura atual e linha estabilizada de 5 pontos, sem classificação mecânica. Arraste para ampliar.`,
@@ -4944,12 +5384,55 @@ $id("resetZoom").onclick = () => {
   loadHistory();
 };
 
-// ----- Ampliação por arraste e dica -----
+// ----- Ampliação por arraste, dica e leitura por toque -----
+// Mouse: a dica acompanha o ponteiro. Toque (ou clique sem arrastar): o intervalo mais próximo
+// fica marcado e a dica fixa mostra hora, valor e, na bancada, a faixa simulada. Arrastar amplia.
 let chartDragStart = null;
 const chartFraction = (event) => {
   const box = $id("historyChart").getBoundingClientRect();
   return Math.max(0, Math.min(1, (event.clientX - box.left) / box.width));
 };
+const chartRowValue = (loaded, row) => (loaded.modality === "as5600_i2c" ? magRowValue(loaded.series, row) : row.travel_percent == null ? null : Number(row.travel_percent));
+const chartTooltipText = (loaded, row) =>
+  loaded.modality === "as5600_i2c"
+    ? magTooltipText(row, loaded)
+    : `${fmtDateTime(row.received_at)}
+Posição elétrica: leitura ${fmtNum(row.travel_percent, 2)}% · linha estabilizada ${fmtNum(row.stable_percent)}% · mín. ${fmtNum(row.min_percent)}% · máx. ${fmtNum(row.max_percent)}%${row.voltage_mv == null ? "" : " · " + fmtVolt(row.voltage_mv) + " calibrada"}
+${fmtNum(row.samples, 0)} leituras`;
+const chartNearestRow = (loaded, fraction) => {
+  const at = loaded.range.from.getTime() + fraction * (loaded.range.to - loaded.range.from);
+  return loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
+};
+function showChartTooltip(loaded, row, fraction) {
+  const tip = $id("chartTooltip");
+  tip.textContent = chartTooltipText(loaded, row);
+  // A dica fica do lado oposto ao ponto, para não o cobrir.
+  tip.style.left = fraction < 0.5 ? "auto" : "6px";
+  tip.style.right = fraction < 0.5 ? "6px" : "auto";
+  tip.hidden = false;
+}
+// Marca do intervalo tocado: linha vertical e ponto, redesenhados a cada atualização do gráfico.
+function paintChartPin() {
+  const chart = $id("historyChart");
+  chart.querySelector(".chart-pin")?.remove();
+  const loaded = telem.loaded;
+  const row = loaded && telem.pin ? loaded.history.find((item) => item.received_at === telem.pin) : null;
+  if (!row) {
+    if (telem.pin) $id("chartTooltip").hidden = true;
+    telem.pin = null;
+    return;
+  }
+  const fraction = Math.max(0, Math.min(1, (new Date(row.received_at) - loaded.range.from) / (loaded.range.to - loaded.range.from)));
+  const value = chartRowValue(loaded, row);
+  const x = (fraction * 1e3).toFixed(2);
+  chart.insertAdjacentHTML(
+    "beforeend",
+    `<g class="chart-pin"><path class="chart-pin-line" d="M${x} 0V280"/>` +
+      (value == null ? "" : `<path class="chart-pin-halo" d="M${x} ${(280 - Math.max(0, Math.min(100, value)) * 2.8).toFixed(2)}h0.01"/><path class="chart-pin-dot" d="M${x} ${(280 - Math.max(0, Math.min(100, value)) * 2.8).toFixed(2)}h0.01"/>`) +
+      `</g>`,
+  );
+  showChartTooltip(loaded, row, fraction);
+}
 $id("historyChart").onpointerdown = (event) => {
   if (!telem.loaded?.history.length || telem.pending?.auto === false) return;
   chartDragStart = chartFraction(event);
@@ -4960,6 +5443,7 @@ $id("historyChart").onpointermove = (event) => {
   if (!loaded) return;
   const fraction = chartFraction(event);
   if (chartDragStart !== null) {
+    if (Math.abs(fraction - chartDragStart) < 0.01) return; // ainda é um toque, não um arraste
     let selection = $id("historyChart").querySelector(".chart-selection");
     if (!selection) {
       selection = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -4971,17 +5455,14 @@ $id("historyChart").onpointermove = (event) => {
     selection.setAttribute("width", Math.abs(fraction - chartDragStart) * 1e3);
     return;
   }
-  const at = loaded.range.from.getTime() + fraction * (loaded.range.to - loaded.range.from);
-  const nearest = loaded.history.reduce((best, row) => (!best || Math.abs(new Date(row.received_at) - at) < Math.abs(new Date(best.received_at) - at) ? row : best), null);
-  if (!nearest) return;
-  $id("chartTooltip").hidden = false;
-  if (loaded.modality === "as5600_i2c") return void ($id("chartTooltip").textContent = magTooltipText(nearest, loaded));
-  $id("chartTooltip").textContent = `${fmtDateTime(nearest.received_at)}
-Posição elétrica: leitura ${fmtNum(nearest.travel_percent, 2)}% · linha estabilizada ${fmtNum(nearest.stable_percent)}% · mín. ${fmtNum(nearest.min_percent)}% · máx. ${fmtNum(nearest.max_percent)}%${nearest.voltage_mv == null ? "" : " · " + fmtVolt(nearest.voltage_mv) + " calibrada"}
-${fmtNum(nearest.samples, 0)} leituras`;
+  if (event.pointerType !== "mouse") return;
+  const nearest = chartNearestRow(loaded, fraction);
+  if (nearest) showChartTooltip(loaded, nearest, fraction);
 };
 $id("historyChart").onpointerleave = () => {
-  $id("chartTooltip").hidden = true;
+  // Com um ponto marcado, a dica volta a ele; sem marca, some.
+  if (telem.pin) paintChartPin();
+  else $id("chartTooltip").hidden = true;
 };
 $id("historyChart").onpointercancel = () => {
   chartDragStart = null;
@@ -4994,12 +5475,20 @@ $id("historyChart").onpointerup = (event) => {
   chartDragStart = null;
   $id("historyChart").querySelector(".chart-selection")?.remove();
   const loaded = telem.loaded;
-  if (!loaded || Math.abs(end - start) < 0.01) return;
+  if (!loaded) return;
+  if (Math.abs(end - start) < 0.01) {
+    // Toque: marca o intervalo mais próximo (tocar de novo no mesmo desmarca).
+    const nearest = chartNearestRow(loaded, end);
+    telem.pin = nearest && nearest.received_at !== telem.pin ? nearest.received_at : null;
+    if (!telem.pin) $id("chartTooltip").hidden = true;
+    return paintChartPin();
+  }
   const span = loaded.range.to - loaded.range.from;
   try {
     const range = validateRange(new Date(loaded.range.from.getTime() + Math.min(start, end) * span), new Date(loaded.range.from.getTime() + Math.max(start, end) * span));
     telem.zoomStack.push({ custom: telem.custom, period: telem.period, range: telem.range });
-    Object.assign(telem, { range, custom: true });
+    Object.assign(telem, { range, custom: true, pin: null });
+    $id("chartTooltip").hidden = true;
     loadHistory();
   } catch (error) {
     showMessage(errorText(error), "error");
@@ -5123,6 +5612,12 @@ const TELEM_LABELS = {
     historyHead: ["Horário", "Curso restante: estabilizado / média", "Mín. / máx.", "Avanço (mm)", "Ângulo (média circular)", "Leituras válidas / total"],
   },
 };
+// Bancada com as faixas simuladas ligadas: o resumo mostra a faixa no lugar do excesso de giro.
+TELEM_LABELS.benchsim = {
+  ...TELEM_LABELS.bench,
+  stableNow: ["Faixa simulada", "Faixa simulada da bancada, decidida sobre o percentual mostrado: Sem ajuste até 29,99 %, Baixo de 30,00 a 49,99 %, Médio de 50,00 a 72,99 %, Alto de 73,00 % em diante. Não é a condição do engaxetamento."],
+  scale: "MODO BANCADA · Posição de bancada (%) com faixas simuladas · não é curso de campo",
+};
 // Os rótulos do resumo seguem a modalidade da leitura ATUAL; os do gráfico e das tabelas seguem
 // a série CARREGADA. Assim, um sensor que voltou ao potenciômetro pode mostrar o histórico
 // magnético antigo sem trocar os rótulos da leitura atual, e vice-versa.
@@ -5142,24 +5637,31 @@ function applySummaryLabels(mode) {
   set("lblStableNow", text.stableNow);
   set("lblDelta", text.delta);
 }
-function applyChartLabels(mode) {
-  if (mode === telemChartMode) return;
-  telemChartMode = mode;
-  const text = TELEM_LABELS[mode];
+function applyChartLabels(mode, sim = false) {
+  const chartKey = mode + (sim ? ":sim" : "");
+  if (chartKey === telemChartMode) return;
+  telemChartMode = chartKey;
+  const text = TELEM_LABELS[mode === "bench" && sim ? "benchsim" : mode];
   for (const [id, pair] of [["lblMin", text.min], ["lblMax", text.max]]) {
     $id(id).textContent = pair[0];
     $id(id).title = pair[1];
   }
   $id("chartScaleNote").textContent = text.scale;
+  // Bancada: legenda com o nome e os limites de cada faixa simulada (ou a linha neutra, lilás).
   $id("chartLegend").innerHTML =
-    `<li class="legend-raw"><i></i>${esc(text.legend[0])}</li>` +
-    (text.legend[1] === "—" ? "" : `<li class="legend-stable"><i></i>${esc(text.legend[1])}</li><li class="legend-change"><i></i>${esc(text.legend[2])}</li>`);
+    mode === "bench"
+      ? (sim
+          ? BENCH_SIM_ORDER.map((name) => `<li class="legend-sim health-${BENCH_SIM[name].key}"><i></i>${esc(BENCH_SIM[name].label)} <small>${esc(BENCH_SIM[name].range)}</small></li>`).join("")
+          : `<li class="legend-bench"><i></i>${esc(text.legend[0])}</li>`) + `<li class="legend-anchor"><i></i>Início confirmado</li>`
+      : `<li class="legend-raw"><i></i>${esc(text.legend[0])}</li>` +
+        (text.legend[1] === "—" ? "" : `<li class="legend-stable"><i></i>${esc(text.legend[1])}</li><li class="legend-change"><i></i>${esc(text.legend[2])}</li>`);
   $id("chartYAxis").innerHTML = text.axis.map((label) => `<span>${esc(label)}</span>`).join("");
   $id("movementTitle").textContent = text.movementTitle;
   $id("movementHead").innerHTML = text.movementHead.map((label) => `<th>${esc(label)}</th>`).join("");
   $id("historyHead").innerHTML = text.historyHead.map((label) => `<th>${esc(label)}</th>`).join("");
   $id("showRawBand").closest("label").hidden = mode === "angle";
   $id("chartScaleNote").classList.toggle("is-bench", mode === "bench");
+  document.querySelector(".chart-panel").classList.toggle("is-bench-chart", mode === "bench");
 }
 // Que série a Telemetria mostra: a da modalidade atual do sensor, ou a escolhida no seletor.
 function telemetrySeries(device) {
@@ -5207,25 +5709,28 @@ function renderTelemetryLiveMag(device) {
   const computed = view.computed;
   const service = view.service;
   const bench = view.bench || null;
-  applySummaryLabels(bench ? "bench" : computed ? "course" : "angle");
+  applySummaryLabels(bench ? (view.benchBands ? "benchsim" : "bench") : computed ? "course" : "angle");
+  const benchLate = !!bench && view.scale != null && !deviceStatus(device).online;
   $id("historyTitle").textContent = identity.title;
   $id("historyTitle").title = identity.path || "";
   $id("historyContext").textContent = identity.linked
     ? `Sensor: ${identity.sensor} · Spot: ${identity.spot} · sensor magnético · série: ${bench ? "BANCADA" : computed ? view.series : "ângulo"}`
     : `Sensor magnético sem vínculo com spot (fila de associação) · ${deviceStatus(device).label}`;
   $id("historyContext").title = identity.path || "";
-  $id("historyCurrentLabel").textContent = view.kicker + (view.origin ? ` (${view.origin})` : "");
+  $id("historyCurrentLabel").textContent = bench ? (benchLate ? "Bancada · última leitura válida (não é a atual)" : "Modo bancada · posição de bancada") : view.kicker + (view.origin ? ` (${view.origin})` : "");
   $id("historyCurrent").textContent = view.value === "—" ? "—" : `${view.value}${view.unit === "%" ? " %" : view.unit}`;
   $id("historyHealthBox").className = "summary-main health-" + view.key;
   $id("historyHealth").textContent = view.label;
   $id("historyAction").textContent = view.note;
   if (bench) {
-    $id("historyRawNow").textContent = bench.state === "ok" && bench.percent != null ? fmtNum(bench.percent, 2) + " %" : "—";
+    $id("historyRawNow").textContent = view.scale != null ? view.value + " %" : "—";
     $id("historyRawNow").title = view.note;
     $id("historyVolt").textContent = bench.continuous_deg == null ? "—" : fmtDeg(bench.continuous_deg, 2);
     $id("historyVolt").title = bench.continuous_deg == null ? "" : `${bench.turns} volta(s) inteira(s)`;
-    $id("historyStableNow").textContent = bench.over_deg == null ? "—" : fmtDeg(bench.over_deg, 1);
+    $id("historyStableNow").textContent = view.benchBands ? view.sim?.label || "—" : bench.over_deg == null ? "—" : fmtDeg(bench.over_deg, 1);
+    $id("historyStableNow").title = view.benchBands && view.sim ? `${view.sim.range} · ${view.where}` : "";
   } else {
+    $id("historyStableNow").title = "";
     $id("historyRawNow").textContent = computed ? fmtNum(computed.remaining_percent, 2) + " %" : "—";
     $id("historyRawNow").title = computed ? `${fmtMm(computed.remaining_mm, 2)} de ${fmtMm(service?.course_mm, 2)}` + (view.reason === "out_of_range" ? " · fora da faixa validada" : "") : MAG_REASON[view.reason]?.note || "";
     $id("historyVolt").textContent = computed ? fmtMm(computed.advance_mm, 2) : "—";
@@ -5239,20 +5744,105 @@ function renderTelemetryLiveMag(device) {
     (cadence ? ` · ${cadence.text}` : "") +
     (bench ? ` · Modo bancada: ${fmtDeg(bench.zero_deg, 1)} = 0 %, ${fmtDeg(bench.full_deg, 1)} = 100 %, ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}` : "") +
     (service ? ` · engaxetamento de ${fmtDateTime(service.captured_at)}: ${fmtMm(service.course_mm)} ${service.course_origin === "estimated" ? "estimados" : "medidos"}, geometria ${service.geometry}` : "");
-  $id("historySince").textContent = bench ? "Modo bancada desde " + fmtDateTime(bench.started_at) + " · a nuvem atualiza a cada envio da placa" : service?.stable_since ? "Linha estabilizada desde " + fmtDateTime(service.stable_since) : "";
+  $id("historySince").textContent = bench
+    ? (benchLate ? `Última leitura válida às ${fmtClock(device.last_received_at)} · sem atualização há ${agoText(device.last_received_at)}` : `Atualizado às ${fmtClock(device.last_received_at)}`) + " · bancada desde " + fmtClock(bench.started_at)
+    : service?.stable_since ? "Linha estabilizada desde " + fmtDateTime(service.stable_since) : "";
+  $id("historyHealthBox").classList.toggle("is-stale", benchLate);
+  // A preferência das faixas chegou (ou mudou em outro cliente) depois de o gráfico ser desenhado:
+  // o gráfico em tela é refeito com ela, sem nova consulta.
+  if (telem.loaded?.modality === "as5600_i2c" && telem.loaded.series === "bench" && telem.loaded.sensorId === device.sensor_id && !telem.pending &&
+      telem.benchBandsDrawn !== benchBandsOn(device.sensor_id, view.mag)) renderHistoryMag();
   $id("historyEdit").disabled = false;
 }
 
+// Valor desenhado de um intervalo, na série em tela (null = sem valor: a linha é interrompida).
+function magRowValue(mode, row) {
+  if (mode === "bench") return benchShown(row.bench_percent) == null ? null : Number(row.bench_percent);
+  if (mode === "course") return row.remaining_percent == null ? null : Number(row.remaining_percent);
+  return row.angle_deg == null ? null : (Number(row.angle_deg) / 360) * 100;
+}
+// Curva da bancada. Cada trecho é pintado conforme a altura que representa: abaixo de 30 %
+// vermelho, de 30 a 50 % laranja, de 50 a 73 % amarelo e de 73 % em diante verde. Um trecho que
+// cruza um limite é dividido no ponto do cruzamento (interpolação só gráfica: dica e tabela
+// continuam com os horários e valores recebidos). A linha é interrompida em toda leitura sem
+// posição (inválida, reposicionar, início não confirmado), na troca de configuração e em lacunas
+// de tempo; um ponto sozinho aparece como ponto. Com as faixas desligadas, uma cor só (lilás).
+function benchChartSvg(rows, { xOf, yOf, gapMs, bands, showBand }) {
+  const runs = [];
+  let run = null;
+  let previous = null;
+  for (const row of rows) {
+    const value = magRowValue("bench", row);
+    if (value == null) {
+      run = previous = null; // leitura sem posição entre duas válidas: a interrupção fica à vista
+      continue;
+    }
+    // Intervalo que mistura leituras com e sem posição: fica isolado, sem ligar aos vizinhos.
+    const mixed = Number(row.samples) > Number(row.bench_ok);
+    const broke = !previous || previous.mixed || mixed || row.bench_id !== previous.row.bench_id || new Date(row.received_at) - new Date(previous.row.last_at || previous.row.received_at) > gapMs;
+    if (broke) runs.push((run = []));
+    run.push({ x: xOf(row.received_at), v: value, row });
+    previous = { row, mixed };
+  }
+  const paths = { none: "", low: "", medium: "", high: "", bench: "" };
+  const dots = { none: "", low: "", medium: "", high: "", bench: "" };
+  let casing = "";
+  let dotCasing = "";
+  let area = "";
+  const bandOf = (value) => (bands ? benchSimOf(value)?.band || "bench" : "bench");
+  const at = (point) => `${point.x.toFixed(2)} ${yOf(point.v).toFixed(2)}`;
+  for (const points of runs) {
+    if (points.length === 1) {
+      // Ponto isolado: traço de comprimento zero com ponta redonda (não deforma quando o gráfico estica).
+      const dot = `M${at(points[0])}h0.01`;
+      dots[bandOf(points[0].v)] += dot;
+      dotCasing += dot;
+      continue;
+    }
+    casing += "M" + points.map(at).join("L");
+    for (let index = 1; index < points.length; index++) {
+      const from = points[index - 1];
+      const to = points[index];
+      const cuts = bands
+        ? BENCH_SIM_EDGES.filter((edge) => (from.v - edge) * (to.v - edge) < 0).map((edge) => (edge - from.v) / (to.v - from.v)).sort((left, right) => left - right)
+        : [];
+      const stops = [from, ...cuts.map((part) => ({ x: from.x + (to.x - from.x) * part, v: from.v + (to.v - from.v) * part })), to];
+      for (let piece = 1; piece < stops.length; piece++)
+        paths[bandOf((stops[piece - 1].v + stops[piece].v) / 2)] += `M${at(stops[piece - 1])}L${at(stops[piece])}`;
+    }
+    if (showBand)
+      area += "M" + points.map((point) => `${point.x.toFixed(2)} ${yOf(point.row.max_bench ?? point.v).toFixed(2)}`).join("L") +
+        "L" + [...points].reverse().map((point) => `${point.x.toFixed(2)} ${yOf(point.row.min_bench ?? point.v).toFixed(2)}`).join("L") + "Z";
+  }
+  return {
+    count: runs.reduce((total, points) => total + points.length, 0),
+    runs: runs.length,
+    svg:
+      `<path class="chart-band" d="${area}"/>` +
+      (bands ? `<path class="chart-sim-edge" d="M0 ${yOf(30).toFixed(2)}H1000M0 ${yOf(50).toFixed(2)}H1000M0 ${yOf(73).toFixed(2)}H1000"/>` : "") +
+      `<path class="chart-sim-case" d="${casing}"/>` +
+      (bands
+        ? BENCH_SIM_ORDER.map((name) => `<path class="chart-sim chart-${BENCH_SIM[name].key}" d="${paths[name]}"/>`).join("")
+        : "") +
+      `<path class="chart-sim chart-bench-line" d="${paths.bench}"/>` +
+      `<path class="chart-sim-case chart-sim-dot-case" d="${dotCasing}"/>` +
+      Object.keys(dots).map((name) => (dots[name] ? `<path class="chart-sim chart-sim-dot ${name === "bench" ? "chart-bench-line" : "chart-" + BENCH_SIM[name].key}" d="${dots[name]}"/>` : "")).join(""),
+  };
+}
 function renderHistoryMag() {
   const loaded = telem.loaded;
   const mode = loaded.series;
-  applyChartLabels(mode);
+  const gapDevice = currentDevice();
+  // Faixas simuladas: a preferência atual do sensor vale para todo o período em tela.
+  const bands = mode === "bench" && benchBandsOn(loaded.sensorId, gapDevice ? deviceMag(gapDevice) : null);
+  telem.benchBandsDrawn = bands;
+  applyChartLabels(mode, bands);
   const rows = loaded.history;
   const movements = loaded.movements;
   const stats = loaded.stats;
   const range = loaded.range;
-  $id("historyMin").textContent = stats.min == null ? "—" : `${fmtNum(stats.min)} %`;
-  $id("historyMax").textContent = stats.max == null ? "—" : `${fmtNum(stats.max)} %`;
+  $id("historyMin").textContent = stats.min == null ? "—" : `${fmtNum(stats.min, mode === "bench" ? 2 : 1)} %`;
+  $id("historyMax").textContent = stats.max == null ? "—" : `${fmtNum(stats.max, mode === "bench" ? 2 : 1)} %`;
   $id("historyCount").textContent = `${fmtNum(stats.valid, 0)} válidas de ${fmtNum(stats.count, 0)}`;
   $id("chartEmpty").hidden = rows.length > 0;
   $id("chartEmpty").textContent = "Nenhuma leitura magnética neste período.";
@@ -5261,7 +5851,8 @@ function renderHistoryMag() {
   $id("aggregationNote").textContent = loaded.truncated
     ? "Muitas mudanças neste intervalo. Reduza o período para exibir a linha completa."
     : mode === "bench"
-      ? "MODO BANCADA: Posição de bancada, média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo · um trecho por configuração · não gera mudanças de 5 p.p. nem evento de manutenção."
+      ? "MODO BANCADA: Posição de bancada, média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo · a linha é interrompida na troca de configuração e onde não há posição válida" +
+        (bands ? " · cada trecho tem a cor da faixa simulada da sua altura" : "") + " · não gera mudanças de 5 p.p. nem evento de manutenção."
       : mode === "course"
       ? "Curso restante: média de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas · um trecho por engaxetamento · linha estabilizada: 5 p.p."
       : "Ângulo: média circular de " + fmtNum(loaded.bucketSeconds || 1, 0) + " s por intervalo, só de leituras válidas. Sem engaxetamento no período não há curso restante.";
@@ -5273,73 +5864,83 @@ function renderHistoryMag() {
       .map((move) => `<tr><td>${fmtDateTime(move.received_at)}</td><td>${fmtNum(move.previous_remaining)} %</td><td>${fmtNum(move.stable_remaining)} %</td><td>${fmtNum(move.stable_remaining - move.previous_remaining)} p.p.</td></tr>`)
       .join("") ||
     `<tr><td colspan="4">${mode === "course" ? "Nenhuma mudança de 5 pontos no curso restante neste período." : mode === "bench" ? "Série de bancada: a bancada não registra mudanças de 5 pontos nem evento de campo." : "Sem engaxetamento registrado neste período: não há curso restante para acompanhar."}</td></tr>`;
-  const px = (time) => Math.max(0, Math.min(1e3, ((new Date(time) - range.from) / (range.to - range.from)) * 1e3)).toFixed(2);
-  const py = (percent) => (280 - clampPercent(percent) * 2.8).toFixed(2);
-  const valueOf = (row) => (mode === "course" ? row.remaining_percent : mode === "bench" ? row.bench_percent : row.angle_deg == null ? null : (Number(row.angle_deg) / 360) * 100);
-  const gapDevice = currentDevice();
+  const xOf = (time) => Math.max(0, Math.min(1e3, ((new Date(time) - range.from) / (range.to - range.from)) * 1e3));
+  const yOf = (percent) => 280 - clampPercent(percent) * 2.8;
+  const px = (time) => xOf(time).toFixed(2);
+  const py = (percent) => yOf(percent).toFixed(2);
+  const valueOf = (row) => magRowValue(mode, row);
   const gapMs = Math.max(3 * (Number(loaded.bucketSeconds) || 1) * 1000, 90e3, 2.5 * (Number(gapDevice ? deviceInterval(gapDevice) : 0) || 0) * 1000);
-  // A linha quebra em lacunas, em intervalos sem leitura válida, na troca de referência e, no
-  // modo ângulo, na passagem por 0° (um salto de mais de 180° é a volta do contador, não um giro).
-  const breaks = (row, previous) =>
-    !previous ||
-    new Date(row.received_at) - new Date(previous.last_at || previous.received_at) > gapMs ||
-    (mode === "course" && row.service_id !== previous.service_id) ||
-    (mode === "bench" && row.bench_id !== previous.bench_id) ||
-    (mode === "angle" && Math.abs(Number(row.angle_deg) - Number(previous.angle_deg)) > 180);
-  let rawPath = "", stablePath = "", risers = "", band = "", bandUp = [], bandDown = [];
-  let previous = null, previousStable = null;
-  const closeBand = () => {
-    if (bandUp.length > 1) band += "M" + bandUp.join(" L") + " L" + bandDown.reverse().join(" L") + " Z ";
-    bandUp = [];
-    bandDown = [];
-  };
-  const drawn = rows.filter((row) => valueOf(row) != null);
-  for (const row of drawn) {
-    const x = px(row.received_at);
-    const broke = breaks(row, previous);
-    rawPath += `${broke ? "M" : "L"}${x} ${py(valueOf(row))} `;
-    if (mode === "bench") {
-      if (broke) closeBand();
-      bandUp.push(`${x} ${py(row.max_bench ?? row.bench_percent)}`);
-      bandDown.push(`${x} ${py(row.min_bench ?? row.bench_percent)}`);
-    }
-    if (mode === "course") {
-      if (broke) closeBand();
-      bandUp.push(`${x} ${py(row.max_remaining ?? row.remaining_percent)}`);
-      bandDown.push(`${x} ${py(row.min_remaining ?? row.remaining_percent)}`);
-      if (row.stable_remaining != null) {
-        if (broke || previousStable == null) stablePath += `M${x} ${py(row.stable_remaining)}`;
-        else {
-          stablePath += `H${x}`;
-          if (Number(row.stable_remaining) !== Number(previousStable)) {
-            risers += `M${x} ${py(previousStable)}V${py(row.stable_remaining)}`;
-            stablePath += `M${x} ${py(row.stable_remaining)}`;
-          }
-        }
-        previousStable = row.stable_remaining;
-      }
-    }
-    previous = row;
-  }
-  closeBand();
   // Marca vertical em cada engaxetamento capturado dentro do período.
   // No modo bancada a marca é a confirmação do início de cada configuração.
   const marks = (mode === "bench" ? (loaded.benches || []).filter((bench) => bench.anchor_at).map((bench) => ({ captured_at: bench.anchor_at })) : loaded.services)
     .filter((service) => new Date(service.captured_at) >= range.from && new Date(service.captured_at) <= range.to)
     .map((service) => `M${px(service.captured_at)} 0V280`)
     .join("");
-  $id("historyChart").innerHTML = rows.length
-    ? `<path class="chart-band" d="${$id("showRawBand").checked && mode !== "angle" ? band : ""}"/>` +
-      `<path class="chart-service" d="${marks}"/>` +
-      `<path class="chart-riser" d="${risers}"/>` +
-      `<path class="chart-line chart-electric" d="${stablePath}"/>` +
-      `<path class="chart-raw" d="${rawPath.trim()}"/>` +
-      (drawn.length === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${px(drawn[0].received_at)}" cy="${py(valueOf(drawn[0]))}" r="4"/>` : "")
-    : "";
+  let drawnCount = 0;
+  if (mode === "bench") {
+    const chart = benchChartSvg(rows, { xOf, yOf, gapMs, bands, showBand: $id("showRawBand").checked });
+    drawnCount = chart.count;
+    $id("historyChart").innerHTML = rows.length ? `<path class="chart-service" d="${marks}"/>` + chart.svg : "";
+  } else {
+    // A linha quebra em lacunas, em intervalos sem leitura válida, na troca de referência e, no
+    // modo ângulo, na passagem por 0° (um salto de mais de 180° é a volta do contador, não um giro).
+    const breaks = (row, previous) =>
+      !previous ||
+      new Date(row.received_at) - new Date(previous.last_at || previous.received_at) > gapMs ||
+      (mode === "course" && row.service_id !== previous.service_id) ||
+      (mode === "angle" && Math.abs(Number(row.angle_deg) - Number(previous.angle_deg)) > 180);
+    let rawPath = "", stablePath = "", risers = "", band = "", bandUp = [], bandDown = [];
+    let previous = null, previousStable = null, first = null;
+    const closeBand = () => {
+      if (bandUp.length > 1) band += "M" + bandUp.join(" L") + " L" + bandDown.reverse().join(" L") + " Z ";
+      bandUp = [];
+      bandDown = [];
+    };
+    for (const row of rows) {
+      // Intervalo sem valor entre dois válidos: a linha é interrompida ali, mesmo sem lacuna de tempo.
+      if (valueOf(row) == null) {
+        previous = null;
+        closeBand();
+        continue;
+      }
+      drawnCount++;
+      first ??= row;
+      const x = px(row.received_at);
+      const broke = breaks(row, previous);
+      rawPath += `${broke ? "M" : "L"}${x} ${py(valueOf(row))} `;
+      if (mode === "course") {
+        if (broke) closeBand();
+        bandUp.push(`${x} ${py(row.max_remaining ?? row.remaining_percent)}`);
+        bandDown.push(`${x} ${py(row.min_remaining ?? row.remaining_percent)}`);
+        if (row.stable_remaining != null) {
+          if (broke || previousStable == null) stablePath += `M${x} ${py(row.stable_remaining)}`;
+          else {
+            stablePath += `H${x}`;
+            if (Number(row.stable_remaining) !== Number(previousStable)) {
+              risers += `M${x} ${py(previousStable)}V${py(row.stable_remaining)}`;
+              stablePath += `M${x} ${py(row.stable_remaining)}`;
+            }
+          }
+          previousStable = row.stable_remaining;
+        }
+      }
+      previous = row;
+    }
+    closeBand();
+    $id("historyChart").innerHTML = rows.length
+      ? `<path class="chart-band" d="${$id("showRawBand").checked && mode !== "angle" ? band : ""}"/>` +
+        `<path class="chart-service" d="${marks}"/>` +
+        `<path class="chart-riser" d="${risers}"/>` +
+        `<path class="chart-line chart-electric" d="${stablePath}"/>` +
+        `<path class="chart-raw" d="${rawPath.trim()}"/>` +
+        (drawnCount === 1 ? `<circle class="chart-dot chart-raw-dot" cx="${px(first.received_at)}" cy="${py(valueOf(first))}" r="4"/>` : "")
+      : "";
+  }
+  paintChartPin();
   $id("historyChart").setAttribute(
     "aria-label",
     mode === "bench"
-      ? `Modo bancada: posição de bancada em percentual. ${rows.length} intervalos, mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. Não é curso de campo. Arraste para ampliar.`
+      ? `Modo bancada: posição de bancada em percentual${bands ? ", com a cor da faixa simulada em cada trecho (Sem ajuste até 29,99, Baixo de 30 a 49,99, Médio de 50 a 72,99, Alto de 73 em diante)" : ""}. ${rows.length} intervalos, ${drawnCount} com posição, mínimo ${fmtNum(stats.min, 2)}%, máximo ${fmtNum(stats.max, 2)}%. Não é curso de campo. Toque num ponto para ler hora, percentual e faixa; arraste para ampliar.`
       : mode === "course"
       ? `Curso de ajuste restante. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Mínimo ${fmtNum(stats.min)}%, máximo ${fmtNum(stats.max)}%. ${loaded.services.length} engaxetamento(s) no período. Arraste para ampliar.`
       : `Ângulo absoluto do sensor magnético. ${rows.length} intervalos, ${fmtNum(stats.valid, 0)} leituras válidas de ${fmtNum(stats.count, 0)}. Sem curso restante no período. Arraste para ampliar.`,
@@ -5351,7 +5952,7 @@ function renderHistoryMag() {
       .map(
         (row) =>
           mode === "bench"
-            ? `<tr><td>${fmtDateTime(row.received_at)}</td><td>${row.bench_percent == null ? "—" : fmtNum(row.bench_percent, 2) + " %"}${row.bench_id != null ? '<small class="raw-average">bancada</small>' : ""}</td>` +
+            ? `<tr><td>${fmtDateTime(row.received_at)}</td><td>${benchShown(row.bench_percent) == null ? "—" : fmtNum(benchShown(row.bench_percent), 2) + " %"}${bands ? " " + benchSimChip(benchSimOf(row.bench_percent)) : ""}${row.bench_id != null ? '<small class="raw-average">bancada</small>' : ""}</td>` +
               `<td>${row.bench_percent == null ? "—" : fmtNum(row.min_bench, 2) + " / " + fmtNum(row.max_bench, 2) + " %"}</td>` +
               `<td>${row.min_bench_u_deg == null ? "—" : fmtDeg(row.min_bench_u_deg, 1) + " / " + fmtDeg(row.max_bench_u_deg, 1)}</td>` +
               `<td>${fmtDeg(row.angle_deg, 2)}</td><td>${fmtNum(row.bench_ok, 0)} / ${fmtNum(row.samples, 0)}${magRowFlags(row)}</td></tr>`
@@ -5372,8 +5973,12 @@ function magTooltipText(row, loaded) {
   const service = loaded.services.find((item) => item.id === row.service_id);
   return (
     `${fmtDateTime(row.received_at)}\n` +
-    (row.bench_percent != null
-      ? `MODO BANCADA · Posição de bancada: ${fmtNum(row.bench_percent, 2)}% (mín. ${fmtNum(row.min_bench, 2)}, máx. ${fmtNum(row.max_bench, 2)}) · posição contínua ${fmtDeg(row.min_bench_u_deg, 1)} a ${fmtDeg(row.max_bench_u_deg, 1)} desde o 0 % · ângulo ${fmtDeg(row.angle_deg, 2)}`
+    (benchShown(row.bench_percent) != null
+      ? `MODO BANCADA · ${fmtNum(benchShown(row.bench_percent), 2)} %` +
+        (benchBandsOn(loaded.sensorId, deviceMag(currentDevice())) ? ` · faixa simulada: ${benchSimOf(row.bench_percent).label}` : "") +
+        `\nmín. ${fmtNum(row.min_bench, 2)} · máx. ${fmtNum(row.max_bench, 2)} · posição contínua ${fmtDeg(row.min_bench_u_deg, 1)} a ${fmtDeg(row.max_bench_u_deg, 1)} desde o 0 % · ângulo ${fmtDeg(row.angle_deg, 2)}`
+      : row.bench_id != null
+      ? `MODO BANCADA · sem posição neste intervalo (${[row.bench_reposition ? "reposicionar" : "", row.bench_waiting ? "início não confirmado" : "", row.bus_fail || row.no_magnet || row.field_out ? "amostra inválida" : ""].filter(Boolean).join(", ") || "leitura sem posição"}) · ângulo ${fmtDeg(row.angle_deg, 2)}`
       : row.remaining_percent == null
       ? `Ângulo do sensor: ${fmtDeg(row.angle_deg, 2)} (média circular) · sem curso restante neste intervalo`
       : `Curso restante: ${fmtNum(row.remaining_percent, 2)}% (${fmtMm(row.remaining_mm, 2)}) · estabilizado ${fmtNum(row.stable_remaining)}% · avanço ${fmtMm(row.advance_mm, 2)} · ângulo ${fmtDeg(row.angle_deg, 2)}`) +
@@ -5384,6 +5989,8 @@ function magTooltipText(row, loaded) {
 async function exportMagCsv(loaded) {
   const byId = new Map(loaded.services.map((service) => [service.id, service]));
   const benchById = new Map((loaded.benches || []).map((bench) => [bench.id, bench]));
+  // Coluna de apresentação (simulação), preenchida só com a preferência ligada.
+  const simOn = benchBandsOn(loaded.sensorId, deviceMag(currentDevice()));
   // Cada linha diz a que série pertence: bancada, campo (curso medido ou estimado) ou só ângulo.
   const seriesOf = (row, service) => (row.bench_id != null ? "bancada" : service ? (service.course_origin === "estimated" ? "campo_curso_estimado" : "campo_curso_medido") : "angulo_sem_referencia");
   const text = [
@@ -5391,7 +5998,7 @@ async function exportMagCsv(loaded) {
       "curso_restante_estabilizado_pct", "curso_restante_medio_pct", "curso_restante_min_pct", "curso_restante_max_pct", "curso_restante_medio_mm", "avanco_medio_mm",
       "angulo_medio_circular_graus", "leituras", "leituras_validas", "falha_de_barramento", "ima_ausente", "campo_fora_da_faixa", "fora_da_faixa_validada",
       "bancada_config", "bancada_posicao_media_pct", "bancada_posicao_min_pct", "bancada_posicao_max_pct", "bancada_continua_min_graus_desde_0pct", "bancada_continua_max_graus_desde_0pct",
-      "bancada_leituras_com_posicao", "bancada_leituras_reposicionar", "maior_passo_entre_amostras_contagens", "maior_lacuna_entre_amostras_ms", "metodo"],
+      "bancada_leituras_com_posicao", "bancada_leituras_reposicionar", "bancada_faixa_simulada", "maior_passo_entre_amostras_contagens", "maior_lacuna_entre_amostras_ms", "metodo"],
     ...loaded.history.map((row) => {
       const service = byId.get(row.service_id);
       const bench = benchById.get(row.bench_id);
@@ -5401,6 +6008,7 @@ async function exportMagCsv(loaded) {
         row.angle_deg ?? "", row.samples, row.valid, row.bus_fail, row.no_magnet, row.field_out, row.out_of_range,
         bench ? `0%=${bench.zero_deg} graus; 100%=${bench.full_deg} graus; sentido ${Number(bench.direction) > 0 ? "crescente" : "decrescente"}` : "",
         row.bench_percent ?? "", row.min_bench ?? "", row.max_bench ?? "", row.min_bench_u_deg ?? "", row.max_bench_u_deg ?? "", row.bench_id != null ? row.bench_ok : "", row.bench_id != null ? row.bench_reposition : "",
+        row.bench_id != null && simOn ? benchSimOf(row.bench_percent)?.label ?? "" : "",
         row.ct_step ?? "", row.ct_gap_ms ?? "",
         row.bench_id != null
           ? "MODO BANCADA: posicao de bancada calculada pela contagem continua da placa, limitada a 0-100 %; nao e curso de ajuste restante"
@@ -6433,91 +7041,255 @@ $id("manualPage").addEventListener("click", (event) => {
 });
 
 // ---- 90-ble-ui.js ----
-// Diálogo de Bluetooth (herdado do pacote publicado, com o vínculo passando pelo fluxo autorizado).
-// Só existe no aplicativo nativo e só abre por toque explícito: abrir o aplicativo ou trocar de
-// tela nunca inicia busca nem envia comando à placa. Na web, a entrada e o diálogo são removidos.
-function openBleDialog() {
+// =============================================================================
+// Buscar sensor por Bluetooth (só no aplicativo nativo, com o plugin embarcado).
+//   * Só abre e só procura por toque: abrir o aplicativo ou trocar de tela nunca inicia busca
+//     nem envia comando à placa. Na web, a entrada e o diálogo são removidos (95-boot.js).
+//   * Estados com texto próprio: Bluetooth desligado, permissão negada, procurando, nenhum
+//     sensor encontrado, conectando, conectado e desconectado. Dá para cancelar e repetir.
+//   * A busca para ao fechar o diálogo, ao trocar de tela e quando o aplicativo vai para o
+//     fundo; a conexão é liberada se ele ficar no fundo por mais de 30 s.
+//   * Origem dos dados à vista: a leitura LOCAL (ângulo e saúde do AS5600, pelo Bluetooth) ao
+//     lado da última leitura da NUVEM (o que a placa enviou por Wi-Fi), cada uma com o horário.
+//     O celular não reenvia nada à nuvem: a ingestão continua sendo só a da placa.
+//   * O vínculo ao spot continua passando pelo fluxo autorizado da plataforma.
+// =============================================================================
+const bleUi = { phase: "idle", devices: new Map(), detail: "", cloudFor: "", cloudAt: 0, cloudError: "", cloudKnown: null, hiddenTimer: null, run: 0 };
+const BLE_PHASE = {
+  idle: ["", "Pronto para buscar. Aproxime o celular da placa."],
+  checking: ["is-busy", "Conferindo o Bluetooth do aparelho…"],
+  off: ["is-warn", "Bluetooth desligado. Ligue o Bluetooth do celular e toque em Buscar de novo."],
+  denied: ["is-error", "Permissão negada. Sem a permissão de dispositivos próximos o aplicativo não encontra a placa."],
+  location: ["is-warn", "Localização desligada. Nesta versão do Android a busca Bluetooth só funciona com a localização ligada."],
+  unavailable: ["is-error", "Bluetooth indisponível neste aparelho."],
+  scanning: ["is-busy", "Procurando sensores próximos…"],
+  none: ["is-warn", "Nenhum sensor encontrado. Confira se a placa está ligada e perto do celular (até uns 5 m) e busque de novo."],
+  found: ["", "Busca concluída. Toque no sensor para conectar, ou busque de novo."],
+  connecting: ["is-busy", "Conectando ao sensor…"],
+  connected: ["is-ok", "Conectado. Leitura local a cada 5 segundos."],
+  disconnected: ["is-warn", "Desconectado. A última leitura local continua na tela."],
+  error: ["is-error", ""],
+};
+function setBlePhase(phase, detail = "") {
+  Object.assign(bleUi, { phase, detail });
+  renderBle();
+}
+function renderBle() {
+  if (!$id("bleStatus")) return;
+  const [kind, text] = BLE_PHASE[bleUi.phase] || BLE_PHASE.idle;
+  const status = $id("bleStatus");
+  status.className = "ble-state " + kind;
+  status.textContent = bleUi.detail || text;
+  const connected = !!bleCurrent();
+  const scanning = bleUi.phase === "scanning" || bleUi.phase === "checking";
+  $id("scanBle").hidden = scanning || bleUi.phase === "connecting";
+  $id("scanBleLabel").textContent = ["idle", "checking", "scanning"].includes(bleUi.phase) ? "Buscar sensores" : "Buscar de novo";
+  $id("cancelBle").hidden = bleUi.phase !== "scanning";
+  $id("disconnectBle").hidden = !connected;
+  $id("identifyBle").disabled = !connected;
+  // Atalhos para resolver o que impede a busca, sem sair procurando nos ajustes.
+  $id("bleHelp").innerHTML =
+    bleUi.phase === "off"
+      ? `<button class="secondary compact" type="button" data-ble-help="bluetooth">Abrir ajustes de Bluetooth</button>`
+      : bleUi.phase === "denied"
+        ? `<button class="secondary compact" type="button" data-ble-help="app">Abrir permissões do aplicativo</button>`
+        : bleUi.phase === "location"
+          ? `<button class="secondary compact" type="button" data-ble-help="location">Abrir ajustes de localização</button>`
+          : "";
+  $id("bleDevices").innerHTML = [...bleUi.devices.values()]
+    .map(
+      (item) =>
+        `<button class="ble-device" data-ble="${esc(item.deviceId)}"${bleUi.phase === "connecting" ? " disabled" : ""}><span><strong>${esc(item.name || item.localName || "Sensor Gaxeta")}</strong>` +
+        `<small>${esc(item.deviceId)}${item.rssi == null ? "" : ` · sinal ${item.rssi} dBm`}</small></span>${bleCurrent()?.deviceId === item.deviceId ? "Conectado" : "Conectar →"}</button>`,
+    )
+    .join("");
+}
+function openBleDialog({ scan = false } = {}) {
   if (!bleAvailable() || !$id("bleDialog")) return;
-  $id("bleDialog").showModal();
+  if (!$id("bleDialog").open) $id("bleDialog").showModal();
+  renderBle();
+  if (scan) startBleScan();
 }
 function closeBleDialog() {
   const dialog = $id("bleDialog");
   if (dialog?.open) dialog.close();
 }
-function onBleReading(t, e) {
-  ((state.bleReading = t),
-    (state.bleDevice = e),
-    ($id("bleLive").hidden = !1),
-    ($id("bleName").textContent = t.device || e?.name || "Sensor"),
-    ($id("bleIdentity").textContent = t.sensor_id || "Firmware sem identificação; atualize para configurar."),
-    // Placa magnética (firmware 4.4.0): ângulo absoluto e saúde. Não há tensão nem percentual.
-    ($id("blePercentLabel").textContent = t.modality === "as5600_i2c" ? "ângulo do sensor" : "posição elétrica"),
-    ($id("bleVoltageLabel").textContent = t.modality === "as5600_i2c" ? "sinal" : "tensão estimada"),
-    ($id("blePercent").textContent = t.modality === "as5600_i2c" ? fmtDeg(t.angle_deg, 2) : `${fmtNum(t.travel_percent)} %`),
-    ($id("bleVoltage").textContent = t.modality === "as5600_i2c" ? (t.bus !== "ok" ? MAG_BUS_TEXT[t.bus] || "sem resposta" : MAG_FIELD_TEXT[t.mag] || "—") : `${fmtNum(t.voltage_v, 3)} V`),
-    ($id("bleTimestamp").textContent = `Leitura local ${fmtDateTime(new Date())} · sequência ${t.sequence ?? "—"}`));
+// Busca: confere permissão e Bluetooth, procura por 8 s e mostra o que achou (ou que não achou).
+async function startBleScan() {
+  if (bleUi.phase === "scanning" || bleUi.phase === "checking" || bleUi.phase === "connecting") return;
+  const run = ++bleUi.run;
+  bleUi.devices.clear();
+  setBlePhase("checking");
+  const ready = await blePrepare();
+  if (run !== bleUi.run) return;
+  if (!ready.ok) return setBlePhase(ready.kind, ready.kind === "unavailable" && ready.message ? "Bluetooth indisponível: " + ready.message : "");
+  try {
+    setBlePhase("scanning");
+    await bleScan(
+      (found) => {
+        if (run !== bleUi.run) return;
+        bleUi.devices.set(found.deviceId, found);
+        renderBle();
+      },
+      () => {},
+      () => {
+        if (run === bleUi.run && bleUi.phase === "scanning") setBlePhase(bleUi.devices.size ? "found" : "none");
+      },
+    );
+  } catch (error) {
+    if (run !== bleUi.run) return;
+    const text = String(error?.message || error || "");
+    setBlePhase(/denied|permission/i.test(text) ? "denied" : "error", /denied|permission/i.test(text) ? "" : "A busca não começou: " + errorText(error));
+  }
 }
-function setBleStatus(t) {
+async function cancelBleScan() {
+  bleUi.run++;
+  await bleStopScan();
+  if (bleUi.phase === "scanning" || bleUi.phase === "checking") setBlePhase(bleUi.devices.size ? "found" : "idle", bleUi.devices.size ? "" : "Busca cancelada.");
+}
+// Aplicativo no fundo: a busca para na hora; a conexão é liberada depois de 30 s (um diálogo do
+// sistema, como o do pareamento, não derruba a conexão).
+function bleOnVisibility() {
+  clearTimeout(bleUi.hiddenTimer);
+  if (!document.hidden || !bleAvailable()) return;
+  cancelBleScan().catch(() => {});
+  bleUi.hiddenTimer = setTimeout(() => {
+    if (document.hidden && bleCurrent()) bleDisconnect().catch(() => {});
+  }, 30e3);
+}
+// Última leitura que a placa enviou à nuvem, para ficar ao lado da leitura local.
+async function loadBleCloud(sensorId, force = false) {
+  if (!sensorId || !state.authorized) return;
+  if (!force && bleUi.cloudFor === sensorId && Date.now() - bleUi.cloudAt < 10e3) return;
+  Object.assign(bleUi, { cloudFor: sensorId, cloudAt: Date.now() });
+  try {
+    const startedAt = Date.now();
+    const result = await callRpc("gaxeta_devices_status", { p_sensor_ids: [sensorId] });
+    setServerTime(result.server_time, startedAt);
+    mergeDevices(result.devices);
+    bleUi.cloudKnown = result.devices.length > 0;
+    if (bleUi.cloudKnown) await loadTelemetrySummary([sensorId]).catch(() => {});
+    bleUi.cloudError = "";
+  } catch (error) {
+    bleUi.cloudError = isNetworkError(error) ? "offline" : errorText(error);
+  }
+  renderBleCloud(sensorId);
+}
+function renderBleCloud(sensorId) {
+  if (!$id("bleCloud")) return;
+  const device = findDevice(sensorId);
+  const offline = bleUi.cloudError === "offline";
+  const box = $id("bleCloud");
+  if (!device) {
+    box.className = "ble-source is-cloud is-late";
+    $id("bleCloudValue").textContent = "—";
+    $id("bleCloudLabel").textContent = offline ? "sem internet no celular" : bleUi.cloudKnown === false ? "sensor fora do escopo da sua conta, ou ainda sem a primeira transmissão" : bleUi.cloudError || "consultando a nuvem…";
+    $id("bleCloudTime").textContent = "";
+    $id("linkBle").disabled = !offline && bleUi.cloudKnown === false;
+    return;
+  }
+  const view = deviceView(device);
+  const status = deviceStatus(device);
+  const late = offline || !status.online;
+  box.className = "ble-source is-cloud" + (late ? " is-late" : "");
+  $id("bleCloudValue").textContent = view.value === "—" ? "—" : view.value + (view.unit === "%" ? " %" : view.unit);
+  $id("bleCloudLabel").innerHTML =
+    esc(view.bench ? "posição de bancada" : view.kicker || "posição elétrica") + (view.sim ? " · " + benchSimChip(view.sim) : view.value === "—" ? " · " + esc(view.label) : "");
+  $id("bleCloudTime").textContent =
+    (late ? "última leitura da nuvem: " : "recebida às ") + fmtClock(device.last_received_at) + ` · há ${agoText(device.last_received_at)}` + (offline ? " · sem internet no celular agora" : late ? " · " + status.label.toLowerCase() : "");
+  $id("linkBle").disabled = false;
+  $id("linkBle").textContent = `Abrir ${deviceLabel(device)} na plataforma`;
+}
+function onBleReading(reading, device) {
+  state.bleReading = reading;
+  state.bleDevice = device;
+  const magnetic = reading.modality === "as5600_i2c";
+  $id("bleLive").hidden = false;
+  $id("bleName").textContent = reading.device || device?.name || "Sensor";
+  $id("bleIdentity").textContent = reading.sensor_id || "Firmware sem identificação; atualize para configurar.";
+  // Placa magnética (firmware 4.4.0 em diante): ângulo absoluto e saúde. Não há tensão nem percentual local.
+  const badSample = magnetic && (reading.bus !== "ok" || reading.mag !== "ok" || reading.angle_deg == null);
+  $id("blePercent").textContent = magnetic ? (reading.angle_deg == null ? "—" : fmtDeg(reading.angle_deg, 2)) : `${fmtNum(reading.travel_percent)} %`;
+  $id("blePercentLabel").textContent = magnetic ? "ângulo do sensor (absoluto, medido agora)" : "posição elétrica";
+  $id("bleVoltage").textContent = magnetic
+    ? "sinal: " + (reading.bus !== "ok" ? MAG_BUS_TEXT[reading.bus] || "sem resposta do sensor" : MAG_FIELD_TEXT[reading.mag] || "—")
+    : `tensão estimada ${fmtNum(reading.voltage_v, 3)} V`;
+  $id("bleVoltage").classList.toggle("tree-state", badSample);
+  $id("bleTimestamp").textContent = `lida às ${fmtClock(new Date())} · sequência ${reading.sequence ?? "—"}`;
+  $id("bleNote").textContent = magnetic
+    ? "O ângulo local é a posição absoluta do ímã, de 0° a 359,9°. O percentual de bancada é calculado na nuvem pela contagem contínua que a placa envia: só com o ângulo não dá para saber em que volta o eixo está depois de passar de 360°."
+    : "A leitura local vem direto da placa. A nuvem recebe o que a placa envia pela rede Wi-Fi.";
+  if (bleUi.phase === "connecting") setBlePhase("connected");
+  if (reading.sensor_id) {
+    renderBleCloud(reading.sensor_id);
+    loadBleCloud(reading.sensor_id).catch(() => {});
+  } else $id("linkBle").disabled = true;
+}
+// Mensagens do cliente Bluetooth (conexão caiu, falha de leitura): viram estado na tela.
+function setBleStatus(text) {
   if (!$id("bleStatus")) return;
-  (($id("bleStatus").textContent = t),
-    ($id("disconnectBle").disabled = !bleCurrent()),
-    ($id("identifyBle").disabled = !bleCurrent()),
-    ($id("linkBle").disabled = !bleCurrent()));
+  if (/desconectado/i.test(text)) return setBlePhase("disconnected");
+  if (/falha na leitura/i.test(text)) return setBlePhase("connected", "Conectado, mas a última leitura local falhou. Tentando de novo a cada 5 segundos.");
+  if (bleCurrent() && bleUi.phase !== "connected") return setBlePhase("connected");
+  if (bleUi.phase === "connected" || bleUi.phase === "disconnected") return setBlePhase(bleUi.phase, text);
+  renderBle();
 }
-$id("openBle").onclick = openBleDialog;
-$id("scanBle").onclick = async (t) => {
-  await withBusy(t.currentTarget, async () => {
-    const e = new Map();
-    ($id("bleDevices").replaceChildren(),
-      await bleScan((r) => {
-        (e.set(r.deviceId, r),
-          ($id("bleDevices").innerHTML = [...e.values()]
-            .map(
-              (s) =>
-                `<button class="ble-device" data-ble="${esc(s.deviceId)}"><span><strong>${esc(s.name || s.localName || "Sensor Gaxeta")}</strong><small>${esc(s.deviceId)} ${s.rssi == null ? "" : `· ${s.rssi} dBm`}</small></span>Conectar →</button>`,
-            )
-            .join("")));
-      }, setBleStatus));
-  });
+$id("openBle").onclick = () => openBleDialog();
+$id("scanBle").onclick = () => startBleScan();
+$id("cancelBle").onclick = () => cancelBleScan();
+$id("bleHelp").onclick = (event) => {
+  const kind = event.target.closest("[data-ble-help]")?.dataset.bleHelp;
+  if (!kind) return;
+  const open = kind === "bluetooth" ? BleClient.openBluetoothSettings() : kind === "location" ? BleClient.openLocationSettings() : BleClient.openAppSettings();
+  open.catch(() => setBlePhase(bleUi.phase, "Não foi possível abrir os ajustes por aqui. Abra os Ajustes do Android e volte ao aplicativo."));
 };
-$id("bleDevices").onclick = async (t) => {
-  const e = t.target.closest("[data-ble]");
-  if (e)
-    try {
-      await bleConnect(
-        {
-          deviceId: e.dataset.ble,
-          name: e.querySelector("strong").textContent,
-        },
-        onBleReading,
-        setBleStatus,
-      );
-    } catch (r) {
-      setBleStatus(errorText(r));
-    }
+$id("bleDevices").onclick = async (event) => {
+  const button = event.target.closest("[data-ble]");
+  if (!button || bleUi.phase === "connecting") return;
+  const run = ++bleUi.run;
+  const picked = bleUi.devices.get(button.dataset.ble) || { deviceId: button.dataset.ble };
+  setBlePhase("connecting");
+  try {
+    await bleConnect({ deviceId: picked.deviceId, name: picked.name || picked.localName || "Sensor Gaxeta" }, onBleReading, setBleStatus);
+    if (run === bleUi.run) setBlePhase("connected");
+  } catch (error) {
+    if (run === bleUi.run) setBlePhase("error", "Não foi possível conectar: " + errorText(error) + " Aproxime o celular da placa e tente de novo.");
+  }
 };
-$id("disconnectBle").onclick = () => bleDisconnect();
-$id("bleDialog").addEventListener("close", () => bleStopScan());
-$id("identifyBle").onclick = async (t) => {
-  await withBusy(t.currentTarget, async () => {
-    (await bleIdentify(), setBleStatus("Comando enviado. Observe o LED do sensor por 10 segundos."));
+$id("disconnectBle").onclick = async () => {
+  await bleDisconnect();
+  setBlePhase("disconnected");
+};
+$id("bleDialog").addEventListener("close", () => cancelBleScan().catch(() => {}));
+document.addEventListener("visibilitychange", bleOnVisibility);
+window.addEventListener("pagehide", () => {
+  if (!bleAvailable()) return;
+  bleStopScan().catch(() => {});
+  if (bleCurrent()) bleDisconnect().catch(() => {});
+});
+$id("identifyBle").onclick = async (event) => {
+  await withBusy(event.currentTarget, async () => {
+    await bleIdentify();
+    setBlePhase("connected", "Comando enviado. Observe o LED do sensor por 10 segundos.");
   });
 };
 // O sensor detectado por Bluetooth só identifica o equipamento e abre o fluxo
 // autorizado da plataforma; o vínculo ao spot é decidido no servidor.
 $id("linkBle").onclick = async () => {
   const sensorId = state.bleReading?.sensor_id;
-  if (!sensorId) return setBleStatus("Atualize o firmware para identificar o sensor por ID.");
+  if (!sensorId) return setBlePhase(bleUi.phase, "Atualize o firmware para identificar o sensor por ID.");
   try {
     const result = await callRpc("gaxeta_devices_status", { p_sensor_ids: [sensorId] });
     if (!result.devices.length)
-      return setBleStatus("Sensor identificado, mas ainda não disponível para a sua conta. Ele aparece após a primeira transmissão; a primeira associação é feita por um administrador.");
+      return setBlePhase(bleUi.phase, "Sensor identificado, mas ainda não disponível para a sua conta. Ele aparece após a primeira transmissão; a primeira associação é feita por um administrador.");
     mergeDevices(result.devices);
+    await loadTelemetrySummary([sensorId]).catch(() => {});
     $id("bleDialog").close();
     showPage("sensors");
-    openDrawer(sensorId, canEditDevice(result.devices[0]) ? "edit" : "detail");
+    // Sensor ainda sem spot e conta que pode associar: abre direto no vínculo. Senão, os Detalhes.
+    openDrawer(sensorId, !result.devices[0].measurement_point_id && canEditDevice(result.devices[0]) ? "edit" : "detail");
   } catch (error) {
-    setBleStatus(errorText(error));
+    setBlePhase(bleUi.phase, isNetworkError(error) ? "Sem internet no celular: a leitura local segue acima; a plataforma abre quando a conexão voltar." : errorText(error));
   }
 };
 
@@ -6540,7 +7312,7 @@ document.querySelectorAll("[data-close]").forEach((button) => (button.onclick = 
 $id("refresh").onclick = () => refreshData(true);
 $id("pageActions").onclick = (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
-  if (action === "find-sensor") openBleDialog();
+  if (action === "find-sensor") openBleDialog({ scan: true }); // o toque em "Buscar" já é o pedido de busca
   if (action === "new-corporation") openAssetForm({ parentId: null }).catch((error) => showMessage(errorText(error), "error"));
   if (action === "manual-back") showPage(state.manualReturn);
   if (action === "new-gateway") openGatewayForm().catch((error) => showMessage(errorText(error), "error"));
@@ -6568,6 +7340,11 @@ window.addEventListener(
     renderIcons();
   }, 200),
 );
+// Telefone com o teclado aberto: o campo em foco fica à vista (o teclado encolhe a área útil).
+document.addEventListener("focusin", (event) => {
+  if (!(isNativeApp() || isNarrow()) || !event.target.matches?.('input:not([type="checkbox"]):not([type="radio"]), select, textarea')) return;
+  setTimeout(() => document.activeElement === event.target && event.target.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+});
 // Fora do fluxo síncrono do SDK, para não bloquear a renovação do token.
 sb.auth.onAuthStateChange((event, session) => setTimeout(() => onAuthEvent(event, session), 0));
 renderIcons();
