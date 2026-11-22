@@ -4,6 +4,14 @@
 // =============================================================================
 // Plataforma: decidida pelo runtime (aplicativo nativo × navegador), nunca pela largura da tela.
 document.body.classList.toggle("native-app", isNativeApp());
+// O topo do aplicativo é claro: os ícones da barra de status precisam ser escuros, inclusive com o
+// aparelho em tema escuro (o padrão seguiria o tema e deixaria relógio e sinal brancos sobre branco).
+if (isNativeApp()) {
+  try {
+    const bars = window.Capacitor?.Plugins?.SystemBars;
+    Promise.resolve(bars?.setStyle?.({ style: "LIGHT" })).catch(() => {});
+  } catch {}
+}
 if (bleAvailable()) $id("openBle").hidden = false;
 else {
   // Web (inclusive navegador de celular): sem entrada de Bluetooth e sem o diálogo no documento.

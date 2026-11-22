@@ -105,7 +105,8 @@ const $id = (id) => document.getElementById(id);
 const isNativeApp = () => Z.isNativePlatform();
 // Bluetooth existe apenas no aplicativo nativo com o plugin disponível.
 const bleAvailable = () => isNativeApp() && Z.isPluginAvailable("BluetoothLe");
-const isNarrow = () => window.matchMedia("(max-width: 760px)").matches;
+// Layout de telefone: tela estreita ou telefone deitado (pouca altura). A mesma condição do CSS.
+const isNarrow = () => window.matchMedia("(max-width: 760px), (max-height: 480px) and (orientation: landscape)").matches;
 
 // Ícones Lucide incluídos no vendor (nomes minificados à direita).
 const renderIcons = () =>
