@@ -77,6 +77,25 @@ A plataforma mostra uma única medida de posição: a posição elétrica do pot
 - Cartões de sensor (`app.css`): a coluna interna é `minmax(0, 1fr)`, todo filho pode encolher e cabeçalho, situação e rodapé quebram de linha. O conteúdo não atravessa a borda de 320 px a 1470 px.
 - Situação de transmissão: `connectionStatus()` usa a cadência de `deviceInterval()`. Até 12 s vale a regra original de 25 s / 65 s.
 
+## Faixas simuladas da bancada (migração 16)
+
+No Modo bancada, o percentual aparece com o nome e a cor de uma faixa **simulada**. Uma única função alimenta Sensores, Detalhes, Ativos, Telemetria e o quadro do Bluetooth.
+
+- `benchShown(percent)` (`10-core.js`): confere nulo, texto vazio e tipo **antes** da conversão numérica, exige 0 a 100 e arredonda para as duas casas exibidas. Zero é valor válido.
+- `benchSimOf(percent)`: aplica a regra de `magBandOf` ao valor arredondado e devolve a entrada de `BENCH_SIM`.
+
+| Faixa | Valor exibido | Cor |
+|---|---|---|
+| Sem ajuste | 0,00 a 29,99 % | vermelho |
+| Baixo ajuste | 30,00 a 49,99 % | laranja |
+| Médio ajuste | 50,00 a 72,99 % | amarelo, com texto escuro |
+| Alto ajuste | 73,00 a 100,00 % | verde |
+
+- Cores só da simulação: classes `health-sim-*` (`app.css`). O lilás continua identificando o Modo bancada e o ponto de transmissão é independente.
+- Preferência por sensor: `benchBandsOn(sensorId, mag)` usa `bench_bands` do resumo (`gaxeta_mag_summary`). Grava com `gaxeta_mag_bench_set_bands`; sem a migração 16, guarda só no aparelho (`localStorage`). Desligada, a bancada volta à apresentação neutra.
+- Gráfico (`benchChartSvg`, `72-telemetry-mag.js`): cada trecho é cortado em 30, 50 e 73 % e pintado pela própria altura. O corte é só gráfico; dica, tabela e CSV mostram os valores recebidos. A linha é interrompida em leitura inválida, lacuna de tempo e troca de configuração.
+- Conferir as fronteiras sem navegador: `node tests/ui/faixas_fronteiras.mjs`.
+
 ## Manual
 
 `src/operacao.html` é a fonte única. Aberto direto, é uma página comum. Dentro da plataforma, `88-manual.js` lê o mesmo arquivo e mostra o índice (`data-manual-nav`) e o conteúdo (`data-manual-content`) na rota `#manual`, sem sair da sessão; o botão Voltar devolve à tela de origem. Ao editar o Manual, mantenha esses dois atributos e os `id` das seções.
@@ -110,6 +129,6 @@ O app é Capacitor e embarca este mesmo bundle (`dist/`, sem `README.md` e `conf
 1. **Com o projeto nativo**: apontar `webDir` para o `dist/` gerado aqui (ou copiar `dist/` para a pasta web do projeto), `npx cap copy android` e gerar o APK assinado no Android Studio.
 2. **Sem o projeto nativo**: trocar só o pacote web dentro de um APK anterior e assinar de novo com a **mesma chave do APK instalado** (script `build_apk.py`, entregue fora do repositório junto com o APK). Com chave diferente, o Android recusa a atualização por cima.
 
-Conferir no aparelho: entrada com “Continuar”, barra inferior, árvore pelo botão e sem ações de criar/editar níveis, Bluetooth só por toque (trilho ou “Encontrar sensor” → “Buscar sensores”), vínculo sensor → spot, CSV pela folha de compartilhamento.
+Conferir no aparelho: entrada com “Continuar”, barra inferior, árvore pelo botão e sem ações de criar/editar níveis, Bluetooth só por toque (botão **Buscar sensor por Bluetooth** em Sensores, ou **Bluetooth** na barra inferior → “Buscar sensores”), botão Voltar fechando a camada aberta, vínculo sensor → spot, CSV pela folha de compartilhamento.
 
 As versões das bibliotecas do Capacitor são as do pacote publicado, para casar com o nativo já instalado.
